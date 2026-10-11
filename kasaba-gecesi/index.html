@@ -153,8 +153,6 @@ function autoSetup(n){
 }
 function ls(k,v){try{if(v===undefined)return JSON.parse(localStorage.getItem(k));localStorage.setItem(k,JSON.stringify(v))}catch(e){return null}}
 function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
-function b64(u){let s='';u.forEach(b=>s+=String.fromCharCode(b));return btoa(s)}
-function unb64(s){const b=atob(s);const u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u}
 
 
 // ---------- Durum ----------
@@ -163,7 +161,8 @@ let P={phase:'landing'};let S=null;
 let priv={role:null,notes:[],mates:[],nchat:[],uses:{},vest:0,planted:[]};
 let lobby=[];let local={act:{},vote:null,done:false};
 let setupCounts=null,manualSetup=false,lastAutoN=0,settings=ls('kg_settings')||{night:45,talk:120,vote:45};
-let timerIv=null,lastKey=null,lastPrivStr={},sel={},idRetry=0;
+let timerIv=null,lastKey=null,lastPrivStr={},sel={},idRetry=0,skew=0;
+function now(){return Date.now()-skew}
 const app=document.getElementById('app');
 const uid=ls('kg_uid')||('u'+Math.random().toString(36).slice(2,10));ls('kg_uid',uid);
 function genCode(){const a='abcdefghjkmnpqrstuvwxyz23456789';let s='';for(let i=0;i<6;i++)s+=a[Math.floor(Math.random()*a.length)];return s}
@@ -177,8 +176,9 @@ function hostRoom(reuse){
   isHost=true;myId=uid;roomCode=(reuse&&ls('kg_room'))||genCode();ls('kg_room',roomCode);
   S=(reuse&&ls('kg_secret'))||{game:null};P=(reuse&&ls('kg_pub'))||lobbyState();
   if(!S.game||P.phase==='lobby'||P.phase==='end'){P=lobbyState();S.game=null}
-  P.lobby=[];render();openHostPeer();
-  if(P.phase!=='lobby')startTimer();
+  P.lobby=[];
+  if(P.phase!=='lobby'){if(P.ends&&P.ends<Date.now()+10000)P.ends=Date.now()+20000;refreshPriv();startTimer()}
+  render();openHostPeer();
 }
 function openHostPeer(){
   if(peer)peer.destroy();connected=false;
@@ -201,10 +201,11 @@ function joinRoom(code){
 }
 function connectHost(){
   if(!peer||peer.destroyed)return;
+  if(hostConn){try{hostConn.close()}catch(e){}}
   hostConn=peer.connect('kasaba-'+roomCode,{reliable:true});
   hostConn.on('open',()=>{connected=true;connErr=null;sendHello();render()});
   hostConn.on('data',m=>{
-    if(m.t==='state'){P=m.P;lobby=P.lobby||[];const key=P.day+':'+P.phase;if(key!==lastKey){lastKey=key;local.act={};local.done=false;local.vote=null;sel={}}render()}
+    if(m.t==='state'){P=m.P;if(m.now)skew=Date.now()-m.now;lobby=P.lobby||[];const key=P.day+':'+P.phase;if(key!==lastKey){lastKey=key;local.act={};local.done=false;local.vote=null;sel={}}render()}
     else if(m.t==='priv'){priv=m.d;render()}
   });
   hostConn.on('close',()=>{connected=false;render();setTimeout(connectHost,2000)});
@@ -222,7 +223,7 @@ function onHostMsg(c,m){
   if(!m||typeof m!=='object')return;
   if(m.t==='hello'){const id=String(m.uid||'').slice(0,20);if(!id)return;c.uid=id;conns[id]=c;names[id]=String(m.name||'').slice(0,16)||'Oyuncu';collectLobby();lastPrivStr[id]=null;refreshPriv();pushState();return}
   const id=c.uid;if(!id||!S||!S.game)return;const player=pl(id);if(!player)return;
-  if(m.t==='act'&&P.phase==='night'&&m.d===P.day){S.game.acts[id]={kill:m.kill||null,ab:m.ab||null,det:!!m.det,done:!!m.done};checkAutoAdvance()}
+  if(m.t==='act'&&P.phase==='night'&&m.d===P.day){S.game.acts[id]={kill:m.kill||null,ab:m.ab||null,det:!!m.det,done:!!m.done};if(S.game.roles[id].team==='imp')refreshPriv();checkAutoAdvance()}
   else if(m.t==='vote'&&P.phase==='vote'&&m.d===P.day&&player.alive){P.votes[id]=m.v;pushState();checkAutoAdvance()}
   else if(m.t==='msg'&&player.alive&&(P.phase==='talk'||P.phase==='vote')){addChat(id,m.x);pushState()}
   else if(m.t==='nmsg'&&player.alive&&P.phase==='night'&&S.game.roles[id].team==='imp'){S.game.nchat.push({id,t:String(m.x).slice(0,200),d:P.day});if(S.game.nchat.length>60)S.game.nchat.shift();refreshPriv();pushState()}
@@ -231,21 +232,20 @@ function pushSecret(){if(isHost)ls('kg_secret',S)}
 let pendingPush=null;
 function pushState(){
   if(!isHost)return;render();ls('kg_pub',P);
-  if(pendingPush)return;pendingPush=setTimeout(()=>{pendingPush=null;const m={t:'state',P};for(const c of Object.values(conns))if(c.open){try{c.send(m)}catch(e){}}},80);
+  if(pendingPush)return;pendingPush=setTimeout(()=>{pendingPush=null;const m={t:'state',P,now:Date.now()};for(const c of Object.values(conns))if(c.open){try{c.send(m)}catch(e){}}},80);
 }
 function refreshPriv(){
   if(!isHost||!S.game)return;priv=privPlainFor(myId)||priv;
   for(const [id,c] of Object.entries(conns)){if(!c.open||!pl(id))continue;const plain=privPlainFor(id);if(!plain)continue;const str=JSON.stringify(plain);if(lastPrivStr[id]===str)continue;lastPrivStr[id]=str;try{c.send({t:'priv',d:plain})}catch(e){}}
 }
-function pushPresence(){}
 
 // ---------- Oyuncu eylemleri ----------
-function submitAct(patch){Object.assign(local.act,patch,{d:P.day});if(isHost){S.game.acts[myId]={...local.act,done:local.done}}else send({t:'act',...local.act,done:local.done});render()}
+function submitAct(patch){Object.assign(local.act,patch,{d:P.day});if(isHost){S.game.acts[myId]={...local.act,done:local.done};if(priv.role&&priv.role.team==='imp')refreshPriv()}else send({t:'act',...local.act,done:local.done});render()}
 function setDone(){local.done=true;if(isHost){S.game.acts[myId]={...local.act,done:true};checkAutoAdvance()}else send({t:'act',...local.act,d:P.day,done:true});render()}
 function castVote(t){local.vote={d:P.day,t};if(isHost){P.votes[myId]=t;pushState();checkAutoAdvance()}else send({t:'vote',d:P.day,v:t});render()}
 function sendMsg(text,night){
   text=text.trim().slice(0,240);if(!text)return;
-  if(isHost){if(night){S.game.nchat.push({id:myId,t:text,d:P.day});refreshPriv()}else addChat(myId,text);pushState()}
+  if(isHost){if(night){S.game.nchat.push({id:myId,t:text,d:P.day});if(S.game.nchat.length>60)S.game.nchat.shift();refreshPriv()}else addChat(myId,text);pushState()}
   else send({t:night?'nmsg':'msg',x:text});
 }
 function renderLanding(){
@@ -269,12 +269,12 @@ function startGame(){
   if(players.length<4||total!==players.length)return;
   const bag=[];for(const e of SETUP)for(let i=0;i<(setupCounts[e.id]||0);i++)bag.push({key:e.key,team:e.team});shuffle(bag);
   const roles={};players.forEach((p,i)=>{const r=bag[i];roles[p.id]={key:r.key,team:r.team,mad:r.key==='deli'?MADPOOL[Math.floor(Math.random()*MADPOOL.length)]:null,uses:{},vest:3,planted:[]}});
-  S.game={roles,acts:{},notes:{},nchat:[],seqs:{},provoke:null,blame:null,clean:null,caught:{}};
+  S.game={roles,acts:{},notes:{},nchat:[],provoke:null,blame:null,clean:null};
   players.forEach(p=>S.game.notes[p.id]=[]);
-  P={phase:'night',day:1,ends:Date.now()+settings.night*1000,chat:[],news:[],dead:[],priv:{},votes:{},settings,
+  P={phase:'night',day:1,ends:Date.now()+settings.night*1000,chat:[],news:[],dead:[],votes:{},settings,
      players:players.map((p,i)=>({id:p.id,name:p.name,alive:true,color:COLORS[i%COLORS.length]})),
      roleList:bag.map(r=>({n:roleLabel(r),team:r.team})).sort((a,b)=>a.team.localeCompare(b.team))};
-  local={act:{},vote:null,done:false,msgSeq:0};lastPrivStr={};
+  local={act:{},vote:null,done:false};lastPrivStr={};
   pushSecret();startTimer();refreshPriv();pushState();
 }
 function startTimer(){clearInterval(timerIv);timerIv=setInterval(()=>{if(!isHost)return;if(P.ends&&Date.now()>=P.ends&&P.phase!=='end'&&P.phase!=='lobby')advance()},1000)}
@@ -284,7 +284,7 @@ function setPhase(ph){
   P.ends=Date.now()+secs*1000;
   if(ph==='night'){P.day++;S.game.acts={};local.act={};local.done=false}
   if(ph==='vote'){local.vote=null;if(S.game.provoke&&S.game.provoke.day===P.day){P.votes={['prov']:S.game.provoke.t}}}
-  local.msg=null;local.nmsg=null;pushPresence();
+  
 }
 function advance(){
   if(P.phase==='night')resolveNight();
@@ -339,11 +339,12 @@ function resolveNight(){
     if(heals.has(at.v)){note(at.v,'Saldırıya uğradın ama Doktor seni kurtardı!');for(const id of al)if(effKey(id)==='doktor'&&tgt(id,'ab')===at.v)note(id,nameOf(at.v)+' saldırıya uğradı, onu kurtardın!');at.ids.forEach(i=>note(i,nameOf(at.v)+' saldırınızdan kurtuldu.'));continue}
     if(vested.has(at.v)){note(at.v,'Saldırıya uğradın, yelek seni kurtardı.');at.ids.forEach(i=>note(i,nameOf(at.v)+' saldırınızdan kurtuldu.'));continue}
     died.push(at.v);at.ids.forEach(i=>note(i,nameOf(at.v)+' öldürüldü.'));
-    if(at.thief){const vr=g.roles[at.v];const nr=vr.mad?{key:'masum',team:'inn'}:{key:vr.key,team:vr.team};g.roles[at.thief].key=nr.key;g.roles[at.thief].team=nr.team;g.roles[at.thief].uses={};note(at.thief,nameOf(at.v)+' rolünü çaldın: artık '+roleLabel(nr)+' olarak oynuyorsun.')}
+    if(at.thief){const vr=g.roles[at.v];const nr=vr.mad?{key:'masum',team:'inn'}:{key:vr.key,team:vr.team};g.roles[at.thief].orig='hirsiz';g.roles[at.thief].key=nr.key;g.roles[at.thief].team=nr.team;g.roles[at.thief].uses={};note(at.thief,nameOf(at.v)+' rolünü çaldın: artık '+roleLabel(nr)+' olarak oynuyorsun.')}
   }
   // 6) bilgi rolleri
   for(const id of al){const r=g.roles[id];const k=effKey(id);const t=tgt(id,'ab');const bk=r.mad||k;if(!t||!bk)continue;
     if(k&&!ok(id))continue;
+    if(bk==='polis'&&r.mad)note(id,nameOf(t)+' bu gece evden çıkamadı.');
     if(bk==='gozcu'){const n=r.mad?Math.floor(Math.random()*3):visits[t].length;note(id,nameOf(t)+' evine bu gece '+n+' kişi geldi.')}
     if(bk==='dedektif'){const sk=r.mad?INVGROUPS[Math.floor(Math.random()*5)]:INVGROUPS.find(gp=>gp.includes(shownRole(t).key))||INVGROUPS[4];note(id,nameOf(t)+' şunlardan biri: '+sk.map(x=>ROLES[x].n).join(' / '))}
     if(bk==='ispiyoncu'&&!r.uses.ispiyoncu){r.uses.ispiyoncu=true;const sr=r.mad?{key:MADPOOL[Math.floor(Math.random()*7)],team:'inn'}:shownRole(t);P.news.push('📣 İspiyoncu açıkladı: '+nameOf(t)+' = '+roleLabel(sr));note(id,nameOf(t)+' rolünü ispiyonladın.')}
@@ -383,14 +384,16 @@ function checkWin(){
   if(!w)return false;
   P.phase='end';P.ends=null;clearInterval(timerIv);
   P.winner={...w,survivors:surv.map(nameOf)};
-  P.reveal=P.players.map(p=>({id:p.id,name:p.name,role:roleLabel(shownRole(p.id))+(g.roles[p.id].mad?' (aslında Deli)':''),team:g.roles[p.id].mad?'inn':g.roles[p.id].team,alive:p.alive}));
+  P.reveal=P.players.map(p=>({id:p.id,name:p.name,role:roleLabel(shownRole(p.id))+(g.roles[p.id].mad?' (aslında Deli)':g.roles[p.id].orig?' (Hırsız çaldı)':''),team:g.roles[p.id].mad?'inn':g.roles[p.id].team,alive:p.alive}));
   return true;
 }
 function privPlainFor(id){
   const g=S.game;if(!g||!g.roles[id])return null;const r=g.roles[id];const sr=r.mad?{key:r.mad,team:'inn'}:{key:r.key,team:r.team};
   return{role:{key:sr.key,team:sr.team,label:roleLabel(sr),desc:ROLES[sr.key].desc,ico:ROLES[sr.key].ico},
     mates:r.team==='imp'?Object.keys(g.roles).filter(x=>g.roles[x].team==='imp'&&x!==id):[],
-    notes:g.notes[id]||[],nchat:r.team==='imp'?g.nchat.filter(m=>m.d===P.day):[],uses:r.uses,vest:r.vest,planted:r.planted.length};
+    notes:g.notes[id]||[],nchat:r.team==='imp'?g.nchat.filter(m=>m.d===P.day):[],
+    mateKills:r.team==='imp'&&P.phase==='night'?Object.keys(g.roles).filter(x=>g.roles[x].team==='imp'&&x!==id&&g.acts[x]&&g.acts[x].kill).map(x=>({id:x,t:g.acts[x].kill})):[],
+    uses:r.uses,vest:r.vest,planted:r.planted.length};
 }
 // ---------- Arayüz ----------
 function render(){
@@ -459,7 +462,7 @@ function renderGame(){
   const bar=el('div','phasebar');
   bar.append(el('span','phase',(night?'🌙 Gece ':P.phase==='talk'?'☀️ Gündüz ':'🗳️ Oylama ')+P.day));
   bar.append(el('span','small muted',night?'Rolünü kullan':P.phase==='talk'?'Tartışın':'Birini gönderin'));
-  bar.append(el('span','timer',P.ends?fmtTime(P.ends-Date.now()):'—'));
+  bar.append(el('span','timer',P.ends?fmtTime(P.ends-now()):'—'));
   app.append(bar);
   const grid=el('div','grid');const L=el('div','wrap');L.style.gap='14px';const R=el('div','wrap');R.style.gap='14px';
   // rol kartı
@@ -495,18 +498,19 @@ function renderGame(){
   const np=el('div','panel');np.append(el('h3',null,'Notların (sadece sen görürsün)'));const nl=el('div','notes');(priv.notes||[]).slice(-30).forEach(n=>nl.append(el('div',null,n)));if(!priv.notes||!priv.notes.length)nl.append(el('div','muted','Henüz not yok.'));np.append(nl);R.append(np);
   grid.append(L,R);app.append(grid);
 }
-function canTarget(){const k=priv.role.key;return priv.role.team==='imp'||ROLES[k].act==='other'}
+function canTarget(){return modesFor().some(m=>!m[2])}
 function modesFor(){const k=priv.role.key,imp=priv.role.team==='imp';const modes=[];
   if(imp||k==='serikatil'||k==='hirsiz')modes.push(['kill',k==='hirsiz'?'🎭 Çal (öldür)':'🗡️ Öldür']);
   if(ROLES[k].act==='other'&&k!=='serikatil'&&k!=='hirsiz'){const used=ROLES[k].once&&priv.uses&&priv.uses[k];modes.push(['ab',ROLES[k].ico+' '+ROLES[k].n+(used?' (kullanıldı)':''),used])}
   return modes}
-function ensureMode(){const modes=modesFor();if(modes.length&&(!sel.mode||!modes.some(m=>m[0]===sel.mode)))sel.mode=modes[0][0]}
+function ensureMode(){const modes=modesFor().filter(m=>!m[2]);if(modes.length&&(!sel.mode||!modes.some(m=>m[0]===sel.mode)))sel.mode=modes[0][0]}
 function nightPanel(){
   const k=priv.role.key;const box=el('div');box.style.display='grid';box.style.gap='8px';
   const modes=modesFor();
   if(modes.length){const r=el('div','row');
     modes.forEach(([m,l,dis])=>{const b=el('button','small'+(sel.mode===m?' primary':''),l+(local.act[m]?' → '+nameOf(local.act[m]):''));b.disabled=!!dis;b.onclick=()=>{sel.mode=m;render()};r.append(b)});box.append(r);
     box.append(el('p','small muted','Hedef seçmek için bir eve dokun.'))}
+  if(priv.mateKills&&priv.mateKills.length)box.append(el('p','small',"Hainlerin seçimi: "+priv.mateKills.map(m=>nameOf(m.id)+' → '+nameOf(m.t)).join(', ')+'. En çok seçilen ev saldırıya uğrar.'));
   if(k==='hayatta'){const b=el('button',local.act.ab==='self'?'primary':'','🦺 Yelek giy (kalan '+(priv.vest??3)+')');b.disabled=!(priv.vest>0);b.onclick=()=>submitAct({ab:local.act.ab==='self'?null:'self'});box.append(b)}
   if(k==='bombaci'){const b=el('button',local.act.det?'danger':'','🧨 Hepsini patlat ('+(priv.planted||0)+' dinamit)');b.onclick=()=>submitAct({det:!local.act.det});box.append(b)}
   if(!modes.length&&k!=='hayatta'&&k!=='bombaci')box.append(el('p','muted','Bu gece yapacağın bir şey yok. Sabahı bekle.'));
@@ -534,8 +538,8 @@ function renderEnd(){
   app.append(pn);
 }
 
-function endToLobby(){clearInterval(timerIv);S.game=null;manualSetup=false;lastAutoN=0;P=lobbyState();priv={role:null,notes:[],mates:[],nchat:[]};lastPrivStr={};local={act:{},vote:null,done:false};setupCounts=null;collectLobby();pushSecret();pushState()}
-setInterval(()=>{if(P.ends&&P.phase!=='lobby'&&P.phase!=='end'&&P.phase!=='landing'){const t=document.querySelector('.timer');if(t)t.textContent=fmtTime(P.ends-Date.now())}},1000);
+function endToLobby(){clearInterval(timerIv);S.game=null;for(const c of Object.values(conns))if(c.open){try{c.send({t:'priv',d:{role:null,notes:[],mates:[],nchat:[]}})}catch(e){}}manualSetup=false;lastAutoN=0;P=lobbyState();priv={role:null,notes:[],mates:[],nchat:[]};lastPrivStr={};local={act:{},vote:null,done:false};setupCounts=null;collectLobby();pushSecret();pushState()}
+setInterval(()=>{if(P.ends&&P.phase!=='lobby'&&P.phase!=='end'&&P.phase!=='landing'){const t=document.querySelector('.timer');if(t)t.textContent=fmtTime(P.ends-now())}},1000);
 
 </script>
 </body>
