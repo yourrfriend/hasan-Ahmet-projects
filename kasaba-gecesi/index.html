@@ -521,7 +521,7 @@ function drawHouse(parent,x,y,name){
   SE('ellipse',{cx:25,cy:40,rx:22,ry:6,fill:'#d9c48f',opacity:.9},g);
   const dim=SE('g',{opacity:0,class:'fade'},g);SE('rect',{x:-54,y:-30,width:108,height:62,fill:'#000',opacity:.3},dim);SE('path',{d:'M-58 -28 L0 -76 L58 -28 Z',fill:'#000',opacity:.3},dim);
   const label=SE('text',{x:0,y:-92,'text-anchor':'middle','font-size':17,'font-weight':800,fill:'#fff',style:'paint-order:stroke;stroke:rgba(0,0,0,.45);stroke-width:4px;font-family:Nunito,system-ui'},g);label.textContent=name;
-  return {g,glow,door,doorOpen,dim,label,x,y};
+  return {g,body:b,glow,door,doorOpen,dim,label,x,y};
 }
 // Karakter: dik kapsül, öne (baktığı yöne) şişen göbek, göbek deliği, küçük kollar/ayaklar.
 function beanInner(g,c,hat,o){
@@ -677,12 +677,12 @@ function renderScene(){
     if(!wantGrave&&S_.graves[p.id]){S_.graves[p.id].remove();delete S_.graves[p.id]}
   }
   // sabah efektleri
-  for(const h of Object.values(S_.houses))h.g.classList.remove('shake');
+  for(const h of Object.values(S_.houses))h.body.classList.remove('shake');
   if(mseq&&P.morning&&a<7){
     for(const d of P.morning.deaths){const h=S_.houses[d.id],p=pl(d.id);if(h&&p)drawCorpse(S_.fx,h,p,d.cause)}
     for(const v of P.morning.saved){const h=S_.houses[v];if(!h)continue;[[-30,-60],[20,-95],[60,-50]].forEach(([dx,dy],k)=>{const g=SE('g',{transform:`translate(${h.x+dx},${h.y+dy})`},S_.fx);const i=SE('g',{class:'plus',style:`animation-delay:${k*.4}s`},g);SE('circle',{r:12,fill:'#3ddc5a',filter:'url(#s_sh)'},i);SE('path',{d:'M-6 0h12M0 -6v12',stroke:'#fff','stroke-width':3,'stroke-linecap':'round'},i)})}
     for(const v of P.morning.lightning){const h=S_.houses[v];if(!h||a>3)continue;SE('path',{d:`M${h.x+10} ${h.y-200} l-18 60 h22 l-26 80 l44 -96 h-22 l20 -44 z`,fill:'#fff7a8',stroke:'#7c3aed','stroke-width':3,class:'bolt',filter:'url(#s_glowO)'},S_.fx)}
-    for(const v of P.morning.exploded){const h=S_.houses[v];if(!h||a>3)continue;h.g.classList.add('shake');[0,1,2].forEach(k=>SE('circle',{cx:h.x+k*20-20,cy:h.y-40,r:22,fill:'#777',class:'smoke',style:`animation-delay:${k*.3}s`},S_.fx))}
+    for(const v of P.morning.exploded){const h=S_.houses[v];if(!h||a>3)continue;h.body.classList.add('shake');[0,1,2].forEach(k=>SE('circle',{cx:h.x+k*20-20,cy:h.y-40,r:22,fill:'#777',class:'smoke',style:`animation-delay:${k*.3}s`},S_.fx))}
     for(const v of P.morning.haunted){const h=S_.houses[v];if(!h||a>5)continue;const g=SE('g',{transform:`translate(${h.x+40},${h.y-60})`,class:'ghost',opacity:.8},S_.fx);SE('path',{d:'M-14 10 V-10 a14 14 0 0 1 28 0 V10 l-7 -6 l-7 6 l-7 -6 z',fill:'#fff'},g);SE('circle',{cx:-5,cy:-8,r:2,fill:'#333'},g);SE('circle',{cx:5,cy:-8,r:2,fill:'#333'},g)}
   }
   // gece: büyücü kendi penceresinde mor parıltı + hedefe yıldırım işareti
