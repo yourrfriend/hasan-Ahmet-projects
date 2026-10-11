@@ -302,8 +302,8 @@ function shownRole(id){const r=S.game.roles[id];return r.mad?{key:r.mad,team:'in
 
 // ---------- Oyun akışı (ev sahibi) ----------
 function startGame(){
-  const players=lobby.slice(0,12);const total=Object.values(setupCounts).reduce((a,b)=>a+b,0);
-  if(players.length<4||total!==players.length)return;
+  const players=lobby.slice(0,12);if(players.length<4)return;
+  setupCounts=autoSetup(players.length);
   const bag=[];for(const e of SETUP)for(let i=0;i<(setupCounts[e.id]||0);i++)bag.push({key:e.key,team:e.team});shuffle(bag);
   const roles={};players.forEach((p,i)=>{const r=bag[i];roles[p.id]={key:r.key,team:r.team,mad:r.key==='deli'?MADPOOL[Math.floor(Math.random()*MADPOOL.length)]:null,uses:{},vest:3,planted:[]}});
   S.game={roles,acts:{},notes:{},dchat:[],votes:{},provoke:null,blame:null,clean:null,candle:{},haunt:null,hauntWins:[]};
@@ -762,23 +762,14 @@ function renderLobbyUI(stage){
     cb.onclick=()=>{navigator.clipboard.writeText(inviteLink()).then(()=>{cb.textContent='Kopyalandı ✓';setTimeout(()=>{cb.textContent='Linki kopyala'},1500)}).catch(()=>{prompt('Linki kopyala:',inviteLink())})};lb.append(code,cb);stage.append(lb)}
   else if(!ui.custom)stage.append(el('div','ov hint','Ev sahibinin oyunu başlatması bekleniyor… Karakterine dokunup rengini ve şapkanı değiştirebilirsin.'));
   if(isHost){
-    const nn=Math.max(4,n);if(!setupCounts||(!manualSetup&&lastAutoN!==nn)){setupCounts=autoSetup(nn);lastAutoN=nn}
-    const total=Object.values(setupCounts).reduce((a,b)=>a+b,0);
     const items=[{h:'SÜRELER (saniye)'}];
     [['night','Gece'],['talk','Tartışma'],['vote','Oylama']].forEach(([k,l])=>{const lab=el('label',null,l);const i=el('input');i.type='number';i.min=15;i.max=600;i.value=settings[k];i.onchange=()=>{settings[k]=Math.max(15,Math.min(600,+i.value||30));ls('kg_settings',settings)};lab.append(i);items.push({node:lab})});
-    items.push({h:'ROLLER ('+total+' / '+n+')'});
-    const chips=el('div','row');chips.style.padding='4px 10px';SETUP.forEach(e=>{for(let i=0;i<(setupCounts[e.id]||0);i++){const c=el('div','chip');c.style.color='#3a2f1c';c.style.background='#f6efe0';c.style.borderColor='#d9c9a6';c.append(el('span','dot '+e.team),document.createTextNode(roleLabel(e)));chips.append(c)}});items.push({node:chips});
-    items.push({t:'🎲 Rolleri yeniden karıştır',on:()=>{setupCounts=autoSetup(nn);manualSetup=false;lastAutoN=nn}});
-    items.push({t:manualSetup?'Elle ayarı kapat':'Gelişmiş: rolleri elle ayarla',on:()=>{manualSetup=!manualSetup;if(!manualSetup){setupCounts=autoSetup(nn);lastAutoN=nn}}});
-    if(manualSetup){const su=el('div','setup');su.style.padding='0 6px';SETUP.forEach(e=>{const r=el('div','r');r.style.background='#f6efe0';const left=el('div');const nm=el('div','n');nm.style.color='#3a2f1c';const d=el('span','dot '+e.team);d.style.display='inline-block';d.style.marginRight='6px';nm.append(d,document.createTextNode(roleLabel(e)));left.append(nm);
-      const stp=el('div','row');const m=el('button',null,'−');const v=el('span',null,String(setupCounts[e.id]||0));v.style.minWidth='2ch';v.style.textAlign='center';const pb=el('button',null,'+');[m,pb].forEach(x=>{x.style.background='#fff';x.style.border='1px solid #d9c9a6';x.style.padding='2px 10px'});
-      m.onclick=()=>{setupCounts[e.id]=Math.max(0,(setupCounts[e.id]||0)-1);render()};pb.onclick=()=>{setupCounts[e.id]=(setupCounts[e.id]||0)+1;render()};stp.append(m,v,pb);r.append(left,stp);su.append(r)});items.push({node:su})}
+    items.push({node:el('div','h','Roller oyun başlayınca rastgele seçilir ve dağıtılır.')});
     items.push({h:'ODA'},{t:'📖 Nasıl oynanır',on:()=>{ui.rules=!ui.rules}},{t:'✖ Odayı kapat',cls:'d',on:()=>{location.search=''}});
     gearMenu(stage,items);
-    const st=el('button','ov start','Oyunu başlat');st.disabled=!(n>=4&&n<=12&&total===n);st.onclick=()=>startGame();stage.append(st);
+    const st=el('button','ov start','Oyunu başlat');st.disabled=!(n>=4&&n<=12);st.onclick=()=>startGame();stage.append(st);
     if(!ui.custom&&!ui.menu){if(n<4)stage.append(el('div','ov hint','Başlamak için en az 4 oyuncu gerekir. Linki gönder; açan herkes meydana gelir.'));
-      else if(total!==n)stage.append(el('div','ov hint','Rol sayısı oyuncu sayısına eşit olmalı (⚙️ menüsünden düzelt).'));
-      else stage.append(el('div','ov hint','Herkes geldiyse başlat. Roller ve süreler ⚙️ menüsünde; karakterine dokunarak rengini değiştir.'))}
+      else stage.append(el('div','ov hint','Herkes geldiyse başlat; roller rastgele dağıtılır. Süreler ⚙️ menüsünde; karakterine dokunarak rengini değiştir.'))}
   }else gearMenu(stage,[{t:'📖 Nasıl oynanır',on:()=>{ui.rules=!ui.rules}},{t:'✖ Odadan çık',cls:'d',on:()=>{location.search=''}}]);
   if(ui.rules)rulesOverlay(stage);
   if(ui.custom){const c=el('div','ov custom');c.append(el('h2',null,'Karakterin'));
