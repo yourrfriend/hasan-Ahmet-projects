@@ -224,7 +224,8 @@ function onHostMsg(c,m){
   if(m.t==='hello'){const id=String(m.uid||'').slice(0,20);if(!id)return;c.uid=id;conns[id]=c;names[id]=String(m.name||'').slice(0,16)||'Oyuncu';collectLobby();lastPrivStr[id]=null;refreshPriv();pushState();return}
   const id=c.uid;if(!id||!S||!S.game)return;const player=pl(id);if(!player)return;
   if(m.t==='act'&&P.phase==='night'&&m.d===P.day){S.game.acts[id]={kill:m.kill||null,ab:m.ab||null,det:!!m.det,done:!!m.done};if(S.game.roles[id].team==='imp')refreshPriv();checkAutoAdvance()}
-  else if(m.t==='vote'&&P.phase==='vote'&&m.d===P.day&&player.alive){P.votes[id]=m.v;pushState();checkAutoAdvance()}
+  else if(m.t==='vote'&&P.phase==='vote'&&m.d===P.day&&player.alive){S.game.votes[id]=m.v;P.voted=Object.keys(S.game.votes);pushState();checkAutoAdvance()}
+  else if(m.t==='dmsg'&&!player.alive){S.game.dchat.push({id,t:String(m.x).slice(0,240)});if(S.game.dchat.length>80)S.game.dchat.shift();refreshPriv()}
   else if(m.t==='msg'&&player.alive&&(P.phase==='talk'||P.phase==='vote')){addChat(id,m.x);pushState()}
   else if(m.t==='nmsg'&&player.alive&&P.phase==='night'&&S.game.roles[id].team==='imp'){S.game.nchat.push({id,t:String(m.x).slice(0,200),d:P.day});if(S.game.nchat.length>60)S.game.nchat.shift();refreshPriv();pushState()}
 }
@@ -242,11 +243,15 @@ function refreshPriv(){
 // ---------- Oyuncu eylemleri ----------
 function submitAct(patch){Object.assign(local.act,patch,{d:P.day});if(isHost){S.game.acts[myId]={...local.act,done:local.done};if(priv.role&&priv.role.team==='imp')refreshPriv()}else send({t:'act',...local.act,done:local.done});render()}
 function setDone(){local.done=true;if(isHost){S.game.acts[myId]={...local.act,done:true};checkAutoAdvance()}else send({t:'act',...local.act,d:P.day,done:true});render()}
-function castVote(t){local.vote={d:P.day,t};if(isHost){P.votes[myId]=t;pushState();checkAutoAdvance()}else send({t:'vote',d:P.day,v:t});render()}
-function sendMsg(text,night){
+function castVote(t){local.vote={d:P.day,t};if(isHost){S.game.votes[myId]=t;P.voted=Object.keys(S.game.votes);pushState();checkAutoAdvance()}else send({t:'vote',d:P.day,v:t});render()}
+function sendMsg(text,kind){
   text=text.trim().slice(0,240);if(!text)return;
-  if(isHost){if(night){S.game.nchat.push({id:myId,t:text,d:P.day});if(S.game.nchat.length>60)S.game.nchat.shift();refreshPriv()}else addChat(myId,text);pushState()}
-  else send({t:night?'nmsg':'msg',x:text});
+  if(isHost){
+    if(kind==='imp'){S.game.nchat.push({id:myId,t:text,d:P.day});if(S.game.nchat.length>60)S.game.nchat.shift();refreshPriv()}
+    else if(kind==='dead'){S.game.dchat.push({id:myId,t:text});if(S.game.dchat.length>80)S.game.dchat.shift();refreshPriv()}
+    else addChat(myId,text);
+    pushState()}
+  else send({t:kind==='imp'?'nmsg':kind==='dead'?'dmsg':'msg',x:text});
 }
 function renderLanding(){
   const pn=el('div','panel');pn.append(el('h2',null,'Oda kur'));
@@ -269,9 +274,9 @@ function startGame(){
   if(players.length<4||total!==players.length)return;
   const bag=[];for(const e of SETUP)for(let i=0;i<(setupCounts[e.id]||0);i++)bag.push({key:e.key,team:e.team});shuffle(bag);
   const roles={};players.forEach((p,i)=>{const r=bag[i];roles[p.id]={key:r.key,team:r.team,mad:r.key==='deli'?MADPOOL[Math.floor(Math.random()*MADPOOL.length)]:null,uses:{},vest:3,planted:[]}});
-  S.game={roles,acts:{},notes:{},nchat:[],provoke:null,blame:null,clean:null};
+  S.game={roles,acts:{},notes:{},nchat:[],dchat:[],votes:{},provoke:null,blame:null,clean:null};
   players.forEach(p=>S.game.notes[p.id]=[]);
-  P={phase:'night',day:1,ends:Date.now()+settings.night*1000,chat:[],news:[],dead:[],votes:{},settings,
+  P={phase:'night',day:1,ends:Date.now()+settings.night*1000,chat:[],news:[],dead:[],voted:[],settings,
      players:players.map((p,i)=>({id:p.id,name:p.name,alive:true,color:COLORS[i%COLORS.length]})),
      roleList:bag.map(r=>({n:roleLabel(r),team:r.team})).sort((a,b)=>a.team.localeCompare(b.team))};
   local={act:{},vote:null,done:false};lastPrivStr={};
@@ -279,11 +284,11 @@ function startGame(){
 }
 function startTimer(){clearInterval(timerIv);timerIv=setInterval(()=>{if(!isHost)return;if(P.ends&&Date.now()>=P.ends&&P.phase!=='end'&&P.phase!=='lobby')advance()},1000)}
 function setPhase(ph){
-  P.phase=ph;P.votes={};
+  P.phase=ph;S.game.votes={};P.voted=[];P.provoked=null;
   const secs=ph==='night'?settings.night:ph==='talk'?settings.talk:settings.vote;
   P.ends=Date.now()+secs*1000;
   if(ph==='night'){P.day++;S.game.acts={};local.act={};local.done=false}
-  if(ph==='vote'){local.vote=null;if(S.game.provoke&&S.game.provoke.day===P.day){P.votes={['prov']:S.game.provoke.t}}}
+  if(ph==='vote'){local.vote=null;if(S.game.provoke&&S.game.provoke.day===P.day)P.provoked=S.game.provoke.t}
   
 }
 function advance(){
@@ -295,7 +300,7 @@ function advance(){
 function note(id,t){if(S.game.notes[id])S.game.notes[id].push('Gece '+P.day+': '+t)}
 function checkAutoAdvance(){
   const al=alivePlayers();
-  if(P.phase==='vote'&&al.every(p=>P.votes[p.id]!==undefined)){advance();return}
+  if(P.phase==='vote'&&al.every(p=>S.game.votes[p.id]!==undefined)){advance();return}
   if(P.phase==='night'&&al.every(p=>(p.id===myId?local.done:(S.game.acts[p.id]||{}).done))){advance()}
 }
 function addChat(id,t){t=String(t).slice(0,240);if(!t.trim())return;P.chat.push({id,t,d:P.day,ph:P.phase});if(P.chat.length>150)P.chat.shift()}
@@ -361,13 +366,15 @@ function resolveNight(){
 }
 function resolveVote(){
   const g=S.game,tally={};const al=alivePlayers();
-  for(const p of al){const t=P.votes[p.id];if(t&&t!=='skip')tally[t]=(tally[t]||0)+1}
+  let skip=0;for(const p of al){const t=S.game.votes[p.id];if(t==='skip')skip++;else if(t)tally[t]=(tally[t]||0)+1}
   if(g.provoke&&g.provoke.day===P.day&&pl(g.provoke.t)&&pl(g.provoke.t).alive)tally[g.provoke.t]=(tally[g.provoke.t]||0)+2;
   const sorted=Object.keys(tally).sort((a,b)=>tally[b]-tally[a]);
   let out=null;if(sorted.length&&(sorted.length===1||tally[sorted[0]]>tally[sorted[1]])&&tally[sorted[0]]>=Math.max(2,Math.ceil(al.length/3)))out=sorted[0];
   P.news=[];
   if(out){pl(out).alive=false;let shown=roleLabel(shownRole(out));if(g.blame&&g.blame.day===P.day-0&&g.blame.t===out)shown='Hain';P.dead.push({id:out,role:shown});P.news.push('⚖️ Kasaba '+nameOf(out)+' kişisini gönderdi. Rolü: '+shown);sysChat(P.news[0])}
   else{P.news.push('⚖️ Oylar yetersiz, kimse gönderilmedi.');sysChat(P.news[0])}
+  const summary=Object.keys(tally).sort((a,b)=>tally[b]-tally[a]).map(id=>nameOf(id)+' '+tally[id]).concat(skip?['çekimser '+skip]:[]).join(', ');
+  if(summary)sysChat('🗳️ Oylar: '+summary);
   g.provoke=null;g.blame=null;
   if(checkWin())return;setPhase('night');
 }
@@ -391,13 +398,13 @@ function privPlainFor(id){
   const g=S.game;if(!g||!g.roles[id])return null;const r=g.roles[id];const sr=r.mad?{key:r.mad,team:'inn'}:{key:r.key,team:r.team};
   return{role:{key:sr.key,team:sr.team,label:roleLabel(sr),desc:ROLES[sr.key].desc,ico:ROLES[sr.key].ico},
     mates:r.team==='imp'?Object.keys(g.roles).filter(x=>g.roles[x].team==='imp'&&x!==id):[],
-    notes:g.notes[id]||[],nchat:r.team==='imp'?g.nchat.filter(m=>m.d===P.day):[],
+    notes:g.notes[id]||[],nchat:r.team==='imp'?g.nchat.filter(m=>m.d===P.day):[],dchat:pl(id)&&!pl(id).alive?g.dchat:[],
     mateKills:r.team==='imp'&&P.phase==='night'?Object.keys(g.roles).filter(x=>g.roles[x].team==='imp'&&x!==id&&g.acts[x]&&g.acts[x].kill).map(x=>({id:x,t:g.acts[x].kill})):[],
     uses:r.uses,vest:r.vest,planted:r.planted.length};
 }
 // ---------- Arayüz ----------
 function render(){
-  const keep={};['chatInput','nameInput','joinCode'].forEach(id=>{const e=document.getElementById(id);if(e)keep[id]={v:e.value,f:document.activeElement===e}});
+  const keep={};['chatInput','deadInput','nameInput','joinCode'].forEach(id=>{const e=document.getElementById(id);if(e)keep[id]={v:e.value,f:document.activeElement===e}});
   renderInner();
   Object.entries(keep).forEach(([id,k])=>{const e=document.getElementById(id);if(e){e.value=k.v;if(k.f)e.focus()}});
 }
@@ -461,7 +468,7 @@ function renderGame(){
   const me=pl(myId);const alive=!!(me&&me.alive);const night=P.phase==='night';
   const bar=el('div','phasebar');
   bar.append(el('span','phase',(night?'🌙 Gece ':P.phase==='talk'?'☀️ Gündüz ':'🗳️ Oylama ')+P.day));
-  bar.append(el('span','small muted',night?'Rolünü kullan':P.phase==='talk'?'Tartışın':'Birini gönderin'));
+  bar.append(el('span','small muted',night?'Rolünü kullan':P.phase==='talk'?'Tartışın':'Gizli oy · '+(P.voted||[]).length+'/'+alivePlayers().length+' oy verdi'));
   bar.append(el('span','timer',P.ends?fmtTime(P.ends-now()):'—'));
   app.append(bar);
   const grid=el('div','grid');const L=el('div','wrap');L.style.gap='14px';const R=el('div','wrap');R.style.gap='14px';
@@ -469,31 +476,32 @@ function renderGame(){
   if(me){const rc=el('div','panel');if(priv.role){const card=el('div','rolecard '+priv.role.team);card.append(el('div','ico',priv.role.ico));const t=el('div');const rt=el('div','rt',TEAMN[priv.role.team]);rt.style.color='var(--'+priv.role.team+')';t.append(rt,el('div','rn',priv.role.label),el('div','rd',priv.role.desc));
       if(priv.mates&&priv.mates.length)t.append(el('div','small',"Hain arkadaşların: "+priv.mates.map(nameOf).join(', ')));card.append(t);rc.append(card)}
     else rc.append(el('p','muted','Rolün hazırlanıyor…'));
-    if(!alive)rc.append(banner('Öldün. Oyunu izleyebilirsin ama konuşamaz ve oy veremezsin.'));L.append(rc)}
+    if(!alive)rc.append(banner('Öldün. Kasaba sohbetine yazamaz ve oy veremezsin; ama diğer ölülerle konuşabilirsin.'));L.append(rc)}
   else L.append(banner('Bu oyuna oyuncu olarak dahil değilsin; izliyorsun.'));
   // haberler
   if(P.news&&P.news.length&&!night){const n=el('div','panel');n.append(el('h3',null,'Sabah haberleri'));const nl=el('div','news');P.news.forEach(x=>nl.append(el('div',null,x)));n.append(nl);L.append(n)}
   // oyuncular + eylem
   const pp=el('div','panel');pp.append(el('h3',null,'Kasaba'));
-  const ps=el('div','players');const tally={};if(P.phase==='vote')Object.entries(P.votes||{}).forEach(([k,v])=>{if(v&&v!=='skip')tally[v]=(tally[v]||0)+(k==='prov'?2:1)});
+  const ps=el('div','players');
   if(alive&&night&&priv.role)ensureMode();
   const pickable=alive&&((night&&priv.role&&canTarget())||P.phase==='vote');
   for(const p of P.players){const h=el('div','house'+(p.id===myId?' me':'')+(p.alive?'':' dead')+(pickable&&p.alive&&p.id!==myId?' pick':''));
     const av=el('div','av',p.name.slice(0,2).toUpperCase());av.style.background=p.color;if(priv.mates&&priv.mates.includes(p.id))av.style.borderColor='var(--imp)';
-    h.append(av,el('div','nm',p.name));const dead=P.dead.find(d=>d.id===p.id);h.append(el('div','sub',dead?dead.role:(P.phase==='vote'&&P.votes[p.id]!==undefined?(P.votes[p.id]==='skip'?'çekimser':'→ '+nameOf(P.votes[p.id])):'')));
-    if(tally[p.id])h.append(el('div','cnt',String(tally[p.id])));
+    h.append(av,el('div','nm',p.name));const dead=P.dead.find(d=>d.id===p.id);h.append(el('div','sub',dead?dead.role:(P.phase==='vote'&&(P.voted||[]).includes(p.id)?'oy verdi ✓':'')));
+    if(P.phase==='vote'&&P.provoked===p.id)h.append(el('div','cnt','+2'));
     const selected=night?(local.act[sel.mode||'ab']===p.id):(local.vote&&local.vote.d===P.day&&local.vote.t===p.id);if(selected)h.classList.add('sel');
     if(pickable&&p.alive&&p.id!==myId){h.setAttribute('role','button');h.tabIndex=0;h.onclick=()=>{if(night){const m=sel.mode||'ab';submitAct({[m]:local.act[m]===p.id?null:p.id})}else castVote(p.id)};h.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();h.click()}}}
     ps.append(h)}
   pp.append(ps);
   if(alive&&night&&priv.role)pp.append(nightPanel());
-  if(alive&&P.phase==='vote'){const r=el('div','row');const sk=el('button',(local.vote&&local.vote.t==='skip')?'primary':'','Çekimser');sk.onclick=()=>castVote('skip');r.append(sk,el('span','small muted','Birini göndermek için evine dokun.'));pp.append(r)}
+  if(alive&&P.phase==='vote'){const r=el('div','row');const sk=el('button',(local.vote&&local.vote.t==='skip')?'primary':'','Çekimser');sk.onclick=()=>castVote('skip');r.append(sk,el('span','small muted','Birini göndermek için evine dokun. Oylar gizlidir; sonunda sadece toplamlar açıklanır.'));pp.append(r)}
   if(isHost){const hr=el('div','row');const b=el('button','small',night?'Geceyi bitir':P.phase==='talk'?'Oylamaya geç':'Oylamayı bitir');b.onclick=()=>advance();const q=el('button','small danger','Oyunu iptal et');q.onclick=()=>{if(q.dataset.c){endToLobby()}else{q.dataset.c='1';q.textContent='Emin misin? Tekrar dokun'}};hr.append(b,q);pp.append(hr)}
   L.append(pp);
   // rol listesi
   if(P.roleList){const rl=el('div','panel');rl.append(el('h3',null,'Oyundaki roller'));const row=el('div','row');P.roleList.forEach(r=>{const c=el('div','chip');c.append(el('span','dot '+r.team),document.createTextNode(r.n));row.append(c)});rl.append(row);L.append(rl)}
   // sohbet
   R.append(chatPanel(night,alive));
+  if(me&&!alive)R.append(deadChatPanel());
   // notlar
   const np=el('div','panel');np.append(el('h3',null,'Notların (sadece sen görürsün)'));const nl=el('div','notes');(priv.notes||[]).slice(-30).forEach(n=>nl.append(el('div',null,n)));if(!priv.notes||!priv.notes.length)nl.append(el('div','muted','Henüz not yok.'));np.append(nl);R.append(np);
   grid.append(L,R);app.append(grid);
@@ -526,7 +534,18 @@ function chatPanel(night,alive){
   cp.append(box);
   const can=alive&&(night?imp:(P.phase==='talk'||P.phase==='vote'));
   if(can){const r=el('div','row');const i=el('input');i.id='chatInput';i.placeholder=night?'Hainlere yaz…':'Mesaj yaz…';i.maxLength=240;i.style.flex='1';const b=el('button','primary','Gönder');
-    b.onclick=()=>{sendMsg(i.value,night);i.value='';i.focus()};i.onkeydown=e=>{if(e.key==='Enter')b.click()};r.append(i,b);cp.append(r)}
+    b.onclick=()=>{sendMsg(i.value,night?'imp':'town');i.value='';i.focus()};i.onkeydown=e=>{if(e.key==='Enter')b.click()};r.append(i,b);cp.append(r)}
+  queueMicrotask(()=>{box.scrollTop=box.scrollHeight});
+  return cp;
+}
+function deadChatPanel(){
+  const cp=el('div','panel');cp.append(el('h3',null,'👻 Ölüler sohbeti (yaşayanlar görmez)'));
+  const box=el('div','chat');box.id='deadbox';
+  (priv.dchat||[]).slice(-80).forEach(m=>{const d=el('div','msg');d.append(el('div','who'+(m.id===myId?' me':''),nameOf(m.id)),el('div',null,m.t));box.append(d)});
+  if(!priv.dchat||!priv.dchat.length)box.append(el('div','muted small','Henüz kimse yazmadı.'));
+  cp.append(box);
+  const r=el('div','row');const i=el('input');i.id='deadInput';i.placeholder='Ölülere yaz…';i.maxLength=240;i.style.flex='1';const b=el('button','primary','Gönder');
+  b.onclick=()=>{sendMsg(i.value,'dead');i.value='';i.focus()};i.onkeydown=e=>{if(e.key==='Enter')b.click()};r.append(i,b);cp.append(r);
   queueMicrotask(()=>{box.scrollTop=box.scrollHeight});
   return cp;
 }
