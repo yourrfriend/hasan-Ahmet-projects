@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0f1226">
+<title>Kasaba Gecesi</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: one column on phones; two columns (oyun | sohbet+notlar) from 900px. Night-village palette, single dark theme. */
+:root{
+  --bg:#0f1226; --panel:#181c3a; --panel2:#20254a; --line:#2f3566;
+  --fg:#eef0ff; --muted:#9aa0c9; --accent:#ffb347; --accent-ink:#2a1700;
+  --inn:#5aa9ff; --imp:#ff5c5c; --neu:#c08cff; --ok:#5fd38d; --danger:#ff6b6b;
+  --display:"Bricolage Grotesque","Atkinson Hyperlegible",system-ui,sans-serif;
+  --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45;margin:0;padding-inline:16px;padding-block:12px 32px}
+*{box-sizing:border-box}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance;line-height:1.1}
+h1{font-size:30px;font-weight:800;letter-spacing:-.01em}
+h2{font-size:18px;font-weight:700}
+h3{font-size:14px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+p{margin:0}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--panel2);color:var(--fg);border-radius:10px;padding:9px 14px;min-height:40px}
+button:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
+button.danger{border-color:var(--danger);color:var(--danger)}
+button.small{padding:5px 10px;min-height:32px;font-size:13px;border-radius:8px}
+input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:9px 12px;min-height:40px;width:100%}
+.wrap{max-width:1100px;margin:0 auto;display:grid;gap:14px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px}
+.moon{width:34px;height:34px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff3d6,var(--accent) 60%,#8a5a12);box-shadow:0 0 24px rgba(255,179,71,.45)}
+.phasebar{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 14px;flex-wrap:wrap}
+.phasebar .phase{font-family:var(--display);font-weight:800;font-size:18px}
+.timer{font-variant-numeric:tabular-nums;font-family:var(--display);font-weight:700;font-size:22px;color:var(--accent);min-width:3ch;text-align:right;margin-left:auto}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:10px;min-width:0}
+.grid{display:grid;grid-template-columns:1fr;gap:14px}
+@media(min-width:900px){.grid{grid-template-columns:3fr 2fr;align-items:start}}
+.players{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+@media(min-width:520px){.players{grid-template-columns:repeat(4,1fr)}}
+.house{position:relative;display:grid;justify-items:center;gap:4px;padding:10px 6px 8px;border:1px solid var(--line);border-radius:12px;background:var(--panel2);text-align:center;min-width:0;transition:border-color .15s,transform .1s}
+.house.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset}
+.house.pick:hover{transform:translateY(-2px)}
+.house.dead{opacity:.5;filter:grayscale(.8)}
+.house.me::after{content:"sen";position:absolute;top:4px;left:6px;font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:.08em}
+.av{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:17px;color:#0a0c1f;border:3px solid transparent}
+.house .nm{font-size:13px;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.house .sub{font-size:11px;color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.house .cnt{position:absolute;top:4px;right:6px;background:var(--accent);color:var(--accent-ink);font-weight:800;font-size:12px;border-radius:999px;padding:1px 7px}
+.rolecard{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center;border-radius:14px;padding:14px;border:1px solid var(--line)}
+.rolecard .rn{font-family:var(--display);font-size:22px;font-weight:800}
+.rolecard .rt{font-size:12px;text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+.rolecard .rd{color:var(--muted);font-size:14px}
+.rolecard.inn{background:linear-gradient(135deg,rgba(90,169,255,.18),transparent);border-color:rgba(90,169,255,.5)}
+.rolecard.imp{background:linear-gradient(135deg,rgba(255,92,92,.2),transparent);border-color:rgba(255,92,92,.55)}
+.rolecard.neu{background:linear-gradient(135deg,rgba(192,140,255,.2),transparent);border-color:rgba(192,140,255,.55)}
+.ico{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:28px;background:rgba(0,0,0,.25)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row > *{min-width:0}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12px;background:var(--panel2)}
+.chip .dot{width:8px;height:8px;border-radius:50%}
+.dot.inn{background:var(--inn)}.dot.imp{background:var(--imp)}.dot.neu{background:var(--neu)}
+.chat{display:grid;gap:6px;max-height:320px;overflow-y:auto;padding-right:4px}
+.msg{display:grid;gap:1px;font-size:14px}
+.msg .who{font-weight:700;font-size:12px;color:var(--muted)}
+.msg .who.me{color:var(--accent)}
+.msg.sys{color:var(--accent);font-size:13px}
+.msg.imp .who{color:var(--imp)}
+.news{display:grid;gap:4px;font-size:14px}
+.news div{padding:6px 10px;border-left:3px solid var(--accent);background:rgba(255,179,71,.07);border-radius:0 8px 8px 0}
+.notes{display:grid;gap:4px;font-size:13px;color:var(--muted);max-height:220px;overflow-y:auto}
+.notes div{padding:4px 8px;border-left:2px solid var(--line)}
+.setup{display:grid;gap:6px}
+.setup .r{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:6px 8px;border-radius:8px;background:var(--panel2)}
+.setup .r .n{font-weight:700;font-size:14px}
+.setup .r .d{font-size:12px;color:var(--muted)}
+.stepper{display:inline-flex;align-items:center;gap:6px}
+.stepper span{min-width:2ch;text-align:center;font-weight:700;font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.banner{border-radius:14px;padding:14px;background:rgba(255,179,71,.1);border:1px solid rgba(255,179,71,.4)}
+.banner.err{background:rgba(255,107,107,.1);border-color:rgba(255,107,107,.5)}
+.dead-list{display:grid;gap:4px;font-size:13px}
+.winner{font-family:var(--display);font-size:34px;font-weight:800;text-align:center;padding:10px}
+.roll{display:grid;gap:6px}
+.roll div{display:flex;justify-content:space-between;gap:10px;padding:6px 10px;background:var(--panel2);border-radius:8px}
+.tag{font-size:11px;padding:2px 8px;border-radius:999px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.tag.inn{background:rgba(90,169,255,.2);color:var(--inn)}.tag.imp{background:rgba(255,92,92,.2);color:var(--imp)}.tag.neu{background:rgba(192,140,255,.2);color:var(--neu)}
+.settings{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.settings label{display:grid;gap:4px;font-size:12px;color:var(--muted)}
+code{background:var(--panel2);padding:2px 6px;border-radius:6px;font-size:13px}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand"><div class="moon"></div><h1>Kasaba Gecesi</h1></div>
+    <div class="row small muted" id="whoami"></div>
+  </div>
+  <div id="app"><div class="panel"><p class="muted">Yükleniyor…</p></div></div>
+</div>
+<!-- PeerJS 1.5.4 — MIT License, https://peerjs.com (orijinal dosyada satır içi gömülüydü; aynı sürüm CDN'den yükleniyor) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
+<script>
+// ---------- Rol tanımları ----------
+const ROLES={
+  masum:{n:'Masum',team:'inn',ico:'🏠',desc:'Özel bir yeteneğin yok. Gündüz tartış, oyunla hainleri bul.'},
+  doktor:{n:'Doktor',team:'inn',ico:'💉',desc:'Gece birini seç. O gece öldürülmek istenirse kurtulur.',act:'other'},
+  deli:{n:'Deli',team:'inn',ico:'🌀',desc:'Masum bir rol olduğunu sanırsın ama yaptıkların hiçbir şey değiştirmez.'},
+  polis:{n:'Polis',team:'inn',ico:'👮',desc:'Seçtiğin kişi o gece evden çıkamaz; rolünü kullanamaz.',act:'other',dual:true},
+  gozcu:{n:'Gözcü',team:'inn',ico:'🔭',desc:'Seçtiğin evi gözetlersin; o gece kaç kişinin geldiğini öğrenirsin.',act:'other',dual:true},
+  dedektif:{n:'Dedektif',team:'inn',ico:'🔍',desc:'Seçtiğin kişinin evini ararsın; olabileceği rolleri öğrenirsin.',act:'other',dual:true},
+  tuzakci:{n:'Tuzakçı',team:'inn',ico:'🪤',desc:'Seçtiğin evin önüne tuzak kurarsın; o eve gelen herkes yakalanır ve rolünü kullanamaz.',act:'other',dual:true},
+  ispiyoncu:{n:'İspiyoncu',team:'inn',ico:'📣',desc:'Bir kez: seçtiğin kişinin rolü sabah herkese açıklanır.',act:'other',once:true,dual:true},
+  provokator:{n:'Provokatör',team:'inn',ico:'🔥',desc:'Bir kez: seçtiğin kişi ertesi günkü oylamaya 2 oyla başlar.',act:'other',once:true,dual:true},
+  hain:{n:'Hain',team:'imp',ico:'🗡️',desc:'Geceleri diğer hainlerle birlikte birini öldürürsün. Hainler birbirini tanır.'},
+  temizlikci:{n:'Temizlikçi',team:'imp',ico:'🧹',desc:'Seçtiğin kişi o gece ölürse rolü sabah gizli kalır.',act:'other'},
+  suclayici:{n:'Suçlayıcı',team:'imp',ico:'🫵',desc:'Seçtiğin kişi o gece ölür ya da ertesi gün oyla gönderilirse rolü Hain olarak görünür.',act:'other'},
+  hayatta:{n:'Hayatta Kalan',team:'neu',ico:'🦺',desc:'Sona kadar yaşa. 3 kez yelek giyebilirsin; yelekliyken ölmezsin. Kazanan tarafla kazanırsın.',act:'self'},
+  serikatil:{n:'Seri Katil',team:'neu',ico:'🔪',desc:'Her gece birini öldürürsün. Tek başına kalınca kazanırsın.',act:'other'},
+  bombaci:{n:'Bombacı',team:'neu',ico:'🧨',desc:'Her gece bir eve dinamit koyarsın. İstediğin gece hepsini birden patlatırsın. Herkes ölünce kazanırsın.',act:'other'},
+  hirsiz:{n:'Hırsız',team:'neu',ico:'🎭',desc:'Seçtiğin kişiyi öldürür ve rolünü çalarsın; artık o rolle o tarafta oynarsın.',act:'other'}
+};
+const TEAMN={inn:'Masum',imp:'Hain',neu:'Tarafsız'};
+const MADPOOL=['doktor','polis','gozcu','dedektif','tuzakci','ispiyoncu','provokator'];
+const INVGROUPS=[['doktor','serikatil','hirsiz'],['polis','hain','hayatta'],['gozcu','dedektif','bombaci'],['tuzakci','ispiyoncu','temizlikci'],['provokator','suclayici','masum']];
+const SETUP=[
+  ...['masum','doktor','deli','polis','gozcu','dedektif','tuzakci','ispiyoncu','provokator'].map(k=>({id:k,key:k,team:'inn'})),
+  {id:'hain',key:'hain',team:'imp'},{id:'temizlikci',key:'temizlikci',team:'imp'},{id:'suclayici',key:'suclayici',team:'imp'},
+  ...['polis','gozcu','dedektif','tuzakci','ispiyoncu','provokator'].map(k=>({id:k+'_h',key:k,team:'imp'})),
+  ...['hayatta','serikatil','bombaci','hirsiz'].map(k=>({id:k,key:k,team:'neu'}))
+];
+const COLORS=['#ff8a5c','#5ad1ff','#9dff6b','#ffd25a','#ff6bd1','#8c9bff','#5affc8','#ffb3b3','#c7ff5a','#d9a6ff','#ffe9a6','#7fe0ff'];
+function roleLabel(r){const b=ROLES[r.key];return b.n+((r.team==='imp'&&b.team!=='imp')?' (Hain)':'')}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function autoSetup(n){
+  const c={};const add=id=>{c[id]=(c[id]||0)+1};
+  const imp=n<=5?1:n<=8?2:3;add('hain');if(imp>=2)add(shuffle(['temizlikci','suclayici','polis_h','gozcu_h','dedektif_h','tuzakci_h'])[0]);if(imp>=3)add(shuffle(['hain','ispiyoncu_h','provokator_h'])[0]);
+  let used=imp;if(n>=7){add(shuffle(['serikatil','serikatil','bombaci','hirsiz'])[0]);used++}if(n>=10){add('hayatta');used++}
+  const inn=['doktor','polis',...shuffle(['gozcu','dedektif','tuzakci','deli','ispiyoncu','provokator'])];
+  for(let i=0;used<n;i++,used++)add(inn[i]||'masum');
+  return c;
+}
+function ls(k,v){try{if(v===undefined)return JSON.parse(localStorage.getItem(k));localStorage.setItem(k,JSON.stringify(v))}catch(e){return null}}
+function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
+function b64(u){let s='';u.forEach(b=>s+=String.fromCharCode(b));return btoa(s)}
+function unb64(s){const b=atob(s);const u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u}
+
+
+// ---------- Durum ----------
+let isHost=false,myId=null,myName=ls('kg_name')||'',roomCode=null,peer=null,conns={},hostConn=null,connected=false,connErr=null,names={};
+let P={phase:'landing'};let S=null;
+let priv={role:null,notes:[],mates:[],nchat:[],uses:{},vest:0,planted:[]};
+let lobby=[];let local={act:{},vote:null,done:false};
+let setupCounts=null,manualSetup=false,lastAutoN=0,settings=ls('kg_settings')||{night:45,talk:120,vote:45};
+let timerIv=null,lastKey=null,lastPrivStr={},sel={},idRetry=0;
+const app=document.getElementById('app');
+const uid=ls('kg_uid')||('u'+Math.random().toString(36).slice(2,10));ls('kg_uid',uid);
+function genCode(){const a='abcdefghjkmnpqrstuvwxyz23456789';let s='';for(let i=0;i<6;i++)s+=a[Math.floor(Math.random()*a.length)];return s}
+function inviteLink(){return location.origin+location.pathname+'?oda='+roomCode}
+function lobbyState(){return{phase:'lobby',chat:[],news:[],dead:[],players:[],lobby:[]}}
+
+// ---------- Başlat ----------
+const qs=new URLSearchParams(location.search);
+if(qs.get('oda')){joinRoom(qs.get('oda').toLowerCase().replace(/[^a-z0-9]/g,''))}else{render()}
+function hostRoom(reuse){
+  isHost=true;myId=uid;roomCode=(reuse&&ls('kg_room'))||genCode();ls('kg_room',roomCode);
+  S=(reuse&&ls('kg_secret'))||{game:null};P=(reuse&&ls('kg_pub'))||lobbyState();
+  if(!S.game||P.phase==='lobby'||P.phase==='end'){P=lobbyState();S.game=null}
+  P.lobby=[];render();openHostPeer();
+  if(P.phase!=='lobby')startTimer();
+}
+function openHostPeer(){
+  if(peer)peer.destroy();connected=false;
+  peer=new Peer('kasaba-'+roomCode,Object.assign({debug:0},window.PEER_OPTS||{}));
+  peer.on('open',()=>{connected=true;connErr=null;idRetry=0;collectLobby();pushState()});
+  peer.on('connection',c=>{c.on('data',m=>onHostMsg(c,m));c.on('close',()=>{if(c.uid&&conns[c.uid]===c){delete conns[c.uid];collectLobby();pushState()}});c.on('error',()=>{})});
+  peer.on('disconnected',()=>{connected=false;render();setTimeout(()=>{try{peer.reconnect()}catch(e){}},1500)});
+  peer.on('error',e=>{
+    if(e.type==='unavailable-id'){if(idRetry++<5){setTimeout(openHostPeer,2000)}else{roomCode=genCode();ls('kg_room',roomCode);idRetry=0;openHostPeer()}return}
+    if(e.type==='peer-unavailable')return;
+    connErr='Bağlantı sorunu ('+e.type+'). Sayfayı yenilemeyi dene.';render();
+  });
+}
+function joinRoom(code){
+  isHost=false;myId=uid;roomCode=code;P={phase:'lobby',lobby:[]};render();
+  peer=new Peer(Object.assign({debug:0},window.PEER_OPTS||{}));
+  peer.on('open',connectHost);
+  peer.on('disconnected',()=>{setTimeout(()=>{try{peer.reconnect()}catch(e){}},1500)});
+  peer.on('error',e=>{if(e.type==='peer-unavailable'){connErr='Oda bulunamadı. Ev sahibinin sayfası açık mı? 3 sn sonra tekrar denenecek.';render();setTimeout(connectHost,3000)}else{connErr='Bağlantı sorunu ('+e.type+').';render()}});
+}
+function connectHost(){
+  if(!peer||peer.destroyed)return;
+  hostConn=peer.connect('kasaba-'+roomCode,{reliable:true});
+  hostConn.on('open',()=>{connected=true;connErr=null;sendHello();render()});
+  hostConn.on('data',m=>{
+    if(m.t==='state'){P=m.P;lobby=P.lobby||[];const key=P.day+':'+P.phase;if(key!==lastKey){lastKey=key;local.act={};local.done=false;local.vote=null;sel={}}render()}
+    else if(m.t==='priv'){priv=m.d;render()}
+  });
+  hostConn.on('close',()=>{connected=false;render();setTimeout(connectHost,2000)});
+  hostConn.on('error',()=>{});
+}
+function send(m){if(hostConn&&hostConn.open){try{hostConn.send(m)}catch(e){}}}
+function sendHello(){if(!myName)return;if(isHost){collectLobby();pushState()}else send({t:'hello',uid:myId,name:myName})}
+function collectLobby(){
+  if(!isHost)return;
+  lobby=[];if(myName)lobby.push({id:myId,name:myName});
+  for(const [id,c] of Object.entries(conns))if(c.open&&names[id]&&id!==myId)lobby.push({id,name:names[id]});
+  P.lobby=lobby;
+}
+function onHostMsg(c,m){
+  if(!m||typeof m!=='object')return;
+  if(m.t==='hello'){const id=String(m.uid||'').slice(0,20);if(!id)return;c.uid=id;conns[id]=c;names[id]=String(m.name||'').slice(0,16)||'Oyuncu';collectLobby();lastPrivStr[id]=null;refreshPriv();pushState();return}
+  const id=c.uid;if(!id||!S||!S.game)return;const player=pl(id);if(!player)return;
+  if(m.t==='act'&&P.phase==='night'&&m.d===P.day){S.game.acts[id]={kill:m.kill||null,ab:m.ab||null,det:!!m.det,done:!!m.done};checkAutoAdvance()}
+  else if(m.t==='vote'&&P.phase==='vote'&&m.d===P.day&&player.alive){P.votes[id]=m.v;pushState();checkAutoAdvance()}
+  else if(m.t==='msg'&&player.alive&&(P.phase==='talk'||P.phase==='vote')){addChat(id,m.x);pushState()}
+  else if(m.t==='nmsg'&&player.alive&&P.phase==='night'&&S.game.roles[id].team==='imp'){S.game.nchat.push({id,t:String(m.x).slice(0,200),d:P.day});if(S.game.nchat.length>60)S.game.nchat.shift();refreshPriv();pushState()}
+}
+function pushSecret(){if(isHost)ls('kg_secret',S)}
+let pendingPush=null;
+function pushState(){
+  if(!isHost)return;render();ls('kg_pub',P);
+  if(pendingPush)return;pendingPush=setTimeout(()=>{pendingPush=null;const m={t:'state',P};for(const c of Object.values(conns))if(c.open){try{c.send(m)}catch(e){}}},80);
+}
+function refreshPriv(){
+  if(!isHost||!S.game)return;priv=privPlainFor(myId)||priv;
+  for(const [id,c] of Object.entries(conns)){if(!c.open||!pl(id))continue;const plain=privPlainFor(id);if(!plain)continue;const str=JSON.stringify(plain);if(lastPrivStr[id]===str)continue;lastPrivStr[id]=str;try{c.send({t:'priv',d:plain})}catch(e){}}
+}
+function pushPresence(){}
+
+// ---------- Oyuncu eylemleri ----------
+function submitAct(patch){Object.assign(local.act,patch,{d:P.day});if(isHost){S.game.acts[myId]={...local.act,done:local.done}}else send({t:'act',...local.act,done:local.done});render()}
+function setDone(){local.done=true;if(isHost){S.game.acts[myId]={...local.act,done:true};checkAutoAdvance()}else send({t:'act',...local.act,d:P.day,done:true});render()}
+function castVote(t){local.vote={d:P.day,t};if(isHost){P.votes[myId]=t;pushState();checkAutoAdvance()}else send({t:'vote',d:P.day,v:t});render()}
+function sendMsg(text,night){
+  text=text.trim().slice(0,240);if(!text)return;
+  if(isHost){if(night){S.game.nchat.push({id:myId,t:text,d:P.day});refreshPriv()}else addChat(myId,text);pushState()}
+  else send({t:night?'nmsg':'msg',x:text});
+}
+function renderLanding(){
+  const pn=el('div','panel');pn.append(el('h2',null,'Oda kur'));
+  pn.append(el('p','muted','Sen ev sahibi olursun; arkadaşlarına WhatsApp\'tan göndereceğin link oluşur. Bu sekme oyun boyunca açık kalmalı.'));
+  const r=el('div','row');const b=el('button','primary','Yeni oda kur');b.onclick=()=>hostRoom(false);r.append(b);
+  if(ls('kg_room')){const b2=el('button',null,'Önceki odamı aç ('+ls('kg_room')+')');b2.onclick=()=>hostRoom(true);r.append(b2)}
+  pn.append(r);
+  pn.append(el('h3',null,'veya kodla katıl'));const jr=el('div','row');const ji=el('input');ji.id='joinCode';ji.placeholder='Oda kodu';ji.style.flex='1';const jb=el('button',null,'Katıl');
+  jb.onclick=()=>{const c=ji.value.trim().toLowerCase();if(c)location.search='?oda='+c};ji.onkeydown=e=>{if(e.key==='Enter')jb.click()};jr.append(ji,jb);pn.append(jr);
+  app.append(pn,rulesPanel());
+}
+
+function alivePlayers(){return P.players.filter(p=>p.alive)}
+function pl(id){return P.players.find(p=>p.id===id)}
+function nameOf(id){const p=pl(id);return p?p.name:'?'}
+function effKey(id){const r=S.game.roles[id];return r.mad?null:r.key}
+function shownRole(id){const r=S.game.roles[id];return r.mad?{key:r.mad,team:'inn'}:{key:r.key,team:r.team}}
+function startGame(){
+  const players=lobby.slice(0,12);const total=Object.values(setupCounts).reduce((a,b)=>a+b,0);
+  if(players.length<4||total!==players.length)return;
+  const bag=[];for(const e of SETUP)for(let i=0;i<(setupCounts[e.id]||0);i++)bag.push({key:e.key,team:e.team});shuffle(bag);
+  const roles={};players.forEach((p,i)=>{const r=bag[i];roles[p.id]={key:r.key,team:r.team,mad:r.key==='deli'?MADPOOL[Math.floor(Math.random()*MADPOOL.length)]:null,uses:{},vest:3,planted:[]}});
+  S.game={roles,acts:{},notes:{},nchat:[],seqs:{},provoke:null,blame:null,clean:null,caught:{}};
+  players.forEach(p=>S.game.notes[p.id]=[]);
+  P={phase:'night',day:1,ends:Date.now()+settings.night*1000,chat:[],news:[],dead:[],priv:{},votes:{},settings,
+     players:players.map((p,i)=>({id:p.id,name:p.name,alive:true,color:COLORS[i%COLORS.length]})),
+     roleList:bag.map(r=>({n:roleLabel(r),team:r.team})).sort((a,b)=>a.team.localeCompare(b.team))};
+  local={act:{},vote:null,done:false,msgSeq:0};lastPrivStr={};
+  pushSecret();startTimer();refreshPriv();pushState();
+}
+function startTimer(){clearInterval(timerIv);timerIv=setInterval(()=>{if(!isHost)return;if(P.ends&&Date.now()>=P.ends&&P.phase!=='end'&&P.phase!=='lobby')advance()},1000)}
+function setPhase(ph){
+  P.phase=ph;P.votes={};
+  const secs=ph==='night'?settings.night:ph==='talk'?settings.talk:settings.vote;
+  P.ends=Date.now()+secs*1000;
+  if(ph==='night'){P.day++;S.game.acts={};local.act={};local.done=false}
+  if(ph==='vote'){local.vote=null;if(S.game.provoke&&S.game.provoke.day===P.day){P.votes={['prov']:S.game.provoke.t}}}
+  local.msg=null;local.nmsg=null;pushPresence();
+}
+function advance(){
+  if(P.phase==='night')resolveNight();
+  else if(P.phase==='talk')setPhase('vote');
+  else if(P.phase==='vote')resolveVote();
+  refreshPriv();pushSecret();pushState();
+}
+function note(id,t){if(S.game.notes[id])S.game.notes[id].push('Gece '+P.day+': '+t)}
+function checkAutoAdvance(){
+  const al=alivePlayers();
+  if(P.phase==='vote'&&al.every(p=>P.votes[p.id]!==undefined)){advance();return}
+  if(P.phase==='night'&&al.every(p=>(p.id===myId?local.done:(S.game.acts[p.id]||{}).done))){advance()}
+}
+function addChat(id,t){t=String(t).slice(0,240);if(!t.trim())return;P.chat.push({id,t,d:P.day,ph:P.phase});if(P.chat.length>150)P.chat.shift()}
+function sysChat(t){P.chat.push({sys:true,t});if(P.chat.length>150)P.chat.shift()}
+
+function resolveNight(){
+  P.news=[];const g=S.game,acts={...g.acts};if(pl(myId)&&pl(myId).alive)acts[myId]={...local.act};
+  const al=alivePlayers().map(p=>p.id);const alive=id=>pl(id)&&pl(id).alive;
+  const blocked=new Set(),traps={},visits={},attacks=[],heals=new Set(),vested=new Set();
+  al.forEach(id=>visits[id]=[]);
+  const A=id=>acts[id]||{};
+  const tgt=(id,f)=>{const t=A(id)[f];return(t&&alive(t)&&t!==id)?t:null};
+  // 1) tuzaklar
+  for(const id of al)if(effKey(id)==='tuzakci'&&tgt(id,'ab'))traps[tgt(id,'ab')]=id;
+  // 2) polis
+  for(const id of al)if(effKey(id)==='polis'){const t=tgt(id,'ab');if(!t)continue;visits[t].push(id);if(traps[t]&&traps[t]!==id){blocked.add(id);note(id,'Tuzağa yakalandın, kimseyi tutamadın.');note(traps[t],nameOf(id)+' tuzağına yakalandı.')}else{blocked.add(t);note(id,nameOf(t)+' bu gece evden çıkamadı.');note(t,'Polis seni evde tuttu, rolünü kullanamadın.')}}
+  // 3) ziyaretler ve tuzak yakalamaları
+  for(const id of al){if(effKey(id)==='polis')continue;const k=effKey(id);const r=g.roles[id];const targets=new Set();
+    if(r.team==='imp'&&tgt(id,'kill'))targets.add(tgt(id,'kill'));
+    if(['serikatil','hirsiz'].includes(k)&&tgt(id,'kill'))targets.add(tgt(id,'kill'));
+    if(k&&ROLES[k].act==='other'&&tgt(id,'ab'))targets.add(tgt(id,'ab'));
+    if(r.mad&&tgt(id,'ab'))targets.add(tgt(id,'ab'));
+    if(blocked.has(id))continue;
+    for(const t of targets){visits[t].push(id);if(traps[t]&&traps[t]!==id){blocked.add(id);note(id,nameOf(t)+' evinde tuzağa yakalandın, rolünü kullanamadın.');note(traps[t],nameOf(id)+' tuzağına yakalandı.')}}
+  }
+  const ok=id=>!blocked.has(id);
+  // 4) koruma
+  for(const id of al){const k=effKey(id);if(k==='doktor'&&ok(id)&&tgt(id,'ab'))heals.add(tgt(id,'ab'));
+    if(k==='hayatta'&&ok(id)&&A(id).ab==='self'&&g.roles[id].vest>0){g.roles[id].vest--;vested.add(id);note(id,'Yelek giydin (kalan '+g.roles[id].vest+').')}}
+  // 5) saldırılar
+  const imps=al.filter(id=>g.roles[id].team==='imp'&&ok(id)&&tgt(id,'kill'));
+  if(imps.length){const tally={};imps.forEach(id=>tally[tgt(id,'kill')]=(tally[tgt(id,'kill')]||0)+1);const v=Object.keys(tally).sort((a,b)=>tally[b]-tally[a])[0];attacks.push({v,by:'Hainler',ids:imps})}
+  for(const id of al){const k=effKey(id);if(!ok(id))continue;
+    if(k==='serikatil'&&tgt(id,'kill'))attacks.push({v:tgt(id,'kill'),by:'Seri Katil',ids:[id]});
+    if(k==='hirsiz'&&tgt(id,'kill'))attacks.push({v:tgt(id,'kill'),by:'Hırsız',ids:[id],thief:id});
+    if(k==='bombaci'){if(tgt(id,'ab')){g.roles[id].planted.push(tgt(id,'ab'));note(id,nameOf(tgt(id,'ab'))+' evine dinamit koydun.')}
+      if(A(id).det){const hs=[...new Set(g.roles[id].planted)].filter(alive);hs.forEach(v=>attacks.push({v,by:'Bombacı',ids:[id]}));g.roles[id].planted=[];note(id,hs.length?'Dinamitleri patlattın!':'Patlatacak dinamit yoktu.')}}
+  }
+  const died=[];
+  for(const at of attacks){if(!alive(at.v)||died.includes(at.v)){at.ids.forEach(i=>note(i,nameOf(at.v)+' zaten ölmüştü.'));continue}
+    if(heals.has(at.v)){note(at.v,'Saldırıya uğradın ama Doktor seni kurtardı!');for(const id of al)if(effKey(id)==='doktor'&&tgt(id,'ab')===at.v)note(id,nameOf(at.v)+' saldırıya uğradı, onu kurtardın!');at.ids.forEach(i=>note(i,nameOf(at.v)+' saldırınızdan kurtuldu.'));continue}
+    if(vested.has(at.v)){note(at.v,'Saldırıya uğradın, yelek seni kurtardı.');at.ids.forEach(i=>note(i,nameOf(at.v)+' saldırınızdan kurtuldu.'));continue}
+    died.push(at.v);at.ids.forEach(i=>note(i,nameOf(at.v)+' öldürüldü.'));
+    if(at.thief){const vr=g.roles[at.v];const nr=vr.mad?{key:'masum',team:'inn'}:{key:vr.key,team:vr.team};g.roles[at.thief].key=nr.key;g.roles[at.thief].team=nr.team;g.roles[at.thief].uses={};note(at.thief,nameOf(at.v)+' rolünü çaldın: artık '+roleLabel(nr)+' olarak oynuyorsun.')}
+  }
+  // 6) bilgi rolleri
+  for(const id of al){const r=g.roles[id];const k=effKey(id);const t=tgt(id,'ab');const bk=r.mad||k;if(!t||!bk)continue;
+    if(k&&!ok(id))continue;
+    if(bk==='gozcu'){const n=r.mad?Math.floor(Math.random()*3):visits[t].length;note(id,nameOf(t)+' evine bu gece '+n+' kişi geldi.')}
+    if(bk==='dedektif'){const sk=r.mad?INVGROUPS[Math.floor(Math.random()*5)]:INVGROUPS.find(gp=>gp.includes(shownRole(t).key))||INVGROUPS[4];note(id,nameOf(t)+' şunlardan biri: '+sk.map(x=>ROLES[x].n).join(' / '))}
+    if(bk==='ispiyoncu'&&!r.uses.ispiyoncu){r.uses.ispiyoncu=true;const sr=r.mad?{key:MADPOOL[Math.floor(Math.random()*7)],team:'inn'}:shownRole(t);P.news.push('📣 İspiyoncu açıkladı: '+nameOf(t)+' = '+roleLabel(sr));note(id,nameOf(t)+' rolünü ispiyonladın.')}
+    if(bk==='provokator'&&!r.uses.provokator){r.uses.provokator=true;if(!r.mad)g.provoke={t,day:P.day};note(id,nameOf(t)+' yarınki oylamaya 2 oyla başlayacak.')}
+    if(k==='temizlikci'&&died.includes(t))g.clean=t;
+    if(k==='suclayici')g.blame={t,day:P.day};
+  }
+  // 7) ölümler
+  for(const v of died){pl(v).alive=false;let shown=roleLabel(shownRole(v));if(g.clean===v)shown='? (rolü gizlendi)';else if(g.blame&&g.blame.t===v)shown='Hain';P.dead.push({id:v,role:shown});P.news.push('💀 '+nameOf(v)+' gece öldü. Rolü: '+shown)}
+  if(!died.length)P.news.push('🌅 Sakin bir gece. Kimse ölmedi.');
+  g.clean=null;
+  sysChat('— Gündüz '+P.day+' —');P.news.forEach(n=>sysChat(n));
+  if(checkWin())return;setPhase('talk');
+}
+function resolveVote(){
+  const g=S.game,tally={};const al=alivePlayers();
+  for(const p of al){const t=P.votes[p.id];if(t&&t!=='skip')tally[t]=(tally[t]||0)+1}
+  if(g.provoke&&g.provoke.day===P.day&&pl(g.provoke.t)&&pl(g.provoke.t).alive)tally[g.provoke.t]=(tally[g.provoke.t]||0)+2;
+  const sorted=Object.keys(tally).sort((a,b)=>tally[b]-tally[a]);
+  let out=null;if(sorted.length&&(sorted.length===1||tally[sorted[0]]>tally[sorted[1]])&&tally[sorted[0]]>=Math.max(2,Math.ceil(al.length/3)))out=sorted[0];
+  P.news=[];
+  if(out){pl(out).alive=false;let shown=roleLabel(shownRole(out));if(g.blame&&g.blame.day===P.day-0&&g.blame.t===out)shown='Hain';P.dead.push({id:out,role:shown});P.news.push('⚖️ Kasaba '+nameOf(out)+' kişisini gönderdi. Rolü: '+shown);sysChat(P.news[0])}
+  else{P.news.push('⚖️ Oylar yetersiz, kimse gönderilmedi.');sysChat(P.news[0])}
+  g.provoke=null;g.blame=null;
+  if(checkWin())return;setPhase('night');
+}
+function checkWin(){
+  const g=S.game;const al=alivePlayers().map(p=>p.id);
+  const team=id=>g.roles[id].team,key=id=>g.roles[id].key;
+  const imp=al.filter(id=>team(id)==='imp');const hostile=al.filter(id=>['serikatil','bombaci','hirsiz'].includes(key(id)));
+  const surv=al.filter(id=>key(id)==='hayatta');const others=al.filter(id=>!imp.includes(id)&&!surv.includes(id)&&!hostile.includes(id));
+  let w=null;
+  if(!al.length)w={t:'Kimse kazanamadı',team:null};
+  else if(!imp.length&&!hostile.length)w={t:'Masumlar kazandı!',team:'inn'};
+  else if(!hostile.length&&imp.length&&imp.length>=others.length)w={t:'Hainler kazandı!',team:'imp'};
+  else if(hostile.length===1&&!imp.length&&!others.length)w={t:ROLES[key(hostile[0])].n+' tek başına kazandı!',team:'neu',who:hostile[0]};
+  if(!w)return false;
+  P.phase='end';P.ends=null;clearInterval(timerIv);
+  P.winner={...w,survivors:surv.map(nameOf)};
+  P.reveal=P.players.map(p=>({id:p.id,name:p.name,role:roleLabel(shownRole(p.id))+(g.roles[p.id].mad?' (aslında Deli)':''),team:g.roles[p.id].mad?'inn':g.roles[p.id].team,alive:p.alive}));
+  return true;
+}
+function privPlainFor(id){
+  const g=S.game;if(!g||!g.roles[id])return null;const r=g.roles[id];const sr=r.mad?{key:r.mad,team:'inn'}:{key:r.key,team:r.team};
+  return{role:{key:sr.key,team:sr.team,label:roleLabel(sr),desc:ROLES[sr.key].desc,ico:ROLES[sr.key].ico},
+    mates:r.team==='imp'?Object.keys(g.roles).filter(x=>g.roles[x].team==='imp'&&x!==id):[],
+    notes:g.notes[id]||[],nchat:r.team==='imp'?g.nchat.filter(m=>m.d===P.day):[],uses:r.uses,vest:r.vest,planted:r.planted.length};
+}
+// ---------- Arayüz ----------
+function render(){
+  const keep={};['chatInput','nameInput','joinCode'].forEach(id=>{const e=document.getElementById(id);if(e)keep[id]={v:e.value,f:document.activeElement===e}});
+  renderInner();
+  Object.entries(keep).forEach(([id,k])=>{const e=document.getElementById(id);if(e){e.value=k.v;if(k.f)e.focus()}});
+}
+function renderInner(){
+  document.getElementById('whoami').textContent=myName?(myName+(isHost?' · ev sahibi':'')):'';
+  app.replaceChildren();
+  if(connErr)app.append(banner(connErr,true));
+  if(!isHost&&!connected&&!connErr)app.append(banner('Ev sahibine bağlanılıyor…'));
+  if(P.phase==='landing')renderLanding();else if(P.phase==='lobby')renderLobby();else if(P.phase==='end')renderEnd();else renderGame();
+}
+function banner(t,err){const b=el('div','banner'+(err?' err':''));b.textContent=t;return b}
+function renderLobby(){
+  const pn=el('div','panel');pn.append(el('h2',null,'Lobi'));
+  if(!myName){
+    pn.append(el('p','muted','Oyuna girmek için bir isim seç.'));
+    const r=el('div','row');const inp=el('input');inp.id='nameInput';inp.placeholder='Adın';inp.maxLength=16;const b=el('button','primary','Katıl');
+    b.onclick=()=>{myName=inp.value.trim().slice(0,16);if(!myName)return;ls('kg_name',myName);sendHello();collectLobby();render()};
+    inp.onkeydown=e=>{if(e.key==='Enter')b.click()};r.append(inp,b);pn.append(r);
+  }
+  const lst=el('div','players');
+  lobby.forEach((p,i)=>{const h=el('div','house'+(p.id===myId?' me':''));const av=el('div','av',p.name.slice(0,2).toUpperCase());av.style.background=COLORS[i%COLORS.length];h.append(av,el('div','nm',p.name));lst.append(h)});
+  pn.append(el('h3',null,'Odadakiler ('+lobby.length+')'),lobby.length?lst:el('p','muted','Henüz kimse yok.'));
+  if(isHost){
+    const info=el('div','banner');info.append(el('p',null,'Arkadaşlarını davet et: bu linki WhatsApp\'tan at, açan herkes lobiye düşer. 4–12 oyuncu. Sen bu sekmeyi açık tut; oyun senin cihazında yürür.'));
+    const lr=el('div','row');const li=el('input');li.id='inviteLink';li.readOnly=true;li.value=inviteLink();li.style.flex='1';const cb=el('button','primary','Linki kopyala');
+    cb.onclick=()=>{navigator.clipboard.writeText(inviteLink()).then(()=>{cb.textContent='Kopyalandı ✓';setTimeout(()=>cb.textContent='Linki kopyala',1500)}).catch(()=>{li.select()})};
+    lr.append(li,cb);info.append(lr,el('p','small muted','Oda kodu: '+roomCode+(connected?'':' · sinyal sunucusuna bağlanılıyor…')));pn.append(info);
+    const st=el('div','settings');
+    [['night','Gece (sn)'],['talk','Tartışma (sn)'],['vote','Oylama (sn)']].forEach(([k,l])=>{const lab=el('label',null,l);const i=el('input');i.type='number';i.id='set_'+k;i.min=15;i.max=600;i.value=settings[k];i.onchange=()=>{settings[k]=Math.max(15,Math.min(600,+i.value||30));ls('kg_settings',settings)};lab.append(i);st.append(lab)});
+    pn.append(el('h3',null,'Süreler'),st);
+    const n=Math.max(4,lobby.length);
+    if(!setupCounts||(!manualSetup&&lastAutoN!==n)){setupCounts=autoSetup(n);lastAutoN=n}
+    const total=Object.values(setupCounts).reduce((a,b)=>a+b,0);
+    pn.append(el('p','small','Roller oyuncu sayısına göre otomatik ve rastgele belirlenir, oyunculara da rastgele dağıtılır. Bu oyunun seti:'));
+    const chips=el('div','row');SETUP.forEach(e=>{for(let i=0;i<(setupCounts[e.id]||0);i++){const c=el('div','chip');c.append(el('span','dot '+e.team),document.createTextNode(roleLabel(e)));chips.append(c)}});pn.append(chips);
+    const hdr=el('div','row');
+    const reroll=el('button','small','🎲 Yeniden karıştır');reroll.onclick=()=>{setupCounts=autoSetup(n);manualSetup=false;lastAutoN=n;render()};
+    const adv=el('button','small',manualSetup?'Elle ayarı kapat':'Gelişmiş: elle ayarla');adv.onclick=()=>{manualSetup=!manualSetup;if(!manualSetup){setupCounts=autoSetup(n);lastAutoN=n}render()};
+    hdr.append(reroll,adv);pn.append(hdr);
+    const su=el('div','setup');su.hidden=!manualSetup;
+    if(manualSetup)su.append(el('h3',null,'Roller: '+total+' / '+lobby.length+' oyuncu'));
+    SETUP.forEach(e=>{const r=el('div','r');const left=el('div');const n=el('div','n');const d=el('span','dot '+e.team);d.style.display='inline-block';d.style.marginRight='6px';n.append(d,document.createTextNode(roleLabel(e)));left.append(n,el('div','d',ROLES[e.key].desc));
+      const stp=el('div','stepper');const m=el('button','small','−');const v=el('span',null,String(setupCounts[e.id]||0));const pb=el('button','small','+');
+      m.onclick=()=>{setupCounts[e.id]=Math.max(0,(setupCounts[e.id]||0)-1);render()};pb.onclick=()=>{setupCounts[e.id]=(setupCounts[e.id]||0)+1;render()};stp.append(m,v,pb);r.append(left,stp);su.append(r)});
+    if(manualSetup)pn.append(su);
+    const start=el('button','primary','Oyunu başlat');start.disabled=!(lobby.length>=4&&lobby.length<=12&&total===lobby.length);
+    start.onclick=()=>startGame();pn.append(start);
+    if(lobby.length<4)pn.append(el('p','small muted','Başlamak için en az 4 oyuncu gerekir.'));
+    else if(total!==lobby.length)pn.append(el('p','small muted','Rol sayısı oyuncu sayısına eşit olmalı (elle ayarı kapatırsan otomatik düzelir).'));
+  }else pn.append(el('p','muted',myName?'Ev sahibinin oyunu başlatması bekleniyor…':''));
+  app.append(pn,rulesPanel());
+}
+function rulesPanel(){
+  const pn=el('div','panel');pn.append(el('h2',null,'Nasıl oynanır'));
+  pn.append(el('p','small','Küçük bir kasabada masumlar, hainler ve tarafsızlar birlikte yaşar. Gece herkes rolünü kullanır; gündüz olanlar konuşulur ve kasaba oylamayla birini gönderir. Masumlar bütün hainleri ve katilleri bulunca, hainler sayıca üstün gelince, tarafsız katiller tek kalınca kazanır. Hainler geceleri kendi aralarında yazışabilir.'));
+  const roles=el('div','setup');SETUP.filter(e=>!e.id.endsWith('_h')).forEach(e=>{const r=el('div','r');const left=el('div');const n=el('div','n');const d=el('span','dot '+e.team);d.style.display='inline-block';d.style.marginRight='6px';n.append(d,document.createTextNode(ROLES[e.key].ico+' '+ROLES[e.key].n+' · '+TEAMN[e.team]));left.append(n,el('div','d',ROLES[e.key].desc));r.append(left);roles.append(r)});
+  pn.append(roles,el('p','small muted','Polis, Gözcü, Dedektif, Tuzakçı, İspiyoncu ve Provokatör hain sürümüyle de oyuna girebilir.'));return pn;
+}
+function fmtTime(ms){const s=Math.max(0,Math.ceil(ms/1000));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
+function renderGame(){
+  const me=pl(myId);const alive=!!(me&&me.alive);const night=P.phase==='night';
+  const bar=el('div','phasebar');
+  bar.append(el('span','phase',(night?'🌙 Gece ':P.phase==='talk'?'☀️ Gündüz ':'🗳️ Oylama ')+P.day));
+  bar.append(el('span','small muted',night?'Rolünü kullan':P.phase==='talk'?'Tartışın':'Birini gönderin'));
+  bar.append(el('span','timer',P.ends?fmtTime(P.ends-Date.now()):'—'));
+  app.append(bar);
+  const grid=el('div','grid');const L=el('div','wrap');L.style.gap='14px';const R=el('div','wrap');R.style.gap='14px';
+  // rol kartı
+  if(me){const rc=el('div','panel');if(priv.role){const card=el('div','rolecard '+priv.role.team);card.append(el('div','ico',priv.role.ico));const t=el('div');const rt=el('div','rt',TEAMN[priv.role.team]);rt.style.color='var(--'+priv.role.team+')';t.append(rt,el('div','rn',priv.role.label),el('div','rd',priv.role.desc));
+      if(priv.mates&&priv.mates.length)t.append(el('div','small',"Hain arkadaşların: "+priv.mates.map(nameOf).join(', ')));card.append(t);rc.append(card)}
+    else rc.append(el('p','muted','Rolün hazırlanıyor…'));
+    if(!alive)rc.append(banner('Öldün. Oyunu izleyebilirsin ama konuşamaz ve oy veremezsin.'));L.append(rc)}
+  else L.append(banner('Bu oyuna oyuncu olarak dahil değilsin; izliyorsun.'));
+  // haberler
+  if(P.news&&P.news.length&&!night){const n=el('div','panel');n.append(el('h3',null,'Sabah haberleri'));const nl=el('div','news');P.news.forEach(x=>nl.append(el('div',null,x)));n.append(nl);L.append(n)}
+  // oyuncular + eylem
+  const pp=el('div','panel');pp.append(el('h3',null,'Kasaba'));
+  const ps=el('div','players');const tally={};if(P.phase==='vote')Object.entries(P.votes||{}).forEach(([k,v])=>{if(v&&v!=='skip')tally[v]=(tally[v]||0)+(k==='prov'?2:1)});
+  if(alive&&night&&priv.role)ensureMode();
+  const pickable=alive&&((night&&priv.role&&canTarget())||P.phase==='vote');
+  for(const p of P.players){const h=el('div','house'+(p.id===myId?' me':'')+(p.alive?'':' dead')+(pickable&&p.alive&&p.id!==myId?' pick':''));
+    const av=el('div','av',p.name.slice(0,2).toUpperCase());av.style.background=p.color;if(priv.mates&&priv.mates.includes(p.id))av.style.borderColor='var(--imp)';
+    h.append(av,el('div','nm',p.name));const dead=P.dead.find(d=>d.id===p.id);h.append(el('div','sub',dead?dead.role:(P.phase==='vote'&&P.votes[p.id]!==undefined?(P.votes[p.id]==='skip'?'çekimser':'→ '+nameOf(P.votes[p.id])):'')));
+    if(tally[p.id])h.append(el('div','cnt',String(tally[p.id])));
+    const selected=night?(local.act[sel.mode||'ab']===p.id):(local.vote&&local.vote.d===P.day&&local.vote.t===p.id);if(selected)h.classList.add('sel');
+    if(pickable&&p.alive&&p.id!==myId){h.setAttribute('role','button');h.tabIndex=0;h.onclick=()=>{if(night){const m=sel.mode||'ab';submitAct({[m]:local.act[m]===p.id?null:p.id})}else castVote(p.id)};h.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();h.click()}}}
+    ps.append(h)}
+  pp.append(ps);
+  if(alive&&night&&priv.role)pp.append(nightPanel());
+  if(alive&&P.phase==='vote'){const r=el('div','row');const sk=el('button',(local.vote&&local.vote.t==='skip')?'primary':'','Çekimser');sk.onclick=()=>castVote('skip');r.append(sk,el('span','small muted','Birini göndermek için evine dokun.'));pp.append(r)}
+  if(isHost){const hr=el('div','row');const b=el('button','small',night?'Geceyi bitir':P.phase==='talk'?'Oylamaya geç':'Oylamayı bitir');b.onclick=()=>advance();const q=el('button','small danger','Oyunu iptal et');q.onclick=()=>{if(q.dataset.c){endToLobby()}else{q.dataset.c='1';q.textContent='Emin misin? Tekrar dokun'}};hr.append(b,q);pp.append(hr)}
+  L.append(pp);
+  // rol listesi
+  if(P.roleList){const rl=el('div','panel');rl.append(el('h3',null,'Oyundaki roller'));const row=el('div','row');P.roleList.forEach(r=>{const c=el('div','chip');c.append(el('span','dot '+r.team),document.createTextNode(r.n));row.append(c)});rl.append(row);L.append(rl)}
+  // sohbet
+  R.append(chatPanel(night,alive));
+  // notlar
+  const np=el('div','panel');np.append(el('h3',null,'Notların (sadece sen görürsün)'));const nl=el('div','notes');(priv.notes||[]).slice(-30).forEach(n=>nl.append(el('div',null,n)));if(!priv.notes||!priv.notes.length)nl.append(el('div','muted','Henüz not yok.'));np.append(nl);R.append(np);
+  grid.append(L,R);app.append(grid);
+}
+function canTarget(){const k=priv.role.key;return priv.role.team==='imp'||ROLES[k].act==='other'}
+function modesFor(){const k=priv.role.key,imp=priv.role.team==='imp';const modes=[];
+  if(imp||k==='serikatil'||k==='hirsiz')modes.push(['kill',k==='hirsiz'?'🎭 Çal (öldür)':'🗡️ Öldür']);
+  if(ROLES[k].act==='other'&&k!=='serikatil'&&k!=='hirsiz'){const used=ROLES[k].once&&priv.uses&&priv.uses[k];modes.push(['ab',ROLES[k].ico+' '+ROLES[k].n+(used?' (kullanıldı)':''),used])}
+  return modes}
+function ensureMode(){const modes=modesFor();if(modes.length&&(!sel.mode||!modes.some(m=>m[0]===sel.mode)))sel.mode=modes[0][0]}
+function nightPanel(){
+  const k=priv.role.key;const box=el('div');box.style.display='grid';box.style.gap='8px';
+  const modes=modesFor();
+  if(modes.length){const r=el('div','row');
+    modes.forEach(([m,l,dis])=>{const b=el('button','small'+(sel.mode===m?' primary':''),l+(local.act[m]?' → '+nameOf(local.act[m]):''));b.disabled=!!dis;b.onclick=()=>{sel.mode=m;render()};r.append(b)});box.append(r);
+    box.append(el('p','small muted','Hedef seçmek için bir eve dokun.'))}
+  if(k==='hayatta'){const b=el('button',local.act.ab==='self'?'primary':'','🦺 Yelek giy (kalan '+(priv.vest??3)+')');b.disabled=!(priv.vest>0);b.onclick=()=>submitAct({ab:local.act.ab==='self'?null:'self'});box.append(b)}
+  if(k==='bombaci'){const b=el('button',local.act.det?'danger':'','🧨 Hepsini patlat ('+(priv.planted||0)+' dinamit)');b.onclick=()=>submitAct({det:!local.act.det});box.append(b)}
+  if(!modes.length&&k!=='hayatta'&&k!=='bombaci')box.append(el('p','muted','Bu gece yapacağın bir şey yok. Sabahı bekle.'));
+  const d=el('button',local.done?'':'primary',local.done?'✓ Hazırsın, diğerleri bekleniyor':'Hazırım');d.disabled=local.done;d.onclick=()=>setDone();box.append(d);
+  return box;
+}
+function chatPanel(night,alive){
+  const cp=el('div','panel');const imp=priv.role&&priv.role.team==='imp';
+  cp.append(el('h3',null,night?(imp?'Hain sohbeti (gizli)':'Gece — sohbet kapalı'):'Kasaba sohbeti'));
+  const box=el('div','chat');box.id='chatbox';
+  const msgs=night?(imp?(priv.nchat||[]):[]):(P.chat||[]);
+  msgs.slice(-80).forEach(m=>{const d=el('div','msg'+(m.sys?' sys':'')+(night?' imp':''));if(m.sys)d.textContent=m.t;else{d.append(el('div','who'+(m.id===myId?' me':''),nameOf(m.id)),el('div',null,m.t))}box.append(d)});
+  cp.append(box);
+  const can=alive&&(night?imp:(P.phase==='talk'||P.phase==='vote'));
+  if(can){const r=el('div','row');const i=el('input');i.id='chatInput';i.placeholder=night?'Hainlere yaz…':'Mesaj yaz…';i.maxLength=240;i.style.flex='1';const b=el('button','primary','Gönder');
+    b.onclick=()=>{sendMsg(i.value,night);i.value='';i.focus()};i.onkeydown=e=>{if(e.key==='Enter')b.click()};r.append(i,b);cp.append(r)}
+  queueMicrotask(()=>{box.scrollTop=box.scrollHeight});
+  return cp;
+}
+function renderEnd(){
+  const pn=el('div','panel');const w=el('div','winner',P.winner?P.winner.t:'Oyun bitti');if(P.winner&&P.winner.team)w.style.color='var(--'+P.winner.team+')';pn.append(w);
+  if(P.winner&&P.winner.survivors&&P.winner.survivors.length)pn.append(el('p','small muted','Hayatta Kalan da kazandı: '+P.winner.survivors.join(', ')));
+  const rl=el('div','roll');(P.reveal||[]).forEach(r=>{const d=el('div');d.append(el('span',null,(r.alive?'🙂 ':'💀 ')+r.name));const t=el('span','tag '+r.team,r.role);d.append(t);rl.append(d)});pn.append(el('h3',null,'Roller'),rl);
+  if(isHost){const b=el('button','primary','Yeni oyun (lobiye dön)');b.onclick=()=>endToLobby();pn.append(b)}else pn.append(el('p','muted','Ev sahibi yeni oyun başlatabilir.'));
+  app.append(pn);
+}
+
+function endToLobby(){clearInterval(timerIv);S.game=null;manualSetup=false;lastAutoN=0;P=lobbyState();priv={role:null,notes:[],mates:[],nchat:[]};lastPrivStr={};local={act:{},vote:null,done:false};setupCounts=null;collectLobby();pushSecret();pushState()}
+setInterval(()=>{if(P.ends&&P.phase!=='lobby'&&P.phase!=='end'&&P.phase!=='landing'){const t=document.querySelector('.timer');if(t)t.textContent=fmtTime(P.ends-Date.now())}},1000);
+
+</script>
+</body>
+</html>
