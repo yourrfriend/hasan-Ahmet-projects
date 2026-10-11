@@ -5,4 +5,6 @@
 
 Oynamak için dosyayı HTTPS üzerinden yayınla (ör. GitHub Pages), "Yeni oda kur"a bas ve davet linkini arkadaşlarına gönder. Ev sahibinin sekmesi oyun boyunca açık kalmalı.
 
+Oyun, evlerin halka hâlinde dizildiği çizgi bir köy sahnesinde oynanır; gece karakterin seçtiğin eve yürür (bunu yalnızca sen görürsün). Telefonda yatay tutulmalıdır.
+
 Oylar gizlidir; oylama bitince yalnızca toplamlar açıklanır. Ölen oyuncular kendi aralarında yazışabilir, yaşayanlar bu sohbeti görmez.
