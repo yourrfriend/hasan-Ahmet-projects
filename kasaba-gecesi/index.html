@@ -161,7 +161,7 @@ let P={phase:'landing'};let S=null;
 let priv={role:null,notes:[],mates:[],nchat:[],uses:{},vest:0,planted:[]};
 let lobby=[];let local={act:{},vote:null,done:false};
 let setupCounts=null,manualSetup=false,lastAutoN=0,settings=ls('kg_settings')||{night:45,talk:120,vote:45};
-let timerIv=null,lastKey=null,lastPrivStr={},sel={},idRetry=0,skew=0;
+let timerIv=null,lastKey=null,lastPrivStr={},sel={},idRetry=0,skew=0,connStage='sunucu',connSince=Date.now();
 function now(){return Date.now()-skew}
 const app=document.getElementById('app');
 const uid=ls('kg_uid')||('u'+Math.random().toString(36).slice(2,10));ls('kg_uid',uid);
@@ -195,7 +195,7 @@ function openHostPeer(){
 function joinRoom(code){
   isHost=false;myId=uid;roomCode=code;P={phase:'lobby',lobby:[]};render();
   peer=new Peer(Object.assign({debug:0},window.PEER_OPTS||{}));
-  peer.on('open',connectHost);
+  peer.on('open',()=>{connStage='host';render();connectHost()});
   peer.on('disconnected',()=>{setTimeout(()=>{try{peer.reconnect()}catch(e){}},1500)});
   peer.on('error',e=>{if(e.type==='peer-unavailable'){connErr='Oda bulunamadı. Ev sahibinin sayfası açık mı? 3 sn sonra tekrar denenecek.';render();setTimeout(connectHost,3000)}else{connErr='Bağlantı sorunu ('+e.type+').';render()}});
 }
@@ -203,7 +203,8 @@ function connectHost(){
   if(!peer||peer.destroyed)return;
   if(hostConn){try{hostConn.close()}catch(e){}}
   hostConn=peer.connect('kasaba-'+roomCode,{reliable:true});
-  hostConn.on('open',()=>{connected=true;connErr=null;sendHello();render()});
+  hostConn.on('open',()=>{connected=true;connErr=null;connStage='ok';sendHello();render()});
+  hostConn.on('iceStateChanged',st=>{if(st==='failed'||st==='disconnected'){connStage='ice';render()}});
   hostConn.on('data',m=>{
     if(m.t==='state'){P=m.P;if(m.now)skew=Date.now()-m.now;lobby=P.lobby||[];const key=P.day+':'+P.phase;if(key!==lastKey){lastKey=key;local.act={};local.done=false;local.vote=null;sel={}}render()}
     else if(m.t==='priv'){priv=m.d;render()}
@@ -412,8 +413,23 @@ function renderInner(){
   document.getElementById('whoami').textContent=myName?(myName+(isHost?' · ev sahibi':'')):'';
   app.replaceChildren();
   if(connErr)app.append(banner(connErr,true));
-  if(!isHost&&!connected&&!connErr)app.append(banner('Ev sahibine bağlanılıyor…'));
+  if(!isHost&&!connected&&!connErr)app.append(connectingPanel());
   if(P.phase==='landing')renderLanding();else if(P.phase==='lobby')renderLobby();else if(P.phase==='end')renderEnd();else renderGame();
+}
+function connectingPanel(){
+  const b=el('div','banner');const wait=Math.round((Date.now()-connSince)/1000);
+  b.append(el('p',null,connStage==='sunucu'?'Sinyal sunucusuna bağlanılıyor…':connStage==='ice'?'Ev sahibi bulundu ama doğrudan bağlantı kurulamadı, yeniden deneniyor…':'Ev sahibine bağlanılıyor… (oda: '+roomCode+')'));
+  if(wait>=12){
+    const ul=el('ul','small muted');ul.style.margin='8px 0 0';ul.style.paddingLeft='18px';
+    const tips=connStage==='sunucu'
+      ?['İnternet bağlantını kontrol et.','Okul/iş ağı ya da VPN sinyal sunucusunu engelliyor olabilir; mobil veriyi dene.']
+      :connStage==='ice'
+      ?['Telefon ile ev sahibi farklı ağlardaysa bazı operatörler doğrudan bağlantıyı engeller. İkiniz de aynı Wi-Fi\'ya bağlanmayı ya da ikiniz de mobil veriye geçmeyi deneyin.','VPN açıksa kapat.']
+      :['Ev sahibinin sekmesi açık ve "Lobi" ekranında mı? Sekme kapanır ya da telefon kilitlenirse oda düşer.','Ev sahibi sayfayı yenilediyse yeni link göndermesi gerekebilir.','Ev sahibi kendi davet linkini açmamalı; o zaten odanın içinde.'];
+    tips.forEach(t=>ul.append(el('li',null,t)));b.append(ul);
+    const r=el('div','row');r.style.marginTop='8px';const rb=el('button','small','Yeniden dene');rb.onclick=()=>location.reload();r.append(rb);b.append(r);
+  }
+  return b;
 }
 function banner(t,err){const b=el('div','banner'+(err?' err':''));b.textContent=t;return b}
 function renderLobby(){
@@ -558,6 +574,7 @@ function renderEnd(){
 }
 
 function endToLobby(){clearInterval(timerIv);S.game=null;for(const c of Object.values(conns))if(c.open){try{c.send({t:'priv',d:{role:null,notes:[],mates:[],nchat:[]}})}catch(e){}}manualSetup=false;lastAutoN=0;P=lobbyState();priv={role:null,notes:[],mates:[],nchat:[]};lastPrivStr={};local={act:{},vote:null,done:false};setupCounts=null;collectLobby();pushSecret();pushState()}
+setInterval(()=>{if(!isHost&&!connected&&!connErr&&roomCode)render()},3000);
 setInterval(()=>{if(P.ends&&P.phase!=='lobby'&&P.phase!=='end'&&P.phase!=='landing'){const t=document.querySelector('.timer');if(t)t.textContent=fmtTime(P.ends-now())}},1000);
 
 </script>
