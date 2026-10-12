@@ -286,14 +286,22 @@ function connectHost(){
   hostConn.on('open',()=>{connected=true;connErr=null;connStage='ok';sendHello();render()});
   hostConn.on('iceStateChanged',st=>{if(st==='failed'||st==='disconnected'){connStage='ice';render()}});
   hostConn.on('data',m=>{
-    if(m.t==='state'){const prev=P;P=m.P;if(m.now)skew=Date.now()-m.now;lobby=P.lobby||[];onStateChange(prev);render()}
+    if(m.t==='state'){const prev=P;P=m.P;if(m.now)skew=Date.now()-m.now;lobby=P.lobby||[];if(lobby.some(p=>p.id===myId)||(P.players||[]).some(p=>p.id===myId))helloAck=true;onStateChange(prev);render()}
     else if(m.t==='priv'){priv=m.d;render()}
+    else if(m.t==='ack'){helloAck=true;render()}
   });
-  hostConn.on('close',()=>{connected=false;render();setTimeout(connectHost,2000)});
+  hostConn.on('close',()=>{connected=false;helloAck=false;render();setTimeout(()=>{connectHost();if(myName)sendHello()},2000)});
   hostConn.on('error',()=>{});
 }
 function send(m){if(hostConn&&hostConn.open){try{hostConn.send(m)}catch(e){}}}
-function sendHello(){if(!myName)return;if(isHost){collectLobby();pushState()}else send({t:'hello',uid:myId,name:myName,color:myLook.color,hat:myLook.hat})}
+document.addEventListener('visibilitychange',()=>{if(document.hidden||!peer)return;
+  try{if(peer.disconnected&&!peer.destroyed)peer.reconnect()}catch(e){}
+  if(!isHost){if(!hostConn||!hostConn.open)connectHost();else if(myName&&!helloAck)sendHello()}
+  else{collectLobby();pushState()}});
+let helloAck=false,helloTm=null;
+function sendHello(){if(!myName)return;if(isHost){collectLobby();pushState();return}
+  helloAck=false;clearInterval(helloTm);const go=()=>send({t:'hello',uid:myId,name:myName,color:myLook.color,hat:myLook.hat});go();
+  helloTm=setInterval(()=>{if(helloAck||!myName){clearInterval(helloTm);return}if(!hostConn||!hostConn.open)connectHost();go()},2000)}
 function collectLobby(){
   if(!isHost)return;
   lobby=[];if(myName)lobby.push({id:myId,name:myName,color:myLook.color,hat:myLook.hat});
@@ -304,7 +312,7 @@ function collectLobby(){
 }
 function onHostMsg(c,m){
   if(!m||typeof m!=='object')return;
-  if(m.t==='hello'){const id=String(m.uid||'').slice(0,20);if(!id)return;c.uid=id;conns[id]=c;names[id]=String(m.name||'').slice(0,16)||'Oyuncu';looks[id]={color:COLORS.includes(m.color)?m.color:null,hat:HATS.some(h=>h[0]===m.hat)?m.hat:'none'};collectLobby();lastPrivStr[id]=null;refreshPriv();pushState();return}
+  if(m.t==='hello'){const id=String(m.uid||'').slice(0,20);if(!id)return;try{c.send({t:'ack'})}catch(e){}c.uid=id;conns[id]=c;names[id]=String(m.name||'').slice(0,16)||'Oyuncu';looks[id]={color:COLORS.includes(m.color)?m.color:null,hat:HATS.some(h=>h[0]===m.hat)?m.hat:'none'};collectLobby();lastPrivStr[id]=null;refreshPriv();pushState();return}
   const id=c.uid;if(!id||!S||!S.game)return;const player=pl(id);if(!player)return;
   if(m.t==='act'&&P.phase==='night'&&m.d===P.day&&player.alive){S.game.acts[id]={kill:m.kill||null,ab:m.ab||null,guess:m.guess||null,det:!!m.det}}
   else if(m.t==='vote'&&P.phase==='vote'&&m.d===P.day&&player.alive){S.game.votes[id]=m.v;P.voted=Object.keys(S.game.votes);pushState();checkAutoAdvance()}
@@ -872,10 +880,10 @@ function renderLobbyUI(stage){
   const n=(P.lobby||[]).length;
   if(!myName){const c=el('div','ov custom');c.append(el('h2',null,'Adın ne?'));const i=el('input');i.id='nameInput';i.placeholder='Adın';i.maxLength=16;const b=el('button','primary','Lobiye gir');
     b.onclick=()=>{myName=i.value.trim().slice(0,16);if(!myName)return;ls('kg_name',myName);sendHello();collectLobby();render()};i.onkeydown=e=>{if(e.key==='Enter')b.click()};c.append(i,b);stage.append(c);return}
-  stage.append(el('div','ov count pill','👥 '+n+' / 12 oyuncu · en az 4'));
+  stage.append(el('div','ov count pill','👥 '+n+' / 12 oyuncu · en az 4'+(isHost&&!connected?' · ⚠️ bağlantı yok':'')));
   if(isHost){const lb=el('div','ov lobbybar');lb.append(document.createTextNode('Davet linki '));const code=el('code',null,inviteLink());const cb=el('button',null,'Linki kopyala');
     cb.onclick=()=>{navigator.clipboard.writeText(inviteLink()).then(()=>{cb.textContent='Kopyalandı ✓';setTimeout(()=>{cb.textContent='Linki kopyala'},1500)}).catch(()=>{prompt('Linki kopyala:',inviteLink())})};lb.append(code,cb);stage.append(lb)}
-  else if(!ui.custom)stage.append(el('div','ov hint','Ev sahibinin oyunu başlatması bekleniyor… Karakterine dokunup rengini ve şapkanı değiştirebilirsin.'));
+  else if(!ui.custom)stage.append(el('div','ov hint',helloAck?'✅ Lobidesin. Ev sahibinin oyunu başlatması bekleniyor… Karakterine dokunup rengini değiştirebilirsin.':'⏳ Ev sahibine ulaşılıyor… Ev sahibi oyun sekmesine dönmeli; sen de bu sekmede kal.'));
   if(isHost){
     const items=[{h:'SÜRELER (saniye)'}];
     [['night','Gece'],['talk','Tartışma'],['vote','Oylama']].forEach(([k,l])=>{const lab=el('label',null,l);const i=el('input');i.type='number';i.min=15;i.max=600;i.value=settings[k];i.onchange=()=>{settings[k]=Math.max(15,Math.min(600,+i.value||30));ls('kg_settings',settings)};lab.append(i);items.push({node:lab})});
