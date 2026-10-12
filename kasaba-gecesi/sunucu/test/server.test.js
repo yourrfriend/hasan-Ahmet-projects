@@ -15,11 +15,12 @@ test.after(()=>new Promise(r=>srv.close(r)));
 // Basit istemci: gelen son state/priv'i tutar, koşul bekler.
 function client(uid,name,join){
   const ws=new WebSocket('ws://'+base+'/ws');
-  const c={ws,uid,P:null,priv:null,errs:[],states:0,
+  // me: sunucunun verdiği açık kimlik (uid gizli anahtardır, state içinde geçmez); chat: parça parça gelen sohbet
+  const c={ws,uid,me:null,P:null,priv:null,errs:[],states:0,chat:[],
     send:m=>ws.send(JSON.stringify(m)),
     until(f,ms=3000){return new Promise((res,rej)=>{const t0=Date.now();const iv=setInterval(()=>{if(f(c)){clearInterval(iv);res(c)}else if(Date.now()-t0>ms){clearInterval(iv);rej(new Error(uid+' beklenen duruma gelmedi'))}},10)})},
-    close(){return new Promise(r=>{ws.once('close',r);ws.close()})}};
-  ws.on('message',d=>{const m=JSON.parse(d);if(m.t==='state'){c.P=m.P;c.states++;c.raw=String(d)}else if(m.t==='priv')c.priv=m.d;else if(m.t==='err')c.errs.push(m)});
+    close(){return new Promise(r=>{if(ws.readyState>=2)return r();ws.once('close',r);ws.close()})}}; // sunucu kapattıysa beklemeden döner
+  ws.on('message',d=>{const m=JSON.parse(d);if(m.t==='state'){c.P=m.P;c.states++;c.raw=String(d)}else if(m.t==='you')c.me=m.id;else if(m.t==='chat')c.chat.push(...m.a);else if(m.t==='priv')c.priv=m.d;else if(m.t==='err')c.errs.push(m)});
   ws.on('open',()=>c.send({t:'join',uid,name,color:G.COLORS[0],hat:'cap',...join}));
   return c;
 }
@@ -39,7 +40,8 @@ test('olmayan odaya katılma hata verir',async()=>{
 test('oda kur, katıl, oyna; ev sahibi kopunca oyun sürer; kopan oyuncu geri döner',async()=>{
   const host=client('h1','Ev',{host:true,settings:{night:20,talk:20,vote:20}});
   await host.until(c=>c.P&&c.P.room);
-  const room=host.P.room;assert.strictEqual(host.P.hostId,'h1');
+  const room=host.P.room;assert.ok(host.me&&host.me!=='h1');assert.strictEqual(host.P.hostId,host.me);
+  assert.ok(!host.raw.includes('h1'),'gizli anahtar state içinde geçmemeli');
   const others=['p1','p2','p3'].map((u,i)=>client(u,'Oyuncu'+i,{room}));
   await host.until(c=>c.P.lobby.length===4);
   // aynı rengi seçen herkes farklı renk almalı
@@ -53,6 +55,13 @@ test('oda kur, katıl, oyna; ev sahibi kopunca oyun sürer; kopan oyuncu geri d�
   for(const c of all){for(const k of ['"roles"','"acts"','"votes"','"notes"'])assert.ok(!c.raw.includes(k),'sızıntı: '+k)}
   const roleOf={};all.forEach(c=>roleOf[c.uid]=c.priv.role.label);
 
+  // açık kimliği bilen biri ev sahibinin yerine giremez: ayrı bir üye olur, rol göremez, başlatamaz/iptal edemez
+  const fake=client(host.me,'Sahte',{room});
+  await fake.until(c=>c.P&&c.me);
+  assert.notStrictEqual(fake.me,host.me);assert.strictEqual(fake.priv.role,null);
+  fake.send({t:'cancel'});await new Promise(r=>setTimeout(r,150));assert.strictEqual(host.P.phase,'night');
+  await fake.close();
+
   // ev sahibi sekmeyi kapatır
   await host.close();
   const room0=srv.rooms.get(room);
@@ -60,8 +69,8 @@ test('oda kur, katıl, oyna; ev sahibi kopunca oyun sürer; kopan oyuncu geri d�
   room0.game.P.ends=Date.now()-1;
   await others[0].until(c=>c.P.phase==='talk'||c.P.phase==='end');
   // 10 dk (testte 300 ms) sonra ev sahipliği oyuncuya geçer
-  await others[0].until(c=>c.P.hostId!=='h1');
-  assert.ok(['p1','p2','p3'].includes(others[0].P.hostId));
+  await others[0].until(c=>c.P.hostId!==host.me);
+  assert.ok(others.map(c=>c.me).includes(others[0].P.hostId));
 
   // kopan oyuncu aynı kimlikle döner: rolü ve durumu aynı
   await others[1].close();
@@ -74,10 +83,10 @@ test('oda kur, katıl, oyna; ev sahibi kopunca oyun sürer; kopan oyuncu geri d�
   const h2=client('h1','Ev',{room});
   await h2.until(c=>c.priv&&c.priv.role);
   assert.strictEqual(h2.priv.role.label,roleOf.h1);
-  assert.notStrictEqual(h2.P.hostId,'h1');
+  assert.strictEqual(h2.me,host.me);assert.notStrictEqual(h2.P.hostId,h2.me);
 
   // yeni ev sahibi iptal edebilir → herkes lobiye, roller silinir
-  const newHost=[others[0],others[2],back].find(c=>c.uid===others[0].P.hostId);
+  const newHost=[others[0],others[2],back].find(c=>c.me===others[0].P.hostId);
   newHost.send({t:'cancel'});
   await h2.until(c=>c.P.phase==='lobby'&&c.priv&&c.priv.role===null);
   for(const c of [others[0],others[2],back,h2])await c.close();
@@ -93,16 +102,35 @@ test('oy ve sohbet sunucuda doğrulanır',async()=>{
   await host.until(c=>c.P.phase!=='night');
   if(host.P.phase==='talk'){
     const alive=host.P.players.filter(p=>p.alive);
-    const speaker=cs.find(c=>alive.some(p=>p.id===c.uid));
+    const speaker=cs.find(c=>alive.some(p=>p.id===c.me));
     speaker.send({t:'msg',x:'merhaba kasaba'});
-    await host.until(c=>c.P.chat.some(m=>m.t==='merhaba kasaba'));
-    assert.ok(!host.P.chat.some(m=>m.t==='gece yazamam'));
+    await host.until(c=>c.chat.some(m=>m.t==='merhaba kasaba'));
+    assert.ok(!host.chat.some(m=>m.t==='gece yazamam'));
+    assert.ok(!('chat' in host.P),'sohbet state içinde değil, ayrı pakette gelir');
+    // geç katılan tüm sohbeti bir kerede alır; sonrakiler yalnız yeni satırı
+    const late=client('v9','Geç',{room});await late.until(c=>c.chat.some(m=>m.t==='merhaba kasaba'));
+    const before=late.chat.length;speaker.send({t:'msg',x:'ikinci'});await late.until(c=>c.chat.length===before+1);
+    assert.strictEqual(late.chat[late.chat.length-1].t,'ikinci');await late.close();
     R.P.ends=Date.now()-1;await host.until(c=>c.P.phase==='vote');
     // olmayan kişiye oy sayılmaz; herkes oy verince faz kendiliğinden geçer
     speaker.send({t:'vote',v:'kimseyok'});await new Promise(r=>setTimeout(r,100));assert.deepStrictEqual(host.P.voted,[]);
-    const voters=cs.filter(c=>alive.some(p=>p.id===c.uid));
+    const voters=cs.filter(c=>alive.some(p=>p.id===c.me));
     voters.forEach(c=>c.send({t:'vote',v:'skip'}));
     await host.until(c=>c.P.phase==='night'||c.P.phase==='end');
   }
   for(const c of cs)await c.close();
+});
+
+test('lobiden kopan üye silinir; 13 kişiyle oyun başlamaz; ev sahibi odayı kapatır',async()=>{
+  const host=client('k0','A',{host:true});await host.until(c=>c.P&&c.P.room);
+  const room=host.P.room;const r=srv.rooms.get(room);
+  const guest=client('k1','B',{room});await host.until(c=>c.P.lobby.length===2);
+  await guest.close();await host.until(c=>c.P.lobby.length===1);
+  assert.strictEqual(r.members.size,1,'kopan lobi üyesi bellekte kalmamalı');
+  const cs=[];for(let i=1;i<=12;i++)cs.push(client('k'+i,'O'+i,{room}));
+  await host.until(c=>c.P.lobby.length===13,5000);
+  host.send({t:'start'});await host.until(c=>c.errs.some(e=>e.code==='soft'));assert.strictEqual(host.P.phase,'lobby');
+  host.send({t:'close'});
+  await cs[0].until(c=>c.errs.some(e=>e.code==='closed'));assert.ok(!srv.rooms.has(room));
+  for(const c of [host,...cs])await c.close();
 });

@@ -19,21 +19,17 @@ for(const b of bloklar)new Function(b);
 ' "$OYUN/index.html" || hata "index.html içindeki betikte sözdizimi hatası"
 tamam "index.html sözdizimi"
 
-# 2) İstemcideki ROLES/SETUP/COLORS/HATS, sunucudaki game.js ile aynı mı?
+# 2) game.js tarayıcıda da yükleniyor mu (module yokken window.KG_GAME tanımlamalı) ve index.html onu kullanıyor mu?
 node -e '
-const fs=require("fs");const G=require(process.argv[2]);
+const fs=require("fs");
+const src=fs.readFileSync(process.argv[2],"utf8");const w={};
+new Function("window","globalThis","module",src).call(w,w,w,undefined);
+for(const k of ["ROLES","SETUP","COLORS","HATS","roleLabel"])if(!w.KG_GAME||!w.KG_GAME[k]){console.error("KG_GAME."+k+" yok");process.exit(1)}
 const s=fs.readFileSync(process.argv[1],"utf8");
-const i=s.indexOf("const ROLES="),j=s.indexOf("function roleLabel",i);
-if(i<0||j<0){console.error("index.html içinde ROLES…HATS bloğu bulunamadı");process.exit(1)}
-const C=new Function(s.slice(i,j)+";return{ROLES,SETUP,COLORS,HATS}")();
-const fark=[];
-if(JSON.stringify(C.ROLES)!==JSON.stringify(G.ROLES))fark.push("ROLES");
-if(JSON.stringify(C.SETUP)!==JSON.stringify(G.SETUP))fark.push("SETUP");
-if(JSON.stringify(C.COLORS)!==JSON.stringify(G.COLORS))fark.push("COLORS");
-if(JSON.stringify(C.HATS.map(h=>h[0]))!==JSON.stringify(G.HATS))fark.push("HATS");
-if(fark.length){console.error("istemci ile sunucu farklı: "+fark.join(", "));process.exit(1)}
-' "$OYUN/index.html" "$SUNUCU/game.js" || hata "index.html ve sunucu/game.js sabitleri eşleşmiyor (ikisini birlikte güncelle)"
-tamam "istemci/sunucu sabitleri eşleşiyor"
+if(!/<script src="sunucu\/game\.js"><\/script>/.test(s)){console.error("index.html sunucu/game.js dosyasını yüklemiyor");process.exit(1)}
+if(/^const (ROLES|SETUP|COLORS)=/m.test(s)){console.error("index.html içinde sabitlerin kopyası var; tek kaynak sunucu/game.js");process.exit(1)}
+' "$OYUN/index.html" "$SUNUCU/game.js" || hata "sunucu/game.js tarayıcı yüklemesi ya da index.html bağlantısı bozuk"
+tamam "sabitler tek kaynaktan (sunucu/game.js) geliyor"
 
 # 3) Birim + sunucu testleri
 (cd "$SUNUCU" && npm test --silent >/tmp/kg-test.log 2>&1) || { tail -40 /tmp/kg-test.log; hata "npm test başarısız"; }

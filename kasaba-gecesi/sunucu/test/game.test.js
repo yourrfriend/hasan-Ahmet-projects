@@ -61,9 +61,10 @@ test('rol dağılımı oyuncu sayısına uyar',()=>{
   for(let n=4;n<=12;n++){const c=G.autoSetup(n);assert.strictEqual(Object.values(c).reduce((a,b)=>a+b,0),n)}
 });
 
-test('4 kişiden az oyun başlamaz, 12 kişiden fazlası kesilir',()=>{
+test('4 kişiden az ya da 12 kişiden çok oyun başlamaz',()=>{
   assert.strictEqual(G.startGame(G.createGame(),lobbyOf(3)),false);
-  const R=G.createGame();G.startGame(R,lobbyOf(15));assert.strictEqual(R.P.players.length,12);
+  const R=G.createGame();assert.strictEqual(G.startGame(R,lobbyOf(15)),false);assert.strictEqual(R.P.phase,'lobby');
+  assert.ok(G.startGame(G.createGame(),lobbyOf(12)));
 });
 
 function fixed(roles){
@@ -80,6 +81,51 @@ test('doktor saldırıyı engeller, oylama birini gönderir',()=>{
   for(const id of ['u1','u2','u3','u4'])G.vote(R,id,'u0');
   G.vote(R,'u0','skip');
   assert.strictEqual(R.P.phase,'end');assert.strictEqual(R.P.winner.team,'inn');
+});
+
+const notesOf=(R,id)=>R.g.notes[id].join(' | ');
+test('hain polis öldürmeye gidince ziyareti sayılır ve tuzağa yakalanır',()=>{
+  // u0 polis(hain) u2'yi öldürmeye gider; u1 gözcü u2'nin evine bakar → kendisiyle birlikte 2 kişi görmeli
+  let R=fixed(['polis_h','gozcu','masum','masum']);
+  G.act(R,'u0',{kill:'u2'});G.act(R,'u1',{ab:'u2'});G.advance(R);
+  assert.match(notesOf(R,"u1"),/2 kişi geldi/);assert.ok(!G.pl(R,'u2').alive);
+  // tuzakçı u2'nin kapısına tuzak kurarsa hain polis yakalanır, u2 ölmez
+  R=fixed(['polis_h','tuzakci','masum','masum']);
+  G.act(R,'u0',{kill:'u2'});G.act(R,'u1',{ab:'u2'});G.advance(R);
+  assert.ok(G.pl(R,'u2').alive);assert.match(notesOf(R,'u0'),/tuzağa yakalandın/);
+});
+test('polisin tuttuğu polis kimseyi tutamaz; sıra önemsiz',()=>{
+  // u0 polis → u1 polis(hain) → u2 doktor → u4; u3 hain u4'ü öldürür: doktor serbest kalmalı, u4 kurtulmalı
+  for(const roles of [['polis','polis_h','doktor','hain','masum'],['polis_h','polis','doktor','hain','masum']]){
+    const R=fixed(roles);
+    G.act(R,'u0',{ab:'u1'});G.act(R,'u1',{ab:'u2'});G.act(R,'u2',{ab:'u4'});G.act(R,'u3',{kill:'u4'});G.advance(R);
+    assert.ok(G.pl(R,'u4').alive,roles.join(','));assert.deepStrictEqual(R.P.morning.saved,['u4']);
+    assert.match(notesOf(R,'u1'),/kimseyi tutamadın/);assert.ok(!/Polis seni evde tuttu/.test(notesOf(R,'u2')));
+  }
+  // iki polis birbirini seçerse ikisi de evde kalır, doktor yine serbesttir
+  const R=fixed(['polis','polis_h','doktor','hain','masum']);
+  G.act(R,'u0',{ab:'u1'});G.act(R,'u1',{ab:'u0'});G.act(R,'u2',{ab:'u4'});G.act(R,'u3',{kill:'u4'});G.advance(R);
+  assert.ok(G.pl(R,'u4').alive);for(const id of ['u0','u1'])assert.match(notesOf(R,id),/kimseyi tutamadın/);
+});
+test('polisin tuttuğu tuzakçı tuzak kuramaz',()=>{
+  // u0 polis → u1 tuzakçı; u1 tuzağı u3'e; u2 hain u3'ü öldürür → tuzak yok, u3 ölür
+  const R=fixed(['polis','tuzakci','hain','masum','masum']);
+  G.act(R,'u0',{ab:'u1'});G.act(R,'u1',{ab:'u3'});G.act(R,'u2',{kill:'u3'});G.advance(R);
+  assert.ok(!G.pl(R,'u3').alive);assert.match(notesOf(R,'u1'),/tuzak kuramadın/);assert.ok(!/yakalandı/.test(notesOf(R,'u2')));
+});
+test('polisin tuttuğu hayatta kalan yelek giyemez',()=>{
+  const R=fixed(['polis','hayatta','hain','masum']);
+  G.act(R,'u0',{ab:'u1'});G.act(R,'u1',{ab:'self'});G.act(R,'u2',{kill:'u1'});G.advance(R);
+  assert.ok(!G.pl(R,'u1').alive);assert.strictEqual(R.g.roles.u1.vest,3);
+  // tutulmazsa yelek işler
+  const R2=fixed(['polis','hayatta','hain','masum']);
+  G.act(R2,'u0',{ab:'u3'});G.act(R2,'u1',{ab:'self'});G.act(R2,'u2',{kill:'u1'});G.advance(R2);
+  assert.ok(G.pl(R2,'u1').alive);assert.strictEqual(R2.g.roles.u1.vest,2);
+});
+test('sohbet satırları artan sıra numarası taşır',()=>{
+  const R=fixed(['hain','masum','masum','masum']);G.advance(R);
+  assert.strictEqual(R.P.phase,'talk');G.chat(R,'u1','selam');G.chat(R,'u2','selam');
+  const s=R.P.chat.map(m=>m.s);assert.ok(s.every((v,i)=>i===0||v>s[i-1]),'sıra artmalı: '+s);
 });
 
 test('süre dolunca tick fazı ilerletir',()=>{

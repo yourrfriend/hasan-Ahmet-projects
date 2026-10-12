@@ -4,6 +4,7 @@
 const http=require('http');
 const fs=require('fs');
 const path=require('path');
+const crypto=require('crypto');
 const {WebSocketServer}=require('ws');
 const G=require('./game.js');
 
@@ -12,7 +13,11 @@ const HOST_GRACE_MS=+process.env.HOST_GRACE_MS||10*60*1000; // ev sahibi bu kada
 const MAX_ROOMS=+process.env.MAX_ROOMS||1000;
 const MAX_SOCKS_PER_ROOM=40;
 const INDEX=path.join(__dirname,'..','index.html');
+const GAME_JS=path.join(__dirname,'game.js'); // istemci de yükler: sabitler tek yerde
 const CODE_CHARS='abcdefghjkmnpqrstuvwxyz23456789';
+// İstemcinin gönderdiği kimlik (kg_uid) gizli anahtardır; herkese açık durumda ondan türetilen
+// kısa bir kimlik gezer. Açık kimliği bilen başkasının yerine giremez, ev sahibi olamaz.
+const pubId=key=>crypto.createHash('sha256').update('kg:'+key).digest('base64url').slice(0,12);
 
 function genCode(rooms){for(;;){let s='';for(let i=0;i<6;i++)s+=CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)];if(!rooms.has(s))return s}}
 const cleanCode=v=>typeof v==='string'?v.toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,12):'';
@@ -33,6 +38,12 @@ function createServer(opts={}){
         res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-cache'});res.end(req.method==='HEAD'?undefined:buf);
       });return;
     }
+    if(url==='/sunucu/game.js'){
+      fs.readFile(GAME_JS,(err,buf)=>{
+        if(err){res.writeHead(500);return res.end('game.js okunamadı')}
+        res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-cache'});res.end(req.method==='HEAD'?undefined:buf);
+      });return;
+    }
     if(url==='/saglik'){res.writeHead(200,{'Content-Type':'application/json'});return res.end(JSON.stringify({ok:true,rooms:rooms.size}))}
     res.writeHead(404,{'Content-Type':'text/plain; charset=utf-8'});res.end('Bulunamadı');
   });
@@ -51,9 +62,16 @@ function createServer(opts={}){
     const used=new Set();list.forEach(p=>{if(!p.color||used.has(p.color))p.color=G.COLORS.find(c=>!used.has(c))||G.COLORS[0];used.add(p.color);if(!p.hat)p.hat='none'});
     return list;
   }
-  function stateMsg(room){return JSON.stringify({t:'state',P:{...room.game.P,lobby:lobbyOf(room),hostId:room.hostId,room:room.code},now:Date.now()})}
+  // sohbet state içinde gitmez; her sokete yalnız görmediği satırlar ayrıca yollanır (sendChat)
+  function stateMsg(room){return JSON.stringify({t:'state',P:{...room.game.P,chat:undefined,lobby:lobbyOf(room),hostId:room.hostId,room:room.code},now:Date.now()})}
   function sendRaw(ws,str){if(ws.readyState===1){try{ws.send(str)}catch(e){}}}
   function send(ws,obj){sendRaw(ws,JSON.stringify(obj))}
+  function sendChat(ws,room){
+    const chat=room.game.P.chat;const last=chat.length?chat[chat.length-1].s:0;
+    if(!(last>ws.chatSeen))return;
+    const a=chat.filter(c=>c.s>ws.chatSeen);
+    send(ws,{t:'chat',a,init:!ws.chatSeen||undefined});ws.chatSeen=last;
+  }
   function sendPriv(room,uid,force){
     const m=room.members.get(uid);if(!m)return;
     const str=JSON.stringify({t:'priv',d:G.privFor(room.game,uid)});
@@ -64,7 +82,7 @@ function createServer(opts={}){
     clearTimeout(room.flushT);room.flushT=null;
     if(!rooms.has(room.code))return;
     const st=stateMsg(room);
-    for(const [uid,m] of room.members){for(const ws of m.socks)sendRaw(ws,st);sendPriv(room,uid)}
+    for(const [uid,m] of room.members){for(const ws of m.socks){sendRaw(ws,st);sendChat(ws,room)}sendPriv(room,uid)}
   }
   // kısa sürede gelen değişiklikleri tek pakette yolla
   function schedule(room){if(!room.flushT)room.flushT=setTimeout(()=>flush(room),40)}
@@ -77,14 +95,19 @@ function createServer(opts={}){
     const room=ws.room;if(!room)return;ws.room=null;
     const m=room.members.get(ws.uid);if(!m)return;
     m.socks.delete(ws);
-    if(!online(m)&&ws.uid===room.hostId)room.hostGoneSince=Date.now();
+    if(!online(m)){
+      if(ws.uid===room.hostId)room.hostGoneSince=Date.now();
+      // oyunda olmayan (lobideki ya da izleyen) üye kopunca kaydı silinir; oyuncu dönebilsin diye kalır
+      if(!(room.game.P.players||[]).some(p=>p.id===ws.uid)){room.members.delete(ws.uid);room.lastPriv.delete(ws.uid)}
+    }
     schedule(room);
   }
   function isHost(ws){return ws.room&&ws.uid===ws.room.hostId}
 
   // ---------- mesajlar ----------
   function onJoin(ws,m){
-    const uid=cleanUid(m.uid);if(!uid)return send(ws,{t:'err',m:'Geçersiz oyuncu kimliği.',code:'bad'});
+    const key=cleanUid(m.uid);if(!key)return send(ws,{t:'err',m:'Geçersiz oyuncu kimliği.',code:'bad'});
+    const uid=pubId(key);
     let code=cleanCode(m.room);let room=code&&rooms.get(code);
     if(!room){
       if(!m.host)return send(ws,{t:'err',m:'Oda bulunamadı. Kod doğru mu? Oda uzun süre boş kaldıysa kapanmış olabilir.',code:'noroom'});
@@ -94,15 +117,16 @@ function createServer(opts={}){
     let sockCount=0;for(const x of room.members.values())sockCount+=x.socks.size;
     if(sockCount>=MAX_SOCKS_PER_ROOM)return send(ws,{t:'err',m:'Oda dolu.',code:'full'});
     if(ws.room)detach(ws);
-    ws.uid=uid;ws.room=room;
+    ws.uid=uid;ws.room=room;ws.chatSeen=0;
     let mem=room.members.get(uid);
     if(!mem){mem={name:'',color:null,hat:'none',socks:new Set()};room.members.set(uid,mem)}
     applyLook(mem,m);
     mem.socks.add(ws);
     if(uid===room.hostId){room.hostGoneSince=null;if(m.settings&&room.game.P.phase==='lobby')room.game.settings=G.cleanSettings(m.settings)}
     room.lastActive=Date.now();
-    // yeni bağlanana hemen tam durum; diğerlerine lobi değişikliği
-    sendRaw(ws,stateMsg(room));sendRaw(ws,JSON.stringify({t:'priv',d:G.privFor(room.game,uid)}));
+    // yeni bağlanana açık kimliği ve hemen tam durum; diğerlerine lobi değişikliği
+    send(ws,{t:'you',id:uid});
+    sendRaw(ws,stateMsg(room));sendChat(ws,room);sendRaw(ws,JSON.stringify({t:'priv',d:G.privFor(room.game,uid)}));
     schedule(room);
   }
   function applyLook(mem,m){
@@ -125,6 +149,7 @@ function createServer(opts={}){
         else send(ws,{t:'err',m:'Başlamak için 4–12 oyuncu gerekir.',code:'soft'});
         break;
       case 'cancel':if(isHost(ws)&&R.P.phase!=='lobby'){G.endToLobby(R);flush(room)}break;
+      case 'close':if(isHost(ws))deleteRoom(room,'Ev sahibi odayı kapattı.');break;
       case 'act':G.act(R,uid,m);break; // gece hamlesi gizli: kimseye yayın yok
       case 'vote':if(G.vote(R,uid,m.v,m.d))schedule(room);break;
       case 'msg':if(G.chat(R,uid,m.x))schedule(room);break;
@@ -135,7 +160,7 @@ function createServer(opts={}){
   // ---------- WebSocket ----------
   const wss=new WebSocketServer({server,path:'/ws',maxPayload:16*1024});
   wss.on('connection',ws=>{
-    ws.isAlive=true;ws.room=null;ws.uid=null;ws.bucket={t:Date.now(),n:0};
+    ws.isAlive=true;ws.room=null;ws.uid=null;ws.chatSeen=0;ws.bucket={t:Date.now(),n:0};
     ws.on('pong',()=>{ws.isAlive=true});
     ws.on('message',data=>{
       // basit hız sınırı: saniyede 30 mesaj

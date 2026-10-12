@@ -13,7 +13,7 @@ Oda ve oyun mantığı Node sunucusunda yaşar; ev sahibi dahil herkes WebSocket
 | Dosya | İçerik |
 |---|---|
 | `kasaba-gecesi/index.html` | İstemci: tek dosya (CSS + JS). SVG köy sahnesi, animasyon, Web Audio ile üretilen sesler, arayüz, ağ katmanı. |
-| `kasaba-gecesi/sunucu/game.js` | Oyun kuralları, ağdan bağımsız: `startGame`, `setPhase`, `resolveNight`, `resolveVote`, `checkWin`, `act/vote/chat/deadChat`, `privFor`, `tick`. |
+| `kasaba-gecesi/sunucu/game.js` | Oyun kuralları, ağdan bağımsız: `startGame`, `setPhase`, `resolveNight`, `resolveVote`, `checkWin`, `act/vote/chat/deadChat`, `privFor`, `tick`. Tarayıcı da yükler (sabitler için). |
 | `kasaba-gecesi/sunucu/server.js` | HTTP (sayfayı sunar, `/saglik`) + WebSocket (`/ws`), bellek içi odalar, 500 ms'lik zamanlayıcı. |
 | `kasaba-gecesi/sunucu/test/` | `game.test.js`, `server.test.js` (`npm test`), `e2e.js` (`npm run e2e`). |
 | `kasaba-gecesi/sunucu/kur.sh`, `Caddyfile` | VPS kurulumu: Node 20, Caddy (otomatik HTTPS), systemd `kasaba-gecesi`, uygulama `/opt/kasaba-gecesi`. |
@@ -25,8 +25,9 @@ Oda ve oyun mantığı Node sunucusunda yaşar; ev sahibi dahil herkes WebSocket
   - `R.P` **herkese açık** durum; istemciye aynen gider (`{t:'state', P:{...P, lobby, hostId, room}, now}`).
   - `R.g` **gizli** durum: `roles, acts, votes, notes, dchat, candle, haunt, provoke, blame…`. Asla istemciye gitmez.
   - Kişiye özel bilgi yalnız `privFor(R, uid)` ile, yalnız o oyuncunun soketlerine gider (`{t:'priv', d}`).
-- İstemci → sunucu: `join{room,uid,name,color,hat,host?,settings?}`, `look`, `settings`, `start`, `cancel`, `act{kill,ab,guess,det,d}`, `vote{v,d}`, `msg{x}`, `dmsg{x}`.
-- Oyuncu kimliği `kg_uid` (localStorage). Yeniden bağlanan aynı uid ile aynı oyuncu olur. Ev sahibi = `room.hostId`; 10 dk bağlı değilse bağlı bir oyuncuya geçer (`HOST_GRACE_MS`). Odalar 2 saat mesajsız kalınca silinir (`ROOM_TTL_MS`).
+- İstemci → sunucu: `join{room,uid,name,color,hat,host?,settings?}`, `look`, `settings`, `start`, `cancel`, `close` (ev sahibi odayı siler), `act{kill,ab,guess,det,d}`, `vote{v,d}`, `msg{x}`, `dmsg{x}`.
+- Sunucu → istemci: `you{id}` (açık kimlik, join yanıtı), `state{P,now}`, `chat{a,init?}`, `priv{d}`, `err{m,code}`.
+- Oyuncu kimliği `kg_uid` (localStorage, gizli). Yeniden bağlanan aynı anahtarla aynı oyuncu olur. Ev sahibi = `room.hostId`; 10 dk bağlı değilse bağlı bir oyuncuya geçer (`HOST_GRACE_MS`). Odalar 2 saat mesajsız kalınca silinir (`ROOM_TTL_MS`). Lobideki ya da izleyen üye kopunca `room.members`'tan silinir; oyundaki oyuncu dönebilsin diye kalır.
 - Faz akışı: `night → talk → vote → night…`, `checkWin` olursa `end`. Süreler `P.settings` (en az 15 sn); sabah/akşam animasyonu için `talk` +7 sn, `night` +6 sn eklenir. Herkes oy verince oylama beklemeden biter.
 - İstemcide `isHost = P.hostId === myId`. Sunucu adresi: `?s=` parametresi, sonra `KG_SERVER` sabiti, yoksa sayfanın kendi origin'i + `/ws`.
 
@@ -36,7 +37,9 @@ Oda ve oyun mantığı Node sunucusunda yaşar; ev sahibi dahil herkes WebSocket
 2. **Sunucu yetkilidir.** Her istemci mesajı `game.js` içinde doğrulanır: faz, gün (`d`), oyuncu yaşıyor mu, hedef gerçek oyuncu mu, `guess` gerçekten `ROLES` anahtarı mı (`hasOwnProperty`). İstemciye güvenme.
 3. **İstemci kural hesaplamaz.** `index.html` yalnız gösterir ve mesaj yollar; kural değişikliği `game.js`'e yapılır.
 4. **Sahne, animasyon, ses kodu** (`// ---------- Köy sahnesi` ve `// ---------- Ambiyans` bölümleri) kullanıcı istemedikçe değişmez; görünüm aynı kalmalı.
-5. **İstemci ve sunucuda kopya sabitler var:** `ROLES`, `SETUP`, `COLORS`, `HATS` hem `index.html`'de hem `game.js`'te. Birini değiştirirsen ötekini de aynı değiştir; `kontrol.sh` farkı yakalar.
+5. **Sabitler tek yerde:** `ROLES`, `SETUP`, `COLORS`, `HATS` yalnız `game.js`'te. `index.html` dosyayı `<script src="sunucu/game.js">` ile yükler ve `window.KG_GAME`'den alır (şapka adları `HAT_NAMES` istemcide). `index.html`'e kopya ekleme; `kontrol.sh` kopyayı yakalar. `game.js` hem Node (`module.exports`) hem tarayıcı (`KG_GAME`) için sarmalanmıştır; dosyanın başındaki/sonundaki sarmalı bozma.
+8. **Oyuncu kimliği iki parçadır:** istemcideki `kg_uid` gizli anahtardır ve yalnız `join` ile sunucuya gider; sunucu ondan türettiği açık kimliği (`pubId`) `{t:'you',id}` ile döner ve `P.players[].id`, `P.hostId`, `lobby[].id` hep bu açık kimliktir. Gizli anahtar hiçbir yayında geçmez; istemcide `myId` açık kimliktir.
+9. **Sohbet state içinde gitmez.** `P.chat` sunucuda durur ama `state` paketinden çıkarılır; her sokete yalnız görmediği satırlar `{t:'chat',a:[...]}` ile gider (satırlardaki `s` sıra numarası). İstemci `chatLog`'u biriktirir ve `P.chat` olarak bağlar; yeni oyun/lobide sıfırlar.
 6. `index.html` değişince `window.KG_VER` damgasını artır (ör. `'2026-10-12s'` → yeni tarih + harf). Hata ekranı bu sürümü gösterir; önbellek sorunlarını ayırt etmeye yarar.
 7. Arayüz metinleri Türkçe ve kısa; mevcut üslubu koru.
 
@@ -67,7 +70,7 @@ Playwright betiğinde süreleri beklemek yerine sunucuyu aynı süreçte `create
 **Yeni rol eklemek**
 1. `game.js` → `ROLES`'a tanım (`n, team, ico, desc, act?, pos?, once?, dual?`), gerekiyorsa `SETUP`, `MADPOOL`, `INVGROUPS`, `autoSetup`.
 2. Gece etkisi `resolveNight` içindeki doğru adıma (1 tuzak · 2 polis · 3 ziyaret · 4 koruma · 5 saldırı · 6 bilgi · 7 ölümler); kazanma koşulu `checkWin`.
-3. Aynı `ROLES`/`SETUP` değişikliğini `index.html`'e kopyala; özel düğme gerekiyorsa `renderGameUI` (gece eylem düğmeleri) ve `modesFor`.
+3. İstemci sabitleri `game.js`'ten alır, kopyalama gerekmez; özel düğme gerekiyorsa `index.html`'de `renderGameUI` (gece eylem düğmeleri) ve `modesFor`.
 4. `game.test.js`'e senaryo; `kontrol.sh --e2e`.
 
 **Yeni istemci mesajı** → `server.js` `onMessage` içinde `switch` dalı + `game.js`'te doğrulayan fonksiyon + istemcide `send({t:…})` + `server.test.js`.

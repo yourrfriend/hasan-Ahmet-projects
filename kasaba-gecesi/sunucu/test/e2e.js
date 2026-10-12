@@ -38,7 +38,8 @@ const step=t=>console.log('•',t);
     await host.click('.start');
     const all=()=>[host,...Object.values(pages)];
     for(const p of all())await p.waitForSelector('.ov.mine',{timeout:15000});
-    const ids={};for(const [n,p] of [['Ev',host],...Object.entries(pages)])ids[n]=await p.evaluate(()=>myId);
+    const ids={},keys={};for(const [n,p] of [['Ev',host],...Object.entries(pages)]){ids[n]=await p.evaluate(()=>myId);keys[n]=await p.evaluate(()=>uid)}
+    assert.ok(Object.values(ids).every((id,i)=>id&&id!==Object.values(keys)[i]),'açık kimlik gizli anahtardan farklı olmalı');
     const roles={};for(const [n,p] of [['Ev',host],...Object.entries(pages)])roles[n]=await p.textContent('.ov.mine b');
     console.log('  roller:',roles);
     const R=roomOf().game;
@@ -102,7 +103,7 @@ const step=t=>console.log('•',t);
     step('eski ev sahibi de döner; rolü durur, ev sahibi değildir');
     const hostCtx2=await newCtx();
     // aynı tarayıcıyı taklit et: kimlik localStorage'da
-    await hostCtx2.addInitScript(([u])=>{try{localStorage.setItem('kg_uid',JSON.stringify(u));localStorage.setItem('kg_name',JSON.stringify('Ev'))}catch(e){}},[ids.Ev]);
+    await hostCtx2.addInitScript(([u])=>{try{localStorage.setItem('kg_uid',JSON.stringify(u));localStorage.setItem('kg_name',JSON.stringify('Ev'))}catch(e){}},[keys.Ev]);
     host=await open(hostCtx2,'Ev',link);
     await host.waitForSelector('.ov.mine',{timeout:10000});
     assert.strictEqual(await host.textContent('.ov.mine b'),roles.Ev);

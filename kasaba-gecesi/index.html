@@ -179,61 +179,24 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 <div id="app"><div class="panel"><p class="muted">Yükleniyor…</p></div></div>
 <script>
 // Script daha başlamadan çökerse "Yükleniyor…" yerine hatayı göster (sürüm damgasıyla).
-window.KG_VER='2026-10-12s';
+window.KG_VER='2026-10-12t';
 window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ff6b6b"><p><b>Sayfa açılamadı.</b> Sürüm '+KG_VER+'</p><p class="small" style="word-break:break-all">'+String(e.message||e.error||e)+(e.filename?' @'+e.lineno:'')+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}});
 setTimeout(function(){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ffb347"><p><b>Sayfa yüklenemedi.</b> Sürüm '+KG_VER+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}},8000);
 </script>
+<script src="sunucu/game.js"></script>
 <script>
-// ---------- Rol tanımları ----------
-// act: 'other' = bir ev seçer, 'self' = kendine, yok = yetenek yok. pos: gece gittiği evde nerede durur.
-const ROLES={
-  masum:{n:'Masum',team:'inn',ico:'🏠',desc:'Özel bir yeteneğin yok. Gündüz tartış, oylamayla hainleri bul.'},
-  doktor:{n:'Doktor',team:'inn',ico:'💉',desc:'Gece birini seç. O gece saldırıya uğrarsa kurtulur.',act:'other',pos:'door'},
-  deli:{n:'Deli',team:'inn',ico:'🌀',desc:'Masum bir rol olduğunu sanırsın ama yaptıkların hiçbir şey değiştirmez.'},
-  polis:{n:'Polis',team:'inn',ico:'👮',desc:'Seçtiğin kişi o gece evden çıkamaz; rolünü kullanamaz. Seri Katil\'i tutamazsın.',act:'other',dual:true,pos:'door'},
-  gozcu:{n:'Gözcü',team:'inn',ico:'🔭',desc:'Seçtiğin evi gözetlersin; o gece kaç kişinin geldiğini öğrenirsin.',act:'other',dual:true,pos:'bush'},
-  izci:{n:'İzci',team:'inn',ico:'👣',desc:'Seçtiğin kişiyi izlersin; gece hangi eve gittiğini öğrenirsin.',act:'other',dual:true,pos:'bush'},
-  dedektif:{n:'Dedektif',team:'inn',ico:'🔍',desc:'Seçtiğin kişinin evini ararsın; olabileceği rolleri öğrenirsin.',act:'other',dual:true,pos:'window'},
-  tuzakci:{n:'Tuzakçı',team:'inn',ico:'🪤',desc:'Seçtiğin evin önüne tuzak kurarsın; o eve gelen herkes yakalanır ve rolünü kullanamaz.',act:'other',dual:true,pos:'door'},
-  ispiyoncu:{n:'İspiyoncu',team:'inn',ico:'📣',desc:'Bir kez: seçtiğin kişinin rolünü sabah meydanda herkese açıklarsın.',act:'other',once:true,dual:true,pos:'window'},
-  provokator:{n:'Provokatör',team:'inn',ico:'🔥',desc:'Bir kez: seçtiğin kişi ertesi günkü oylamaya 2 oyla başlar.',act:'other',once:true,dual:true,pos:'door'},
-  hain:{n:'Hain',team:'imp',ico:'🗡️',desc:'Her gece birinin evine girip onu öldürürsün. Hainler birbirini tanır ama gece birbirini göremez.'},
-  temizlikci:{n:'Temizlikçi',team:'imp',ico:'🧹',desc:'Gece ya öldürürsün ya temizlersin: seçtiğin kişi o gece ölürse rolü sabah gizli kalır.',act:'other',pos:'door'},
-  suclayici:{n:'Suçlayıcı',team:'imp',ico:'🫵',desc:'Gece ya öldürürsün ya suçlarsın: seçtiğin kişi o gece ölür ya da ertesi gün asılırsa rolü Hain görünür.',act:'other',pos:'door'},
-  hayatta:{n:'Hayatta Kalan',team:'neu',ico:'🦺',desc:'Sona kadar yaşa. 3 kez yelek giyebilirsin; yelekliyken ölmezsin. Kazanan tarafla kazanırsın.',act:'self'},
-  serikatil:{n:'Seri Katil',team:'neu',ico:'🔪',desc:'Her gece birinin evine girip onu öldürürsün. Polis seni tutamaz. Tek başına kalınca kazanırsın.',act:'other',pos:'enter'},
-  bombaci:{n:'Bombacı',team:'neu',ico:'🧨',desc:'Her gece bir eve dinamit koyarsın. İstediğin gece hepsini patlatırsın. Herkes ölünce kazanırsın.',act:'other',pos:'door'},
-  hirsiz:{n:'Hırsız',team:'neu',ico:'🎭',desc:'Seçtiğin kişinin evine girip onu öldürür ve rolünü çalarsın; artık o rolle o tarafta oynarsın.',act:'other',pos:'enter'},
-  buyucu:{n:'Büyücü',team:'neu',ico:'⚡',desc:'Evinden çıkmadan birini seçip rolünü tahmin edersin. Doğruysa yıldırımla ölür, Doktor kurtaramaz. Yanlışsa sen ölürsün. Tek başına kazanırsın.',act:'other',guess:true,pos:'home'},
-  hortlak:{n:'Hortlak',team:'neu',ico:'🕯️',desc:'Gece bir evin önüne mum koyarsın. Ertesi gün asılırsan o gece hayalet olarak gelir, mum koyduğun kişiyi öldürürsün. Asılınca kazanırsın.',act:'other',pos:'door'}
-};
+// ---------- Rol tanımları: sunucu/game.js ile tek kaynak (window.KG_GAME) ----------
+const {ROLES,SETUP,COLORS,HATS:HAT_IDS,roleLabel}=window.KG_GAME;
+const HAT_NAMES={none:'Yok',beanie:'Bere',cap:'Kasket',ears:'Kulak',bow:'Fiyonk',glasses:'Gözlük',hood:'Kapüşon'};
+const HATS=HAT_IDS.map(k=>[k,HAT_NAMES[k]||k]);
 const TEAMN={inn:'Masum',imp:'Hain',neu:'Tarafsız'};
-const MADPOOL=['doktor','polis','gozcu','izci','dedektif','tuzakci','ispiyoncu','provokator'];
-const INVGROUPS=[['doktor','serikatil','hirsiz'],['polis','hain','hayatta'],['gozcu','dedektif','bombaci'],['tuzakci','ispiyoncu','temizlikci'],['provokator','suclayici','masum'],['izci','buyucu','hortlak']];
-const DUAL=['polis','gozcu','izci','dedektif','tuzakci','ispiyoncu','provokator'];
-const SETUP=[
-  ...['masum','doktor','deli','polis','gozcu','izci','dedektif','tuzakci','ispiyoncu','provokator'].map(k=>({id:k,key:k,team:'inn'})),
-  {id:'hain',key:'hain',team:'imp'},{id:'temizlikci',key:'temizlikci',team:'imp'},{id:'suclayici',key:'suclayici',team:'imp'},
-  ...DUAL.map(k=>({id:k+'_h',key:k,team:'imp'})),
-  ...['hayatta','serikatil','bombaci','hirsiz','buyucu','hortlak'].map(k=>({id:k,key:k,team:'neu'}))
-];
-const COLORS=['#3b7bff','#ff6fae','#2fb55a','#ffd23f','#8e4bff','#2fd3c8','#ff7a2f','#f4f1e8','#6b3f2a','#e23b3b','#9bd84a','#ff9ad5'];
-const HATS=[['none','Yok'],['beanie','Bere'],['cap','Kasket'],['ears','Kulak'],['bow','Fiyonk'],['glasses','Gözlük'],['hood','Kapüşon']];
-function roleLabel(r){const b=ROLES[r.key];return b.n+((r.team==='imp'&&b.team!=='imp')?' (Hain)':'')}
-function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
-function autoSetup(n){
-  const c={};const add=id=>{c[id]=(c[id]||0)+1};
-  const imp=n<=5?1:n<=8?2:3;add('hain');if(imp>=2)add(shuffle(['temizlikci','suclayici','polis_h','gozcu_h','dedektif_h','tuzakci_h','izci_h'])[0]);if(imp>=3)add(shuffle(['hain','ispiyoncu_h','provokator_h','temizlikci'])[0]);
-  let used=imp;if(n>=7){add(shuffle(['serikatil','serikatil','bombaci','hirsiz','buyucu','hortlak'])[0]);used++}if(n>=10){add('hayatta');used++}
-  const inn=['doktor','polis',...shuffle(['gozcu','dedektif','tuzakci','deli','ispiyoncu','provokator','izci'])];
-  for(let i=0;used<n;i++,used++)add(inn[i]||'masum');
-  return c;
-}
 function ls(k,v){try{if(v===undefined)return JSON.parse(localStorage.getItem(k));localStorage.setItem(k,JSON.stringify(v))}catch(e){return null}}
 function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
 
 // ---------- Durum ----------
-let isHost=false,myId=null,myName=ls('kg_name')||'',roomCode=null,ws=null,connected=false,everConnected=false,connErr=null,wantHost=false,fatal=false,retryN=0,retryT=null;
+// myId: sunucunun verdiği açık kimlik (join yanıtı). uid (kg_uid) gizli anahtardır, yalnız sunucuya gider.
+let isHost=false,myId=null,active=false,myName=ls('kg_name')||'',roomCode=null,ws=null,connected=false,everConnected=false,connErr=null,wantHost=false,fatal=false,retryN=0,retryT=null;
+let chatLog=[]; // sohbet state ile değil, parça parça gelir ({t:'chat'}); P.chat buna bağlanır
 let myLook=ls('kg_look')||{color:COLORS[Math.floor(Math.random()*COLORS.length)],hat:HATS[Math.floor(Math.random()*HATS.length)][0]};
 let P={phase:'landing'};
 let priv={role:null,notes:[],mates:[],dchat:[],uses:{},vest:0,planted:[]};
@@ -257,31 +220,38 @@ function wsUrl(){
   return (location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws';
 }
 function hostRoom(reuse){
-  wantHost=true;isHost=true;myId=uid;roomCode=reuse?(ls('kg_room')||null):null;P=lobbyState();render();connect();
+  wantHost=true;isHost=true;active=true;roomCode=reuse?(ls('kg_room')||null):null;P=lobbyState();render();connect();
 }
 function joinRoom(code){
-  wantHost=false;myId=uid;roomCode=code;P=lobbyState();render();connect();
+  wantHost=false;active=true;roomCode=code;P=lobbyState();render();connect();
 }
 function connect(){
   clearTimeout(retryT);
   if(ws){ws.onclose=null;try{ws.close()}catch(e){}ws=null}
   try{ws=new WebSocket(wsUrl())}catch(e){connErr='Sunucu adresi geçersiz: '+wsUrl();render();return}
-  ws.onopen=()=>{connected=true;retryN=0;connErr=null;send({t:'join',room:roomCode,uid:myId,name:myName,color:myLook.color,hat:myLook.hat,host:wantHost||undefined,settings:wantHost?settings:undefined});render()};
+  ws.onopen=()=>{connected=true;retryN=0;connErr=null;send({t:'join',room:roomCode,uid,name:myName,color:myLook.color,hat:myLook.hat,host:wantHost||undefined,settings:wantHost?settings:undefined});render()};
   ws.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch(x){return}onServerMsg(m)};
   ws.onclose=()=>{ws=null;connected=false;if(fatal)return;render();retryT=setTimeout(connect,Math.min(15000,1000*2**retryN++))};
   ws.onerror=()=>{};
 }
 // telefon uykudan dönünce beklemeden yeniden bağlan
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&myId&&!fatal&&(!ws||ws.readyState>1)){retryN=0;connect()}});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&active&&!fatal&&(!ws||ws.readyState>1)){retryN=0;connect()}});
 function onServerMsg(m){
-  if(m.t==='state'){
+  if(m.t==='you'){myId=m.id;render()}
+  else if(m.t==='state'){
     const prev=P;P=m.P;if(m.now)skew=Date.now()-m.now;lobby=P.lobby||[];roomCode=P.room||roomCode;isHost=P.hostId===myId;everConnected=true;connErr=null;
+    // yeni oyun ya da lobi: sohbet sıfırlanır (sunucu yeni satırları ayrıca yollar)
+    if(P.phase==='lobby'||P.gameId!==prev.gameId)chatLog=[];
+    P.chat=chatLog;
     if(isHost)ls('kg_room',roomCode);
     // yenileyince aynı odaya dönülsün diye adres çubuğunda oda kodu dursun
     if(roomCode&&qs.get('oda')!==roomCode){qs.set('oda',roomCode);try{history.replaceState(null,'',location.pathname+'?'+qs.toString())}catch(e){}}
-    const pl_=(prev.chat||[])[(prev.chat||[]).length-1],nl=(P.chat||[])[(P.chat||[]).length-1];
-    if(nl&&!nl.sys&&nl.id!==myId&&(!pl_||pl_.ts!==nl.ts)&&prev.gameId===P.gameId)SFX.pop();
     onStateChange(prev);render();
+  }
+  else if(m.t==='chat'){
+    const a=Array.isArray(m.a)?m.a:[];chatLog.push(...a);if(chatLog.length>150)chatLog.splice(0,chatLog.length-150);P.chat=chatLog;
+    if(!m.init&&a.some(c=>!c.sys&&c.id!==myId))SFX.pop();
+    render();
   }
   else if(m.t==='priv'){priv=m.d||{role:null,notes:[],mates:[],dchat:[]};render()}
   else if(m.t==='err'){
@@ -692,7 +662,7 @@ function renderLobbyUI(stage){
     const items=[{h:'SÜRELER (saniye)'}];
     [['night','Gece'],['talk','Tartışma'],['vote','Oylama']].forEach(([k,l])=>{const lab=el('label',null,l);const i=el('input');i.type='number';i.min=15;i.max=600;i.value=settings[k];i.onchange=()=>{settings[k]=Math.max(15,Math.min(600,+i.value||30));ls('kg_settings',settings);send({t:'settings',...settings})};lab.append(i);items.push({node:lab})});
     items.push({node:el('div','h','Roller oyun başlayınca rastgele seçilir ve dağıtılır.')});
-    items.push({h:'ODA'},{t:soundOn?'🔊 Ses: açık':'🔇 Ses: kapalı',on:()=>{soundOn=!soundOn;ls('kg_sound',soundOn)}},{t:'📖 Nasıl oynanır',on:()=>{ui.rules=!ui.rules}},{t:'✖ Odayı kapat',cls:'d',on:()=>{location.search=''}});
+    items.push({h:'ODA'},{t:soundOn?'🔊 Ses: açık':'🔇 Ses: kapalı',on:()=>{soundOn=!soundOn;ls('kg_sound',soundOn)}},{t:'📖 Nasıl oynanır',on:()=>{ui.rules=!ui.rules}},{t:'✖ Odayı kapat',cls:'d',on:()=>{send({t:'close'});fatal=true;setTimeout(()=>{location.search=''},150)}});
     gearMenu(stage,items);
     const st=el('button','ov start','Oyunu başlat');st.disabled=!(n>=4&&n<=12);st.onclick=()=>startGame();stage.append(st);
     if(!ui.custom&&!ui.menu){if(n<4)stage.append(el('div','ov hint','Başlamak için en az 4 oyuncu gerekir. Linki gönder; açan herkes meydana gelir.'));
