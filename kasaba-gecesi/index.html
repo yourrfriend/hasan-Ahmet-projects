@@ -244,9 +244,8 @@ function inviteLink(){return location.origin+location.pathname+'?oda='+roomCode}
 function lobbyState(){return{phase:'lobby',chat:[],dead:[],players:[],lobby:[]}}
 
 // ---------- Başlat ----------
-const qs=new URLSearchParams(location.search);
-if(qs.get('oda')){joinRoom(qs.get('oda').toLowerCase().replace(/[^a-z0-9]/g,''))}else{render()}
 function hostRoom(reuse){
+  if(typeof Peer==='undefined'){connErr='Bağlantı kütüphanesi yüklenemedi. İnternetini kontrol edip sayfayı yenile.';render();return}
   isHost=true;myId=uid;roomCode=(reuse&&ls('kg_room'))||genCode();ls('kg_room',roomCode);
   S=(reuse&&ls('kg_secret'))||{game:null};P=(reuse&&ls('kg_pub'))||lobbyState();
   if(!S.game||P.phase==='lobby'||P.phase==='end'){P=lobbyState();S.game=null}
@@ -267,6 +266,7 @@ function openHostPeer(){
   });
 }
 function joinRoom(code){
+  if(typeof Peer==='undefined'){isHost=false;myId=uid;roomCode=code;P={phase:'lobby',lobby:[],players:[],chat:[],dead:[]};connErr='Bağlantı kütüphanesi yüklenemedi. İnternetini kontrol edip sayfayı yenile.';render();return}
   isHost=false;myId=uid;roomCode=code;P={phase:'lobby',lobby:[],players:[],chat:[],dead:[]};render();
   peer=new Peer(Object.assign({debug:0},window.PEER_OPTS||{}));
   peer.on('open',()=>{connStage='host';render();connectHost()});
@@ -955,6 +955,9 @@ function renderEndUI(stage){
 setInterval(()=>{if(P.ends&&P.phase!=='lobby'&&P.phase!=='end'&&P.phase!=='landing'){const t=document.querySelector('.timer');if(t)t.textContent=fmtTime(P.ends-now())}},1000);
 setInterval(()=>{if(!isHost&&!connected&&!connErr&&roomCode)render()},3000);
 setInterval(()=>{if(P.phase==='talk'||P.phase==='vote')render()},2500); // konuşma balonları ve ufak güncellemeler
+// ---------- Başlat (tüm tanımlar yüklendikten sonra) ----------
+const qs=new URLSearchParams(location.search);
+if(qs.get('oda')){joinRoom(qs.get('oda').toLowerCase().replace(/[^a-z0-9]/g,''))}else{render()}
 </script>
 </body>
 </html>
