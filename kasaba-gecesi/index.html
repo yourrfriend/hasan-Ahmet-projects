@@ -61,6 +61,13 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 .stage .collapse{transform-box:fill-box;transform-origin:50% 100%;animation:collapse .8s cubic-bezier(.3,0,.6,1) forwards}
 @keyframes collapse{0%{transform:rotate(0)}35%{transform:rotate(-8deg) translateY(-6px)}100%{transform:rotate(-80deg) translateY(10px)}}
 .stage .idle .hop{animation:breathe 2.6s ease-in-out infinite}
+.stage .launch{animation:launch 1.6s cubic-bezier(.3,0,.7,.2) forwards}
+@keyframes launch{0%{transform:translate(0,0) rotate(0)}100%{transform:translate(420px,-900px) rotate(720deg)}}
+.stage .pad .plate{transform-box:fill-box;transform-origin:50% 100%}
+.stage .pad.press .plate{animation:press .5s ease-in forwards}
+@keyframes press{0%{transform:translateY(0)}100%{transform:translateY(14px)}}
+.stage .pad.fire .plate{animation:fire .25s ease-out forwards}
+@keyframes fire{0%{transform:translateY(14px)}100%{transform:translateY(-10px)}}
 @keyframes breathe{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.025)}}
 .stage .bean.fast{transition:transform .6s ease-out,opacity .3s}
 .stage .nightlayer{transition:opacity 1.6s}
@@ -525,7 +532,11 @@ function sceneGround(svg,rnd){const treeCrowns=[];
   [[80,240],[990,300],[280,650],[1040,90]].forEach(([x,y])=>rock(x,y));
   const rb=SE('g',{transform:'translate(1010,230)'},svg);rb.classList.add('rabbit');SE('ellipse',{cx:0,cy:0,rx:9,ry:6,fill:'#fff'},rb);SE('ellipse',{cx:-4,cy:-7,rx:2,ry:6,fill:'#fff'},rb);SE('ellipse',{cx:2,cy:-7,rx:2,ry:6,fill:'#fff'},rb);SE('circle',{cx:4,cy:-1,r:1,fill:'#333'},rb);
   SE('ellipse',{cx:SCX,cy:SCY+6,rx:250,ry:135,fill:'url(#s_clear)'},svg);
-  return {treeCrowns,rabbit:rb};
+  const pad=SE('g',{class:'pad',transform:`translate(${SCX},${SCY+18})`,filter:'url(#s_sh)'},svg);
+  SE('ellipse',{cx:0,cy:8,rx:30,ry:9,fill:'rgba(0,0,0,.18)'},pad);
+  SE('path',{d:'M-10 6 q-8 -4 0 -8 q8 4 0 8 q-8 4 0 8 q8 -4 0 -8',fill:'none',stroke:'#2b2416','stroke-width':3,'stroke-linecap':'round'},pad);
+  const plate=SE('g',{class:'plate'},pad);SE('path',{d:'M-34 -18 L34 -26 L38 -12 L-30 -4 Z',fill:'#c9b08a',stroke:'#2b2416','stroke-width':2.5,'stroke-linejoin':'round'},plate);SE('path',{d:'M-30 -4 L38 -12 L38 -7 L-30 1 Z',fill:'#9a7d55',stroke:'#2b2416','stroke-width':2},plate);
+  return {treeCrowns,rabbit:rb,pad};
 }
 function drawHouse(parent,x,y,name){
   const g=SE('g',{transform:`translate(${x},${y})`},parent);
@@ -678,12 +689,15 @@ function renderScene(){
     if(lobbyMode){const i=players.indexOf(p);const N=players.length;const ang=-Math.PI/2+i*2*Math.PI/Math.max(N,3);x=SCX+Math.cos(ang)*(N>6?170:120);y=SCY+Math.sin(ang)*(N>6?85:60)}
     else if(dead){
       if(freshDeath)show=false;                                  // sabah: ceset ayrı çizilir
-      else if(eveningOut&&eveningOut.id===p.id&&a<5){x=SCX;y=SCY+10;pose=a>2.6?'dead':'scared';look=0;front=true;fast=true;b.inner.classList.toggle('collapse',a>2.6)}
+      else if(eveningOut&&eveningOut.id===p.id&&a<5){x=SCX;y=SCY-10;pose='scared';look=0;front=true;fast=true;
+        const pad=S_.env.pad;if(pad){pad.classList.toggle('press',a>2.4&&a<=3.1);pad.classList.toggle('fire',a>3.1)}
+        if(a>3.1){if(!b.inner.classList.contains('launch')){b.inner.classList.add('launch');SFX.boing()}}else b.inner.classList.remove('launch')}
       else show=false;
     }else if(P.phase==='end'&&!(eseq&&a<5)){x=pos.cx;y=pos.cy}
     else if(eseq){
       // akşam: a<2.5 meydanda, sonra herkes evine, 4.5 sn sonra içeride (sadece sen görünürsün)
       if(a<2.5){x=pos.cx;y=pos.cy;if(eveningOut){look=SCX>x?1:-1;pose=a>2.6?'sad':'idle'}}
+      else if(eveningOut&&a<5){x=pos.cx;y=pos.cy;look=SCX>x?1:-1;pose=a>3.1?'scared':'sad'}
       else{x=home.x;y=home.y;look=pos.hx>SCX?-1:1;
         if(a>4.5){const isMe=p.id===myId;if(!isMe)show=false;else{front=true;const kind=myPosKind();
           if(myTarget&&S_.houses[myTarget]&&kind!=='home'){const sp=nightSpot(S_.houses[myTarget],kind);x=sp.x;y=sp.y;look=kind==='bush'||kind==='window'?1:-1;if(entered)enterMode=true}}}}
@@ -700,7 +714,7 @@ function renderScene(){
       const m=[...(P.chat||[])].reverse().find(m=>!m.sys&&m.id===p.id&&m.ts&&now()-m.ts<6000);if(m){pose='point';bubbleAt(S_.labels,x,y,m.t)}
       const sn=mseq&&P.morning&&P.morning.snitch.find(s=>s.by===p.id);if(sn&&a>1.5&&a<7){x=SCX;y=SCY+10;pose='point';look=S_.pos[sn.t]&&S_.pos[sn.t].cx<SCX?-1:1;front=true}
     }
-    if(pose!=='dead')b.inner.classList.remove('collapse');setBean(b,{look,tilt,pose});moveBean(b,x,y,s,fast,enterMode?'enter':null);b.g.style.opacity=show?1:0;b.g.style.pointerEvents='none';
+    if(pose!=='dead')b.inner.classList.remove('collapse');if(!(eveningOut&&eveningOut.id===p.id))b.inner.classList.remove('launch');setBean(b,{look,tilt,pose});moveBean(b,x,y,s,fast,enterMode?'enter':null);b.g.style.opacity=show?1:0;b.g.style.pointerEvents='none';
     if(front&&b.g.parentNode!==S_.topLayer)S_.topLayer.appendChild(b.g);else if(!front&&b.g.parentNode!==S_.beanLayer)S_.beanLayer.appendChild(b.g);
     if(show){
       if(p.id===myId)tagAt(S_.labels,x,y-44,lobbyMode?'SEN · DOKUN':'SEN','#ffb020','#3a2f1c');
@@ -715,6 +729,7 @@ function renderScene(){
   }
   // sabah efektleri
   for(const h of Object.values(S_.houses))h.body.classList.remove('shake');
+  if(S_.env.pad&&!(eveningOut&&a<5)){S_.env.pad.classList.remove('press','fire')}
   if(mseq&&P.morning&&a<7){
     for(const d of P.morning.deaths){const h=S_.houses[d.id],p=pl(d.id);if(h&&p)drawCorpse(S_.fx,h,p,d.cause)}
     for(const v of P.morning.saved){const h=S_.houses[v];if(!h)continue;[[-30,-60],[20,-95],[60,-50]].forEach(([dx,dy],k)=>{const g=SE('g',{transform:`translate(${h.x+dx},${h.y+dy})`},S_.fx);const i=SE('g',{class:'plus',style:`animation-delay:${k*.4}s`},g);SE('circle',{r:12,fill:'#3ddc5a',filter:'url(#s_sh)'},i);SE('path',{d:'M-6 0h12M0 -6v12',stroke:'#fff','stroke-width':3,'stroke-linecap':'round'},i)})}
@@ -762,6 +777,7 @@ const SFX={
   ghost(){const c=ac();if(!c)return;const t=c.currentTime;tone(500,700,.8,.05,'sine',t);tone(700,450,1,.05,'sine',t+.7)},
   gavel(){const c=ac();if(!c)return;const t=c.currentTime;[0,.22].forEach(d=>{noise(.08,.15,1200);tone(160,110,.12,.14,'square',t+d)})},
   pop(){tone(600,900,.08,.05,'sine')},
+  boing(){const c=ac();if(!c)return;const t=c.currentTime;tone(180,900,.35,.12,'sine',t);tone(900,300,.45,.08,'sine',t+.3)},
   vote(){tone(520,780,.12,.06,'triangle')}
 };
 let ambTimer=null,lastAmb=0;
