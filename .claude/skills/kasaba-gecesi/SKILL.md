@@ -1,0 +1,88 @@
+---
+name: kasaba-gecesi
+description: Kasaba Gecesi (kasaba-gecesi/ klasörü) üzerinde çalışırken kullan. Rol ekleme/değiştirme, oyun kuralları, sunucu (WebSocket, oda, faz zamanlayıcı), istemci arayüzü, sahne/animasyon/ses, testler, VPS kurulumu (kur.sh, Caddy) ya da oyunla ilgili bir hata. Mimariyi, dokunulmaz kuralları, test ve doğrulama akışını ve bilinen tuzakları anlatır.
+---
+
+# Kasaba Gecesi
+
+4–12 kişilik, tarayıcıda oynanan sosyal çıkarım oyunu (Feign tarzı). Türkçe arayüz, telefonda yatay oynanır.
+Oda ve oyun mantığı Node sunucusunda yaşar; ev sahibi dahil herkes WebSocket ile bağlanır.
+
+## Dosyalar
+
+| Dosya | İçerik |
+|---|---|
+| `kasaba-gecesi/index.html` | İstemci: tek dosya (CSS + JS). SVG köy sahnesi, animasyon, Web Audio ile üretilen sesler, arayüz, ağ katmanı. |
+| `kasaba-gecesi/sunucu/game.js` | Oyun kuralları, ağdan bağımsız: `startGame`, `setPhase`, `resolveNight`, `resolveVote`, `checkWin`, `act/vote/chat/deadChat`, `privFor`, `tick`. |
+| `kasaba-gecesi/sunucu/server.js` | HTTP (sayfayı sunar, `/saglik`) + WebSocket (`/ws`), bellek içi odalar, 500 ms'lik zamanlayıcı. |
+| `kasaba-gecesi/sunucu/test/` | `game.test.js`, `server.test.js` (`npm test`), `e2e.js` (`npm run e2e`). |
+| `kasaba-gecesi/sunucu/kur.sh`, `Caddyfile` | VPS kurulumu: Node 20, Caddy (otomatik HTTPS), systemd `kasaba-gecesi`, uygulama `/opt/kasaba-gecesi`. |
+| `kasaba-gecesi/sunucu/PLAN.md` | Sunucuya taşıma planı ve durumu. |
+
+## Mimari ve veri akışı
+
+- Oda nesnesi: `room.game = R = {P, g, settings}`.
+  - `R.P` **herkese açık** durum; istemciye aynen gider (`{t:'state', P:{...P, lobby, hostId, room}, now}`).
+  - `R.g` **gizli** durum: `roles, acts, votes, notes, dchat, candle, haunt, provoke, blame…`. Asla istemciye gitmez.
+  - Kişiye özel bilgi yalnız `privFor(R, uid)` ile, yalnız o oyuncunun soketlerine gider (`{t:'priv', d}`).
+- İstemci → sunucu: `join{room,uid,name,color,hat,host?,settings?}`, `look`, `settings`, `start`, `cancel`, `act{kill,ab,guess,det,d}`, `vote{v,d}`, `msg{x}`, `dmsg{x}`.
+- Oyuncu kimliği `kg_uid` (localStorage). Yeniden bağlanan aynı uid ile aynı oyuncu olur. Ev sahibi = `room.hostId`; 10 dk bağlı değilse bağlı bir oyuncuya geçer (`HOST_GRACE_MS`). Odalar 2 saat mesajsız kalınca silinir (`ROOM_TTL_MS`).
+- Faz akışı: `night → talk → vote → night…`, `checkWin` olursa `end`. Süreler `P.settings` (en az 15 sn); sabah/akşam animasyonu için `talk` +7 sn, `night` +6 sn eklenir. Herkes oy verince oylama beklemeden biter.
+- İstemcide `isHost = P.hostId === myId`. Sunucu adresi: `?s=` parametresi, sonra `KG_SERVER` sabiti, yoksa sayfanın kendi origin'i + `/ws`.
+
+## Dokunulmaz kurallar
+
+1. **Gizli bilgi `P`'ye girmez.** Rol, gece hamlesi, oy hedefi, not, ölü sohbeti `R.g` ya da `privFor` içinde kalır. `P.morning`/`P.evening` gibi açıklanan sonuçlar hariç. Testler `state` içinde gizli anahtar arar; yeni gizli alan eklersen `test/game.test.js` içindeki `SECRET_KEYS` listesine de ekle.
+2. **Sunucu yetkilidir.** Her istemci mesajı `game.js` içinde doğrulanır: faz, gün (`d`), oyuncu yaşıyor mu, hedef gerçek oyuncu mu, `guess` gerçekten `ROLES` anahtarı mı (`hasOwnProperty`). İstemciye güvenme.
+3. **İstemci kural hesaplamaz.** `index.html` yalnız gösterir ve mesaj yollar; kural değişikliği `game.js`'e yapılır.
+4. **Sahne, animasyon, ses kodu** (`// ---------- Köy sahnesi` ve `// ---------- Ambiyans` bölümleri) kullanıcı istemedikçe değişmez; görünüm aynı kalmalı.
+5. **İstemci ve sunucuda kopya sabitler var:** `ROLES`, `SETUP`, `COLORS`, `HATS` hem `index.html`'de hem `game.js`'te. Birini değiştirirsen ötekini de aynı değiştir; `kontrol.sh` farkı yakalar.
+6. `index.html` değişince `window.KG_VER` damgasını artır (ör. `'2026-10-12s'` → yeni tarih + harf). Hata ekranı bu sürümü gösterir; önbellek sorunlarını ayırt etmeye yarar.
+7. Arayüz metinleri Türkçe ve kısa; mevcut üslubu koru.
+
+## Doğrulama akışı
+
+Her değişiklikten sonra:
+
+```sh
+.claude/skills/kasaba-gecesi/scripts/kontrol.sh          # sözdizimi + sabit eşleşmesi + npm test
+.claude/skills/kasaba-gecesi/scripts/kontrol.sh --e2e    # arayüz/ağ değiştiyse: + 4 sekmeli tarayıcı testi
+```
+
+- Kural değişikliği → `test/game.test.js`'e senaryo ekle (`fixed([...roller])` yardımcısıyla rolleri sabitleyip `act`/`advance`/`vote` çağır).
+- Protokol/sunucu değişikliği → `test/server.test.js`.
+- Arayüz değişikliği → `--e2e` çalıştır ve ekran görüntüsüne **bak** (aşağıdaki gibi). Görsel değişiklikte telefon yatay boyutu da dene (ör. 844×390).
+
+Elle deneme ve ekran görüntüsü:
+
+```sh
+cd kasaba-gecesi/sunucu && PORT=8799 node server.js &      # http://127.0.0.1:8799
+NODE_PATH="$(npm root -g)" node betik.js                    # Playwright betiği; çıktıyı scratchpad'e yaz
+```
+
+Playwright betiğinde süreleri beklemek yerine sunucuyu aynı süreçte `createServer({quiet:true,tickMs:100})` ile aç ve `srv.rooms.get(kod).game.P.ends = Date.now()-1` ile fazı ilerlet (`test/e2e.js` örnek).
+
+## Sık yapılan işler
+
+**Yeni rol eklemek**
+1. `game.js` → `ROLES`'a tanım (`n, team, ico, desc, act?, pos?, once?, dual?`), gerekiyorsa `SETUP`, `MADPOOL`, `INVGROUPS`, `autoSetup`.
+2. Gece etkisi `resolveNight` içindeki doğru adıma (1 tuzak · 2 polis · 3 ziyaret · 4 koruma · 5 saldırı · 6 bilgi · 7 ölümler); kazanma koşulu `checkWin`.
+3. Aynı `ROLES`/`SETUP` değişikliğini `index.html`'e kopyala; özel düğme gerekiyorsa `renderGameUI` (gece eylem düğmeleri) ve `modesFor`.
+4. `game.test.js`'e senaryo; `kontrol.sh --e2e`.
+
+**Yeni istemci mesajı** → `server.js` `onMessage` içinde `switch` dalı + `game.js`'te doğrulayan fonksiyon + istemcide `send({t:…})` + `server.test.js`.
+
+**Sunucuda yayın** → durum değişince `schedule(room)` (40 ms içinde birleşik gönderim) ya da hemen `flush(room)`. `priv` yalnız değiştiyse gider (`room.lastPriv`).
+
+## Bilinen tuzaklar
+
+- İlk gece rol kartı (`ui.roleCard`) açıkken evler tıklanmaz; testte önce "Anladım"a bas. Eylem düğmeleri gece başladıktan ~2,5 sn sonra açılır.
+- Evler SVG; tıklama `scene.houses[id].g.onclick` ile bağlı.
+- Playwright global kurulu (`npm root -g`); `NODE_PATH` vermeden `require('playwright')` bulunmaz. `playwright install` çalıştırma.
+- `pkill -f "node server.js"` kendi kabuğunu da öldürür (komut satırında aynı metin geçer). `pkill -f "[n]ode server.js"` kullan.
+- Odalar bellekte: servis yeniden başlarsa açık oyunlar kaybolur. Kalıcılık istenirse bu ayrı bir iş (PLAN.md "Sonrası").
+- `kur.sh` systemd ister; konteynerde uçtan uca çalıştırılamaz. Değiştirirsen `bash -n`, Caddyfile için `caddy validate` ile doğrula.
+
+## Yayına alma
+
+VPS'te: `git pull && sudo ./kur.sh <alan-adı>` (`kasaba-gecesi/sunucu` içinden). Günlük: `journalctl -u kasaba-gecesi -f`. Sağlık: `curl http://127.0.0.1:8787/saglik`.
