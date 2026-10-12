@@ -55,6 +55,14 @@ Faz geçişleri sunucuda `setInterval` ile (mevcut `startTimer` mantığı). Ev 
 5. Yerel uçtan uca test: Playwright ile 2+ sekme aynı odaya, ev sahibi sekmesi kapatılınca oyunun sürmesi, kopan oyuncunun geri girmesi.
 6. Kullanıcı VPS'te `git clone` + `./kur.sh` çalıştırır; alan adı DNS'i VPS'e yönlendirilmiş olmalı.
 
+## Durum
+- [x] 1. `game.js` + birim testleri (`npm test`)
+- [x] 2. `server.js` + sunucu testleri (`npm test`)
+- [x] 3. `index.html` ağ katmanı (PeerJS kalktı)
+- [x] 4. `kur.sh` + `Caddyfile` + README kurulum bölümü
+- [x] 5. Uçtan uca test (`npm run e2e`)
+- [ ] 6. VPS'te `git clone -b sunucu …` + `sudo ./kur.sh ALAN` (kullanıcı yapar; README'de adımlar var)
+
 ## Kullanıcıdan gerekenler
 - VPS (Ubuntu/Debian), SSH ile kendisi girer; şifre sohbete yazılmaz.
 - Alan adı (ör. `oyun.ALAN`) → VPS IP'sine A kaydı. Yoksa HTTP + IP ile de çalışır (pano kopyalama ve mikrofon kısıtlanır).
