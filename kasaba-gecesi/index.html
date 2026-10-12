@@ -51,6 +51,17 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 .stage{position:fixed;inset:0;background:#6aa844;overflow:hidden;font-family:var(--body)}
 .stage svg.scene{position:absolute;inset:0;width:100%;height:100%}
 .stage .bean{transition:transform 1s cubic-bezier(.4,0,.2,1),opacity .5s}
+.stage .bean .hop{transform-box:fill-box;transform-origin:50% 100%}
+.stage .bean.walking .hop{animation:walkhop .22s ease-in-out 5 alternate}
+@keyframes walkhop{0%{transform:translateY(0) scaleY(1)}100%{transform:translateY(-7px) scaleY(1.06)}}
+.stage .bean.landed .hop{animation:land .35s ease-out}
+@keyframes land{0%{transform:scaleY(.85) scaleX(1.12)}60%{transform:scaleY(1.06) scaleX(.96)}100%{transform:scaleY(1) scaleX(1)}}
+.stage .bean.enter .hop{animation:enter .7s ease-in forwards}
+@keyframes enter{0%{transform:scale(1) translateY(0);opacity:1}100%{transform:scale(.5) translateY(-22px);opacity:0}}
+.stage .collapse{transform-box:fill-box;transform-origin:50% 100%;animation:collapse .8s cubic-bezier(.3,0,.6,1) forwards}
+@keyframes collapse{0%{transform:rotate(0)}35%{transform:rotate(-8deg) translateY(-6px)}100%{transform:rotate(-80deg) translateY(10px)}}
+.stage .idle .hop{animation:breathe 2.6s ease-in-out infinite}
+@keyframes breathe{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.025)}}
 .stage .bean.fast{transition:transform .6s ease-out,opacity .3s}
 .stage .nightlayer{transition:opacity 1.6s}
 .stage .fade{transition:opacity .6s}
@@ -141,7 +152,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 .stage .tree.rustle{animation:rustle 1.6s ease-in-out}
 @keyframes rustle{0%,100%{transform:rotate(0)}20%{transform:rotate(2.2deg)}45%{transform:rotate(-2deg)}70%{transform:rotate(1.2deg)}}
 .stage .bird{animation:fly var(--d,9s) linear forwards}
-@keyframes fly{0%{transform:translate(var(--x0),var(--y0))}50%{transform:translate(calc((var(--x0) + var(--x1))/2),calc(var(--y0) - 40px))}100%{transform:translate(var(--x1),var(--y1))}}
+@keyframes fly{0%{transform:translate(var(--x0),var(--y0))}20%{transform:translate(calc(var(--x0)*.8 + var(--x1)*.2),calc(var(--y0) - 30px))}45%{transform:translate(calc(var(--x0)*.55 + var(--x1)*.45),calc(var(--y0) + 10px))}70%{transform:translate(calc(var(--x0)*.3 + var(--x1)*.7),calc(var(--y1) - 35px))}100%{transform:translate(var(--x1),var(--y1))}}
 .stage .wing{transform-box:fill-box;transform-origin:50% 50%;animation:flap .28s ease-in-out infinite alternate}
 @keyframes flap{0%{transform:scaleY(1)}100%{transform:scaleY(-.6)}}
 .stage .butterfly{animation:flutter var(--d,12s) ease-in-out forwards}
@@ -555,10 +566,12 @@ function beanInner(g,c,hat,o){
   SE('path',{d:'M-20 23 C -10 30, 10 30, 20 23 C 17 31, 8 32, 0 32 C -8 32, -17 31, -20 23 Z',fill:'rgba(0,0,0,.14)'},body);
   SE('ellipse',{cx:-6,cy:-26,rx:5,ry:2.4,fill:'rgba(255,255,255,.4)'},body);
   const nub=(x,y,r,len)=>{SE('path',{d:`M${x} ${y} l${len*Math.cos(r)} ${len*Math.sin(r)}`,stroke:dk,'stroke-width':8.5,'stroke-linecap':'round'},body);SE('path',{d:`M${x} ${y} l${len*Math.cos(r)} ${len*Math.sin(r)}`,stroke:mid,'stroke-width':5.5,'stroke-linecap':'round'},body)};
-  const arms=pose==='point'?[[-17,2,2.1,8],[17,0,-.45,12]]:pose==='think'?[[-17,2,2.1,8],[15,-2,-2.3,9]]:pose==='shrug'?[[-16,0,-2.5,8],[16,0,-.6,8]]:pose==='dead'?[[-17,2,2.6,9],[17,2,.5,9]]:[[-17,2,2.1,8],[17,2,1.05,8]];
+  const arms=pose==='point'?[[-17,2,2.1,8],[17,0,-.45,12]]:pose==='think'?[[-17,2,2.1,8],[15,-2,-2.3,9]]:pose==='shrug'?[[-16,0,-2.5,8],[16,0,-.6,8]]:pose==='dead'?[[-17,2,2.6,9],[17,2,.5,9]]:pose==='scared'?[[-17,0,-2.6,9],[17,0,-.5,9]]:[[-17,2,2.1,8],[17,2,1.05,8]];
   arms.forEach(a=>nub(...a));
   const ex=look*4,eye='#1e1b2e';
   if(pose==='dead'){SE('path',{d:`M${-8+ex} -20 l6 6 m0 -6 l-6 6 M${2+ex} -20 l6 6 m0 -6 l-6 6`,stroke:eye,'stroke-width':2.2,'stroke-linecap':'round'},body)}
+  else if(pose==='scared'){SE('circle',{cx:-5+ex,cy:-17,r:3.6,fill:'#fff',stroke:eye,'stroke-width':1.2},body);SE('circle',{cx:5+ex,cy:-17,r:3.6,fill:'#fff',stroke:eye,'stroke-width':1.2},body);SE('circle',{cx:-5+ex,cy:-17,r:1.6,fill:eye},body);SE('circle',{cx:5+ex,cy:-17,r:1.6,fill:eye},body);SE('ellipse',{cx:ex*1.3,cy:-9,rx:2.6,ry:3.4,fill:eye},body);SE('path',{d:`M${-9+ex} -24 l7 2 M${9+ex} -24 l-7 2`,stroke:eye,'stroke-width':1.3,'stroke-linecap':'round'},body)}
+  else if(pose==='sad'){SE('circle',{cx:-5+ex,cy:-17,r:2.3,fill:eye},body);SE('circle',{cx:5+ex,cy:-17,r:2.3,fill:eye},body);SE('path',{d:`M${-2.5+ex*1.3} -9 Q${ex*1.3} -12 ${2.5+ex*1.3} -9`,fill:'none',stroke:eye,'stroke-width':1.3,'stroke-linecap':'round'},body);SE('path',{d:`M${-9+ex} -23 l7 1.5 M${9+ex} -23 l-7 1.5`,stroke:eye,'stroke-width':1.2,'stroke-linecap':'round'},body)}
   else{SE('circle',{cx:-5+ex,cy:-17,r:look===-1?1.9:2.3,fill:eye},body);SE('circle',{cx:5+ex,cy:-17,r:look===1?1.9:2.3,fill:eye},body);
     SE('path',{d:pose==='shrug'?`M${-2+ex*1.3} -10 Q${ex*1.3} -12 ${2+ex*1.3} -10`:`M${-2+ex*1.3} -11 Q${ex*1.3} -9.5 ${2+ex*1.3} -11`,fill:'none',stroke:eye,'stroke-width':1.3,'stroke-linecap':'round'},body)}
   if(hat==='beanie'){SE('path',{d:`M${-15+ex*.5} -24 a15 11 0 0 1 30 0 Z`,fill:'#e23b3b',stroke:'#8f1f1f','stroke-width':1.5},body);SE('rect',{x:-16+ex*.5,y:-26,width:32,height:5,rx:2.5,fill:'#f7a7a7',stroke:'#8f1f1f','stroke-width':1.5},body);SE('circle',{cx:ex*.5,cy:-36,r:3.5,fill:'#fff',stroke:'#8f1f1f','stroke-width':1.5},body)}
@@ -568,14 +581,21 @@ function beanInner(g,c,hat,o){
   else if(hat==='glasses'&&pose!=='dead'){SE('circle',{cx:-5+ex,cy:-17,r:5,fill:'none',stroke:'#1e1b2e','stroke-width':1.5},body);SE('circle',{cx:5+ex,cy:-17,r:5,fill:'none',stroke:'#1e1b2e','stroke-width':1.5},body)}
   else if(hat==='hood'){SE('path',{d:`M${-16+ex*.5} -20 a16 14 0 0 1 32 0 L${16+ex*.5} -10 L${-16+ex*.5} -10 Z`,fill:'#2f8f3a',stroke:'#1f5f27','stroke-width':1.5},body);if(pose!=='dead'){SE('circle',{cx:-5+ex,cy:-17,r:2.3,fill:'#1e1b2e'},body);SE('circle',{cx:5+ex,cy:-17,r:2.3,fill:'#1e1b2e'},body)}}
 }
-function drawBean(parent,p){const g=SE('g',{class:'bean'},parent);const inner=SE('g',{},g);const b={g,inner,p,o:null,x:0,y:0,s:1};setBean(b,{look:0,tilt:0,pose:'idle'});return b}
+function drawBean(parent,p){const g=SE('g',{class:'bean idle'},parent);const hop=SE('g',{class:'hop'},g);const inner=SE('g',{},hop);const b={g,inner,p,o:null,x:0,y:0,s:1};setBean(b,{look:0,tilt:0,pose:'idle'});return b}
 function setBean(b,o){const n={look:o.look||0,tilt:o.tilt||0,pose:o.pose||'idle'};if(!b.o||n.look!==b.o.look||n.tilt!==b.o.tilt||n.pose!==b.o.pose){b.o=n;beanInner(b.inner,b.p.color,b.p.hat,n)}}
-function moveBean(b,x,y,s,fast){b.x=x;b.y=y;b.s=s||1;b.g.classList.toggle('fast',!!fast);b.g.style.transform=`translate(${x}px,${y}px) scale(${b.s})`}
+function moveBean(b,x,y,s,fast,mode){
+  const moved=Math.hypot(x-b.x,y-b.y)>12;b.x=x;b.y=y;b.s=s||1;b.g.classList.toggle('fast',!!fast);b.g.style.transform=`translate(${x}px,${y}px) scale(${b.s})`;
+  const cl=b.g.classList;
+  if(mode==='enter'){if(!cl.contains('enter')){cl.remove('walking','landed','idle');cl.add('enter')}return}
+  cl.remove('enter');
+  if(moved){cl.remove('landed','idle');cl.remove('walking');void b.g.getBBox();cl.add('walking');clearTimeout(b.tm);b.tm=setTimeout(()=>{cl.remove('walking');cl.add('landed');setTimeout(()=>{cl.remove('landed');cl.add('idle')},380)},fast?620:1020)}
+  else if(!cl.contains('walking')&&!cl.contains('landed')&&!cl.contains('idle'))cl.add('idle');
+}
 function drawGrave(parent,x,y,ico){const g=SE('g',{transform:`translate(${x},${y})`,filter:'url(#s_sh)'},parent);SE('ellipse',{cx:0,cy:26,rx:24,ry:8,fill:'#7a5234'},g);SE('path',{d:'M-18 24 V-8 a18 18 0 0 1 36 0 V24 Z',fill:'#a6adb4'},g);SE('path',{d:'M-14 20 V-8 a14 14 0 0 1 28 0',fill:'none',stroke:'#c9ced3','stroke-width':3},g);SE('text',{y:11,'text-anchor':'middle','font-size':18},g).textContent=ico;return g}
 function drawCorpse(parent,h,p,cause){
   const g=SE('g',{},parent);
   if(cause!=='vanish'){SE('ellipse',{cx:h.x+14,cy:h.y+66,rx:34,ry:8,fill:cause==='bolt'?'#2a1a4a':cause==='bomb'?'#3a2a1a':'#b3202a',opacity:.5},g);
-    const bg=SE('g',{transform:`translate(${h.x+6},${h.y+56}) rotate(-80)`},g);beanInner(bg,p.color,p.hat,{look:0,tilt:0,pose:'dead'})}
+    const bg=SE('g',{transform:`translate(${h.x+6},${h.y+56})`},g);const inner=SE('g',{class:'collapse'},bg);beanInner(inner,p.color,p.hat,{look:0,tilt:0,pose:'dead'})}
   const ic=SE('g',{transform:`translate(${h.x+10},${h.y-4})`},g);SE('circle',{r:16,fill:'#fff',filter:'url(#s_sh)'},ic);SE('text',{y:6,'text-anchor':'middle','font-size':18},ic).textContent=cause==='bolt'?'⚡':cause==='bomb'?'🧨':cause==='ghost'?'👻':cause==='vanish'?'🎭':'🗡️';
   return g;
 }
@@ -653,33 +673,34 @@ function renderScene(){
     if(P.phase==='vote'&&(P.provoked===p.id||priv.fakeProvoked===p.id)){const t=SE('g',{transform:`translate(${h.x+66},${h.y-90})`},S_.labels);SE('circle',{r:15,fill:'#ff5c5c',filter:'url(#s_sh)'},t);SE('text',{y:5,'text-anchor':'middle','font-size':13,'font-weight':900,fill:'#fff'},t).textContent='+2'}
     if(night&&priv.candle===p.id&&myRoleKey()==='hortlak'&&!selHouse)iconAt(S_.labels,h.x+50,h.y+30,'🕯️',11);
     // karakter konumu
-    const pos=S_.pos[p.id];let x=pos.cx,y=pos.cy,show=true,look=pos.cx<SCX?1:-1,pose='idle',tilt=((p.name.length*7)%9)-4,front=false,s=players.length>=9?.88:1,fast=false;
+    const pos=S_.pos[p.id];let x=pos.cx,y=pos.cy,show=true,look=pos.cx<SCX?1:-1,pose='idle',tilt=((p.name.length*7)%9)-4,front=false,s=players.length>=9?.88:1,fast=false,enterMode=false;
     const home=nightSpot(h,'door');
     if(lobbyMode){const i=players.indexOf(p);const N=players.length;const ang=-Math.PI/2+i*2*Math.PI/Math.max(N,3);x=SCX+Math.cos(ang)*(N>6?170:120);y=SCY+Math.sin(ang)*(N>6?85:60)}
     else if(dead){
       if(freshDeath)show=false;                                  // sabah: ceset ayrı çizilir
-      else if(eveningOut&&eveningOut.id===p.id&&a<5){x=SCX;y=SCY+10;pose=a>2.2?'dead':'shrug';look=0;front=true;fast=true}
+      else if(eveningOut&&eveningOut.id===p.id&&a<5){x=SCX;y=SCY+10;pose=a>2.6?'dead':'scared';look=0;front=true;fast=true;b.inner.classList.toggle('collapse',a>2.6)}
       else show=false;
     }else if(P.phase==='end'&&!(eseq&&a<5)){x=pos.cx;y=pos.cy}
     else if(eseq){
       // akşam: a<2.5 meydanda, sonra herkes evine, 4.5 sn sonra içeride (sadece sen görünürsün)
-      if(a<2.5){x=pos.cx;y=pos.cy}
+      if(a<2.5){x=pos.cx;y=pos.cy;if(eveningOut){look=SCX>x?1:-1;pose=a>2.6?'sad':'idle'}}
       else{x=home.x;y=home.y;look=pos.hx>SCX?-1:1;
         if(a>4.5){const isMe=p.id===myId;if(!isMe)show=false;else{front=true;const kind=myPosKind();
-          if(myTarget&&S_.houses[myTarget]&&kind!=='home'){const sp=nightSpot(S_.houses[myTarget],kind);x=sp.x;y=sp.y;look=kind==='bush'||kind==='window'?1:-1;if(entered)show=false}}}}
+          if(myTarget&&S_.houses[myTarget]&&kind!=='home'){const sp=nightSpot(S_.houses[myTarget],kind);x=sp.x;y=sp.y;look=kind==='bush'||kind==='window'?1:-1;if(entered)enterMode=true}}}}
     }else if(night){
       const isMe=p.id===myId;
       if(!isMe)show=false;
       else{front=true;const kind=myPosKind();
-        if(myTarget&&S_.houses[myTarget]&&kind!=='home'){const sp=nightSpot(S_.houses[myTarget],kind);x=sp.x;y=sp.y;look=kind==='bush'||kind==='window'?1:-1;if(entered)show=false}
+        if(myTarget&&S_.houses[myTarget]&&kind!=='home'){const sp=nightSpot(S_.houses[myTarget],kind);x=sp.x;y=sp.y;look=kind==='bush'||kind==='window'?1:-1;if(entered)enterMode=true}
         else{x=home.x;y=home.y;look=pos.hx>SCX?-1:1}}
     }else if(mseq&&a<1.2){x=home.x;y=home.y;look=pos.hx>SCX?-1:1}
     else{ // gündüz / oylama meydanda
       if(P.phase==='vote'&&p.id===myId&&myTarget&&S_.houses[myTarget])look=S_.houses[myTarget].x>x?1:-1;
+      if(mseq&&a<5&&morningDeaths.length){const d=S_.houses[morningDeaths[0].id];if(d){look=d.x>x?1:-1;pose='sad'}}
       const m=[...(P.chat||[])].reverse().find(m=>!m.sys&&m.id===p.id&&m.ts&&now()-m.ts<6000);if(m){pose='point';bubbleAt(S_.labels,x,y,m.t)}
       const sn=mseq&&P.morning&&P.morning.snitch.find(s=>s.by===p.id);if(sn&&a>1.5&&a<7){x=SCX;y=SCY+10;pose='point';look=S_.pos[sn.t]&&S_.pos[sn.t].cx<SCX?-1:1;front=true}
     }
-    setBean(b,{look,tilt,pose});moveBean(b,x,y,s,fast);b.g.style.opacity=show?1:0;b.g.style.pointerEvents='none';
+    if(pose!=='dead')b.inner.classList.remove('collapse');setBean(b,{look,tilt,pose});moveBean(b,x,y,s,fast,enterMode?'enter':null);b.g.style.opacity=show?1:0;b.g.style.pointerEvents='none';
     if(front&&b.g.parentNode!==S_.topLayer)S_.topLayer.appendChild(b.g);else if(!front&&b.g.parentNode!==S_.beanLayer)S_.beanLayer.appendChild(b.g);
     if(show){
       if(p.id===myId)tagAt(S_.labels,x,y-44,lobbyMode?'SEN · DOKUN':'SEN','#ffb020','#3a2f1c');
@@ -715,7 +736,7 @@ function modesFor(){if(!priv.role)return[];const k=priv.role.key,imp=priv.role.t
 function ensureMode(){const modes=modesFor().filter(m=>!m[2]);if(modes.length&&(!sel.mode||!modes.some(m=>m[0]===sel.mode)))sel.mode=modes[0][0]}
 function pickHouse(id){
   if(P.phase==='night'){ensureMode();const m=sel.mode||'ab';const patch={[m]:local.act[m]===id?null:id};if(m==='kill')patch.ab=null;if(m==='ab'&&priv.role&&priv.role.team==='imp')patch.kill=null;if(m==='ab')patch.guess=null;
-    submitAct(patch);anim.enteredAt=patch[m]?Date.now():null;if(patch[m]){setTimeout(()=>{if(myPosKind()==='enter')SFX.door();else SFX.knock()},950)}setTimeout(render,1000)}
+    submitAct(patch);anim.enteredAt=patch[m]?Date.now():null;if(patch[m]){setTimeout(()=>{if(myPosKind()==='enter')SFX.door();else SFX.knock()},950)}setTimeout(render,1000);setTimeout(render,1400)}
   else{castVote(id);SFX.vote()}
 }
 
