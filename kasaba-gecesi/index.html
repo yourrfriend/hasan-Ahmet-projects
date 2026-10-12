@@ -496,7 +496,8 @@ const SW=1200,SH=760,SCX=600,SCY=425,HRX=430,HRY=235;
 let scene=null;      // kurulu sahne
 let anim={};         // devam eden animasyon dizisi
 function seeded(seed){let s=seed>>>0;return()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296}}
-function ringPos(N){const crx=N>=9?235:185,cry=N>=9?118:95;const o=[];for(let i=0;i<N;i++){const a=-Math.PI/2+i*2*Math.PI/N;o.push({hx:SCX+Math.cos(a)*HRX,hy:SCY+Math.sin(a)*HRY,cx:SCX+Math.cos(a)*crx,cy:SCY+Math.sin(a)*cry})}return o}
+// Ev halkası oyuncu sayısına göre daralır: 4-6 kişide evler meydana yakın, 9+ kişide en geniş.
+function ringPos(N){const t=Math.max(0,Math.min(1,(N-4)/6));const hrx=300+(HRX-300)*t,hry=170+(HRY-170)*t;const crx=175+25*t,cry=72+8*t;const o=[];for(let i=0;i<N;i++){const a=-Math.PI/2+i*2*Math.PI/N;o.push({hx:SCX+Math.cos(a)*hrx,hy:SCY+Math.sin(a)*hry,cx:SCX+Math.cos(a)*(N>=9?235:crx),cy:SCY-22+Math.sin(a)*(N>=9?112:cry)})}return o}
 function sceneDefs(svg){
   const defs=SE('defs',{},svg);
   const grad=(id,stops,x2=0,y2=1)=>{const g=SE('linearGradient',{id,x1:0,y1:0,x2,y2},defs);stops.forEach(([o,c])=>SE('stop',{offset:o,'stop-color':c},g))};
