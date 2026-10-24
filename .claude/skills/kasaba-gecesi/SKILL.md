@@ -90,4 +90,4 @@ Playwright betiğinde süreleri beklemek yerine sunucuyu aynı süreçte `create
 
 ## Yayına alma
 
-VPS'te (`kasaba-gecesi/sunucu` içinden): `git pull && sudo ./kur.sh kasaba kasaba.games.munupixi.com`. Test sürümü: `sudo ./kur.sh kasaba-test kasaba-test.games.munupixi.com --surum <branch>`. Liste: `sudo ./kur.sh --liste`. Günlük: `journalctl -u game@kasaba -f`. Sağlık ve sürüm: `curl https://kasaba.games.munupixi.com/saglik`.
+VPS'te (`kasaba-gecesi/sunucu` içinden): `git pull && sudo ./kur.sh kasaba kasaba.munupixi.com`. Test sürümü: `sudo ./kur.sh kasaba-test kasaba-test.munupixi.com --surum <branch>`. Liste: `sudo ./kur.sh --liste`. Günlük: `journalctl -u game@kasaba -f`. Sağlık ve sürüm: `curl https://kasaba.munupixi.com/saglik`.

@@ -19,7 +19,7 @@ yardıma bak. Sunucuda değişiklik yapan her komuttan önce kullanıcıya **tam
 
 - `VPS` — SSH hedefi, ör. `root@203.0.113.10` ya da `~/.ssh/config`'teki bir ad. Claude Code doğrudan VPS'te çalışıyorsa `yerel`.
 - `DEPO` — depo VPS'te nereye klonlanacak/klonlandı, ör. `/opt/src/hasan-Ahmet-projects`.
-- `ALAN_KOK` — oyunların alt alan adı kökü, varsayılan `games.munupixi.com`.
+- `ALAN_KOK` — oyunların alt alan adı kökü, varsayılan `munupixi.com`.
 - `CANLI_SURUM` — yayındaki sürümün branch'i, varsayılan `main`.
 
 Dosya yoksa ya da `VPS` boşsa kullanıcıya sor (şifre ya da anahtar **isteme**; yalnız kullanıcı@adres), cevabı
@@ -38,7 +38,7 @@ Aşağıda `uzak KOMUT` şu demek: `VPS=yerel` ise `bash -lc 'KOMUT'`, değilse 
 | `--liste` | — | yalnız listele (5. adım) |
 | `--kaldir AD` | `AD` | kaldır (5. adım) |
 
-Alan adı her zaman `AD.ALAN_KOK` (ör. `kasaba-test.games.munupixi.com`). Ad yalnız küçük harf, rakam ve tire olabilir.
+Alan adı her zaman `AD.ALAN_KOK` (ör. `kasaba-test.munupixi.com`). Ad yalnız küçük harf, rakam ve tire olabilir.
 
 ## 3. Ön kontroller (yerelde)
 

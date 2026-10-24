@@ -1,5 +1,5 @@
 # Bir oyun kurulumunun Caddy parçası. kur.sh bunu /etc/caddy/games/AD.caddy olarak yazar:
-# ALAN yerine kurulumun alan adını (ör. kasaba.games.munupixi.com), 8787 yerine kurulumun portunu koyar.
+# ALAN yerine kurulumun alan adını (ör. kasaba.munupixi.com), 8787 yerine kurulumun portunu koyar.
 # Ana /etc/caddy/Caddyfile yalnız "import /etc/caddy/games/*.caddy" satırını içerir.
 # Caddy her alan adı için HTTPS sertifikasını kendisi alır. Sayfa, game.js ve WebSocket (/ws)
 # aynı Node sürecinden gelir; Caddy hepsini oraya iletir.

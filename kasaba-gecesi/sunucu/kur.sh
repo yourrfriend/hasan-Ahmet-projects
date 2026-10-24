@@ -2,15 +2,18 @@
 # Oyun sunucusu kurulumu (Ubuntu / Debian). Aynı VPS'te birden çok oyun ve sürüm yan yana çalışır;
 # her kurulumun bir adı, kendi alan adı, kendi portu ve kendi systemd servisi (game@AD) olur.
 #
-#   sudo ./kur.sh kasaba kasaba.games.munupixi.com                       → bu klasördeki dosyalar
-#   sudo ./kur.sh kasaba-test kasaba-test.games.munupixi.com --surum sunucu   → git branch'i
-#   sudo ./kur.sh kasaba-v1 kasaba-v1.games.munupixi.com --surum v1      → git tag'i ya da commit
-#   sudo ./kur.sh --liste                                                → kurulu oyunlar
-#   sudo ./kur.sh --kaldir kasaba-test                                   → kurulumu siler
+#   sudo ./kur.sh kasaba kasaba.munupixi.com                        → bu klasördeki dosyalar
+#   sudo ./kur.sh kasaba-test kasaba-test.munupixi.com --surum sunucu    → git branch'i
+#   sudo ./kur.sh kasaba-v1 kasaba-v1.munupixi.com --surum v1       → git tag'i ya da commit
+#   sudo ./kur.sh --liste                                           → kurulu oyunlar
+#   sudo ./kur.sh --kaldir kasaba-test                              → kurulumu siler
 #
 # Güncellemek için aynı komutu tekrar çalıştır (git pull ya da --surum ile). Port ve ayarlar korunur.
 # Yeni sürüm sağlık kontrolünden geçmezse eski sürüm geri yüklenir.
-# Alan adının DNS A kaydı bu sunucuyu göstermeli (ör. *.games.munupixi.com → VPS IP).
+# Kip (sunucu başına bir kez seçilir, sonra hatırlanır; değiştirmek için --kip ile tekrar ver):
+#   --kip https  (varsayılan) Caddy 80/443'te dinler, sertifikayı kendisi alır. DNS A kaydı bu sunucuyu göstermeli.
+#   --kip tunel  Caddy yalnız 127.0.0.1:8080'de dinler; HTTPS'i Cloudflare Tunnel verir (80/443 başka bir
+#                sunucu programındaysa, ör. Plesk). Tünel: *.munupixi.com → http://localhost:8080.
 set -euo pipefail
 
 APP_KOK="${KG_APP_KOK:-/opt/games}"            # /opt/games/AD          oyun dosyaları
@@ -18,12 +21,13 @@ AYAR_KOK="${KG_AYAR_KOK:-/etc/games}"          # /etc/games/AD.env      PORT, AL
 CADDY_KOK="${KG_CADDY_KOK:-/etc/caddy}"        # /etc/caddy/games/AD.caddy
 SYSTEMD_KOK="${KG_SYSTEMD_KOK:-/etc/systemd/system}"
 ILK_PORT=8787
+SUNUCU_AYAR=.sunucu                              # /etc/games/.sunucu.env   KIP, TUNEL_PORT (tüm kurulumlar için)
 KAYNAK="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 bilgi(){ printf '\033[1;32m==>\033[0m %s\n' "$*"; }
 uyari(){ printf '\033[1;33m!!\033[0m %s\n' "$*"; }
 hata(){ printf '\033[1;31mHATA:\033[0m %s\n' "$*" >&2; exit 1; }
-kullanim(){ sed -n '2,13p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
+kullanim(){ sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
 ad_gecerli(){ [[ "$1" =~ ^[a-z0-9][a-z0-9-]{0,30}$ ]]; }
 portu_kullanan(){ (echo >"/dev/tcp/127.0.0.1/$1") 2>/dev/null; }
 ayar_oku(){ [ -f "$AYAR_KOK/$1.env" ] || return 0; sed -n "s/^$2=//p" "$AYAR_KOK/$1.env" | head -1; }
@@ -53,17 +57,21 @@ if [ "$1" = "--kaldir" ]; then
 fi
 
 AD="$1";ALAN="${2:-}";shift $(( $# >= 2 ? 2 : $# ))
-SURUM="";PORT=""
+SURUM="";PORT="";KIP=""
 while [ $# -gt 0 ]; do case "$1" in
   --surum) SURUM="${2:-}";shift 2;;
   --port) PORT="${2:-}";shift 2;;
+  --kip) KIP="${2:-}";shift 2;;
   *) hata "Bilinmeyen seçenek: $1";;
 esac; done
 if [[ "$AD" == *.* ]]; then hata "İlk argüman kurulum adı olmalı, alan adı ikinci: sudo $0 kasaba $AD"; fi
 ad_gecerli "$AD" || hata "Ad geçersiz: '$AD' (küçük harf, rakam ve tire; ör. kasaba, kasaba-test)"
-[[ "$ALAN" =~ ^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$ ]] || hata "Alan adı eksik ya da geçersiz: '$ALAN' (ör. $AD.games.munupixi.com)"
+[[ "$ALAN" =~ ^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$ ]] || hata "Alan adı eksik ya da geçersiz: '$ALAN' (ör. $AD.munupixi.com)"
 ALAN="${ALAN,,}"
 [ -z "$PORT" ] || [[ "$PORT" =~ ^[0-9]{4,5}$ ]] || hata "Port geçersiz: $PORT"
+[ -n "$KIP" ] || KIP="$(ayar_oku "$SUNUCU_AYAR" KIP)";KIP="${KIP:-https}"
+case "$KIP" in https|tunel) ;; *) hata "Kip geçersiz: '$KIP' (https ya da tunel)";; esac
+TUNEL_PORT="$(ayar_oku "$SUNUCU_AYAR" TUNEL_PORT)";TUNEL_PORT="${TUNEL_PORT:-8080}"
 for f in "$AYAR_KOK"/*.env; do [ -e "$f" ] || continue; a="$(basename "$f" .env)"; [ "$a" = "$AD" ] && continue
   if [ "$(ayar_oku "$a" ALAN)" = "$ALAN" ]; then hata "$ALAN zaten '$a' kurulumunda kullanılıyor.";fi
   if [ -n "$PORT" ] && [ "$(ayar_oku "$a" PORT)" = "$PORT" ]; then hata "$PORT portu zaten '$a' kurulumunda kullanılıyor.";fi
@@ -71,7 +79,8 @@ done
 command -v apt-get >/dev/null || hata "Bu betik Ubuntu/Debian (apt) içindir."
 
 # ---------- kaynak dosyalar: çalışma klasörü ya da git sürümü ----------
-GECICI="$(mktemp -d)";trap 'rm -rf "$GECICI"' EXIT
+GECICI="$(mktemp -d)";POLICY_RC=""
+trap 'rm -rf "$GECICI"; [ -z "$POLICY_RC" ] || rm -f "$POLICY_RC"' EXIT
 if [ -n "$SURUM" ]; then
   command -v git >/dev/null || hata "--surum için git gerekli."
   git_ rev-parse --git-dir >/dev/null 2>&1 || hata "--surum için betiği git deposunun içinden çalıştır."
@@ -119,7 +128,11 @@ if ! command -v caddy >/dev/null; then
   curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor --yes -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
   curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' > /etc/apt/sources.list.d/caddy-stable.list
   apt-get update -qq
+  # paket kurulunca Caddy kendi örnek ayarıyla :80'de açılmaya çalışır; 80 doluysa (tünel kipi) kurulum
+  # takılmasın diye servis burada başlatılmaz, aşağıda bizim ayarla başlar
+  if [ ! -e /usr/sbin/policy-rc.d ]; then POLICY_RC=/usr/sbin/policy-rc.d;printf '#!/bin/sh\nexit 101\n' >"$POLICY_RC";chmod +x "$POLICY_RC";fi
   apt-get install -y -qq caddy >/dev/null
+  if [ -n "$POLICY_RC" ]; then rm -f "$POLICY_RC";POLICY_RC="";fi
 fi
 
 # ---------- oyun dosyaları: önce yan klasöre, hazır olunca yer değiştir ----------
@@ -175,7 +188,9 @@ fi
 rm -rf "$ESKI"
 
 # ---------- Caddy: ana dosya yalnız games/*.caddy içe aktarır, her kurulum kendi parçasını yazar ----------
-bilgi "Caddy: $ALAN → 127.0.0.1:$PORT"
+if [ "$KIP" = tunel ]; then bilgi "Caddy (tünel): $ALAN → 127.0.0.1:$TUNEL_PORT → 127.0.0.1:$PORT"
+else bilgi "Caddy: $ALAN → 127.0.0.1:$PORT";fi
+printf 'KIP=%s\nTUNEL_PORT=%s\n' "$KIP" "$TUNEL_PORT" > "$AYAR_KOK/$SUNUCU_AYAR.env"
 ANA="$CADDY_KOK/Caddyfile";IMPORT="import $CADDY_KOK/games/*.caddy"
 mkdir -p "$CADDY_KOK/games"
 if [ ! -s "$ANA" ] || grep -q '^# Kasaba Gecesi — Caddy ayarı' "$ANA" || grep -q 'root \* /usr/share/caddy' "$ANA"; then
@@ -185,10 +200,19 @@ if [ ! -s "$ANA" ] || grep -q '^# Kasaba Gecesi — Caddy ayarı' "$ANA" || grep
 elif ! grep -qxF "$IMPORT" "$ANA"; then
   printf '\n# kur.sh: oyun kurulumları\n%s\n' "$IMPORT" >> "$ANA"   # kullanıcının kendi ayarına dokunmadan ekle
 fi
-sed "s/^ALAN {/$ALAN {/; s/127.0.0.1:8787/127.0.0.1:$PORT/" "$KAYNAK/Caddyfile" > "$CADDY_KOK/games/$AD.caddy"
+# kip tüm kurulumlar için ortak: her kurulumun parçası yeniden yazılır (kip değişince hepsi birlikte geçer)
+for f in "$AYAR_KOK"/*.env; do [ -e "$f" ] || continue; a="$(basename "$f" .env)"
+  a_alan="$(ayar_oku "$a" ALAN)";a_port="$(ayar_oku "$a" PORT)"
+  if [ "$KIP" = tunel ]; then site="http:\/\/$a_alan:$TUNEL_PORT {\n\tbind 127.0.0.1";else site="$a_alan {";fi
+  sed "s/^ALAN {/$site/; s/127.0.0.1:8787/127.0.0.1:$a_port/" "$KAYNAK/Caddyfile" > "$CADDY_KOK/games/$a.caddy"
+done
 caddy validate --config "$ANA" --adapter caddyfile >"$GECICI/caddy.log" 2>&1 || { cat "$GECICI/caddy.log" >&2; hata "Caddy ayarı geçersiz: $ANA"; }
 systemctl enable --quiet caddy
 systemctl reload caddy 2>/dev/null || systemctl restart caddy
+if [ "$KIP" = tunel ]; then
+  caddy_saglikli(){ for _ in $(seq 1 20); do curl -fsS -H "Host: $ALAN" "http://127.0.0.1:$TUNEL_PORT/saglik" >/dev/null 2>&1 && return 0; sleep 0.5; done; return 1; }
+  caddy_saglikli || uyari "Oyun çalışıyor ama Caddy 127.0.0.1:$TUNEL_PORT üzerinden yanıt vermiyor. Günlük: journalctl -u caddy -n 40"
+fi
 
 # eski tek oyunluk kurulum (kasaba-gecesi servisi, /opt/kasaba-gecesi) artık Caddy'den erişilmiyor
 if [ -f "$SYSTEMD_KOK/kasaba-gecesi.service" ]; then
@@ -197,8 +221,8 @@ if [ -f "$SYSTEMD_KOK/kasaba-gecesi.service" ]; then
   rm -f "$SYSTEMD_KOK/kasaba-gecesi.service";systemctl daemon-reload
 fi
 
-# ---------- güvenlik duvarı ----------
-if command -v ufw >/dev/null && ufw status | grep -q "Status: active"; then
+# ---------- güvenlik duvarı (tünel kipinde dışarıya port açılmaz) ----------
+if [ "$KIP" = https ] && command -v ufw >/dev/null && ufw status | grep -q "Status: active"; then
   ufw allow 80/tcp >/dev/null; ufw allow 443/tcp >/dev/null
 fi
 
@@ -207,5 +231,10 @@ bilgi "Hazır: https://$ALAN   ($AD · $SURUM@$COMMIT · port $PORT)"
 echo "   Günlük:          journalctl -u game@$AD -f"
 echo "   Yeniden başlat:  systemctl restart game@$AD"
 echo "   Kurulumlar:      sudo $0 --liste"
-echo "   İlk açılışta Caddy sertifika alır; birkaç saniye sürebilir. DNS A kaydı bu sunucuyu göstermeli."
+if [ "$KIP" = tunel ]; then
+  echo "   Tünel kipi: Cloudflare Tunnel $ALAN adresini http://localhost:$TUNEL_PORT adresine yönlendirmeli."
+  if ! systemctl is-active --quiet cloudflared 2>/dev/null; then uyari "cloudflared servisi çalışmıyor (README: Cloudflare Tunnel)."; fi
+else
+  echo "   İlk açılışta Caddy sertifika alır; birkaç saniye sürebilir. DNS A kaydı bu sunucuyu göstermeli."
+fi
 exit 0
