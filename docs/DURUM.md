@@ -1,6 +1,6 @@
 # İş durumu
 
-Son güncelleme: 2026-10-24. Bu dosya oturumlar arası bağlam içindir; her plan bitişinde güncelle.
+Son güncelleme: 2026-10-24 (akşam). Bu dosya oturumlar arası bağlam içindir; her plan bitişinde güncelle.
 
 ## Canlı
 - `kasaba.munupixi.com` ← `sunucu@91a4aa4` (ionos, tünel kipi). `kasaba-test.munupixi.com` ← o an denenen dal.
@@ -18,7 +18,7 @@ Tasarım: `docs/superpowers/specs/2026-10-24-kasaba-gecesi-gecmis-design.md`.
 ### sahne — rol dağılımı, gece yürüyüşü ve rol animasyonları, evler
 Tasarım: `docs/superpowers/specs/2026-10-24-kasaba-gecesi-sahne-design.md`.
 - ✅ Plan 1 `…sahne-1-rol-dagilimi.md`: `autoSetup` eşikleri (`DAGILIM`), 500×9 kısıt testi, `npm run denge`, README tablosu; **Bombacı Polis tarafından tutulamaz** (Polis–Bombacı kilidi kapandı).
-- 🔄 Plan 2 `…sahne-2-gece-yuruyus-animasyon.md`: deneme geri alınır, `priv.planted` liste, mesafeye göre yürüyüş + karakter üstü etiketler, 17 rol hareketi + izler, kasaba-test denemesi.
+- 🔄 Plan 2 `…sahne-2-gece-yuruyus-animasyon.md`: Görev 0–3 bitti (`3f02a47`: deneme geri alındı, `priv.planted` liste, mesafeye göre yürüyüş + karakter üstü etiketler, 17 rol hareketi + izler, iki ses); Görev 4 kullanıcı denemesi kasaba-test'te sürüyor (Gözcü onaylandı). Sonra: geri bildirim düzeltmeleri → taze inceleme → `/yayinla`.
 - ⏳ Plan 3 evler (referans görsel kullanıcıdan; bej duvar, koyu çatı, baca + tabela).
 - Ertelenen küçükler: spec §5.1'de eski eşik/formül cümleleri; n=9'da Tuzakçı/Provokatör hiç çıkmıyor; test temizliği (`OZEL`, somut Masum iddiaları); `DAGILIM` dondurulmamış.
 
