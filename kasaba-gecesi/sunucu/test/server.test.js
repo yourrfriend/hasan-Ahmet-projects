@@ -64,11 +64,13 @@ test('oda kur, katıl, oyna; ev sahibi kopunca oyun sürer; kopan oyuncu geri d�
   fake.send({t:'cancel'});await new Promise(r=>setTimeout(r,150));assert.strictEqual(host.P.phase,'night');
   await fake.close();
 
-  // ev sahibi sekmeyi kapatır
+  // ev sahibi sekmeyi kapatır: diğerleri onun kopuk olduğunu görür (state.online)
   await host.close();
   const room0=srv.rooms.get(room);
-  // gece süresi dolsun: zamanı ileri sar
-  room0.game.P.ends=Date.now()-1;
+  await others[0].until(c=>Array.isArray(c.P.online)&&!c.P.online.includes(host.me));
+  assert.ok(others.every(o=>others[0].P.online.includes(o.me)),'bağlı oyuncular online listesinde');
+  // gece süresi dolsun: zamanı ileri sar (kopuk oyuncu bekleme kuralı game.test'te; burada atlanır)
+  room0.game.P.waited=true;room0.game.P.ends=Date.now()-1;
   await others[0].until(c=>c.P.phase==='talk'||c.P.phase==='end');
   // 10 dk (testte 300 ms) sonra ev sahipliği oyuncuya geçer
   await others[0].until(c=>c.P.hostId!==host.me);

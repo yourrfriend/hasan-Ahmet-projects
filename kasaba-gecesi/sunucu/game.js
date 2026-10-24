@@ -94,7 +94,7 @@ function startGame(R,lobby){
 }
 function setPhase(R,ph){
   const P=R.P,g=R.g;
-  P.phase=ph;g.votes={};P.voted=[];P.provoked=null;
+  P.phase=ph;g.votes={};P.voted=[];P.provoked=null;P.waited=false;P.waiting=null;
   // sabah/akşam sahnelerine animasyon payı eklenir
   const extra=ph==='talk'?7:ph==='night'?6:0;
   const secs=ph==='night'?P.settings.night:ph==='talk'?P.settings.talk:P.settings.vote;
@@ -112,7 +112,17 @@ function advance(R){
   return true;
 }
 // Süre dolduysa fazı ilerletir. Değişiklik olduysa true.
-function tick(R){if(inGame(R)&&R.P.ends&&clock()>=R.P.ends)return advance(R);return false}
+// Gece bitiminde bağlantısı kopuk (offline: açık kimlik kümesi) yaşayan oyuncu varsa faz bir kez, en çok WAIT_MS bekler;
+// kopuk olanların adı P.waiting ile herkese gösterilir. Hamlesi olup olmadığına bakılmaz: bakılsa rolü ele verirdi.
+const WAIT_MS=30000;
+function tick(R,offline){
+  if(!inGame(R)||!R.P.ends||clock()<R.P.ends)return false;
+  if(R.P.phase==='night'&&offline&&!R.P.waited){
+    const w=alivePlayers(R).filter(p=>offline.has(p.id)).map(p=>p.id);
+    if(w.length){R.P.waited=true;R.P.waiting=w;R.P.ends=clock()+WAIT_MS;return true}
+  }
+  return advance(R);
+}
 
 function resolveNight(R){
   const P=R.P,g=R.g,acts={...g.acts};

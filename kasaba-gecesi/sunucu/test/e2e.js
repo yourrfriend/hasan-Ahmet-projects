@@ -58,10 +58,12 @@ const step=t=>console.log('•',t);
     await host.waitForTimeout(300);
     assert.ok(acted>0&&Object.keys(R.g.acts).length===acted,'sunucu gece hamlelerini almalı ('+acted+' / '+Object.keys(R.g.acts).length+')');
 
-    step('ev sahibi sekmesini kapatır; oyun sürer');
+    step('ev sahibi sekmesini kapatır; gece sonu onu bekler, sonra oyun sürer');
     await hostCtx.close();
     roomOf().game.P.ends=Date.now()-1;
     const watcher=pages.Ali;
+    await watcher.waitForFunction(id=>P.phase==='night'&&P.waiting&&P.waiting.includes(id)&&document.body.textContent.includes('bekleniyor'),ids.Ev,{timeout:5000});
+    roomOf().game.P.ends=Date.now()-1;
     await watcher.waitForFunction(()=>P.phase!=='night',null,{timeout:5000});
     assert.ok(['talk','end'].includes(await phase(watcher)));
 
@@ -83,6 +85,9 @@ const step=t=>console.log('•',t);
       const lost=pages[aliveNames[0]];
       await lost.evaluate(()=>ws.close());
       await lost.waitForSelector('.ov.offline',{timeout:3000});
+      // diğerleri kopuk oyuncunun karakterinde KOPUK etiketini görür (gözlemci kopan sekme olmamalı)
+      const lostId=await lost.evaluate(()=>myId);const observer=Object.values(pages).find(p=>p!==lost);
+      await observer.waitForFunction(id=>P.online&&!P.online.includes(id)&&scene.labels.textContent.includes('KOPUK'),lostId,{timeout:4000});
       await lost.waitForSelector('.ov.offline',{state:'detached',timeout:8000});
       await lost.waitForFunction(()=>(P.chat||[]).some(m=>m.t==='merhaba kasaba'));
       assert.strictEqual(await lost.evaluate(()=>P.chat.filter(m=>m.t==='merhaba kasaba').length),1,'yeniden bağlanınca sohbet çiftlenmemeli');

@@ -68,7 +68,9 @@ function createServer(opts={}){
     return list;
   }
   // sohbet state içinde gitmez; her sokete yalnız görmediği satırlar ayrıca yollanır (sendChat)
-  function stateMsg(room){return JSON.stringify({t:'state',P:{...room.game.P,chat:undefined,lobby:lobbyOf(room),hostId:room.hostId,room:room.code},now:Date.now()})}
+  // online: bağlı üyelerin açık kimlikleri; istemci kopuk oyuncuyu işaretler, gece sonu onları bekler
+  const onlineIds=room=>[...room.members].filter(([,m])=>online(m)).map(([id])=>id);
+  function stateMsg(room){return JSON.stringify({t:'state',P:{...room.game.P,chat:undefined,lobby:lobbyOf(room),hostId:room.hostId,room:room.code,online:onlineIds(room)},now:Date.now()})}
   function sendRaw(ws,str){if(ws.readyState===1){try{ws.send(str)}catch(e){}}}
   function send(ws,obj){sendRaw(ws,JSON.stringify(obj))}
   function sendChat(ws,room){
@@ -192,7 +194,7 @@ function createServer(opts={}){
     for(const room of [...rooms.values()]){
       if(now-room.lastActive>ROOM_TTL_MS){deleteRoom(room,'Oda uzun süre kullanılmadığı için kapandı.');continue}
       if(room.emptySince&&now-room.emptySince>EMPTY_ROOM_MS&&!anyOnline(room)){deleteRoom(room,'Odada kimse kalmadı.');continue}
-      try{if(G.tick(room.game))flush(room)}catch(e){log('hata',room.code,e&&e.stack||e)}
+      try{const off=new Set((room.game.P.players||[]).map(p=>p.id).filter(id=>!room.members.has(id)||!online(room.members.get(id))));if(G.tick(room.game,off))flush(room)}catch(e){log('hata',room.code,e&&e.stack||e)}
       if(room.hostGoneSince&&now-room.hostGoneSince>=HOST_GRACE_MS){
         const players=(room.game.P.players||[]).map(p=>p.id);
         const cands=[...room.members.keys()].filter(id=>online(room.members.get(id))&&room.members.get(id).name);

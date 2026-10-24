@@ -178,3 +178,20 @@ test('izci: tuzağa yakalanan eve gitmiş sayılır, polisin tuttuğu çıkmamı
   G.act(R,'u0',{kill:'u3'});G.act(R,'u1',{ab:'u0'});G.act(R,'u2',{ab:'u0'});G.advance(R);
   assert.ok(G.pl(R,'u3').alive);assert.match(notesOf(R,'u2'),/Oyuncu0 gece evinden çıkmadı/);
 });
+
+test('gece bitiminde bağlantısı kopuk yaşayan oyuncu varsa bir kez en çok 30 sn beklenir',()=>{
+  let t=1000;G.setClock(()=>t);
+  try{
+    const R=fixed(['hain','masum','masum','masum']);t=R.P.ends;
+    assert.strictEqual(G.tick(R,new Set(['u1'])),true,'bekleme durumu değişiklik sayılır');
+    assert.strictEqual(R.P.phase,'night');assert.deepStrictEqual(R.P.waiting,['u1']);assert.strictEqual(R.P.ends,t+30000);
+    t=R.P.ends-1;assert.strictEqual(G.tick(R,new Set(['u1'])),false);
+    t=R.P.ends;assert.strictEqual(G.tick(R,new Set(['u1'])),true);assert.strictEqual(R.P.phase,'talk','ikinci kez beklenmez');assert.ok(!R.P.waiting);
+    noLeak(R.P);
+    // kimse kopuk değilse ya da kopuk olan ölüyse beklenmez
+    const R2=fixed(['hain','masum','masum','masum']);t=R2.P.ends;assert.strictEqual(G.tick(R2,new Set()),true);assert.strictEqual(R2.P.phase,'talk');
+    const R3=fixed(['hain','masum','masum','masum']);G.pl(R3,'u1').alive=false;t=R3.P.ends;G.tick(R3,new Set(['u1']));assert.strictEqual(R3.P.phase,'talk');
+    // gündüz fazlarında beklenmez
+    t=R3.P.ends;G.tick(R3,new Set(['u2']));assert.strictEqual(R3.P.phase,'vote');
+  }finally{G.setClock()}
+});
