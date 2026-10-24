@@ -4,6 +4,7 @@
 #
 #   sudo ./uygula.sh            # bekleyen göçleri uygula
 #   sudo ./uygula.sh --test     # test.sql'i çalıştır (RLS senaryoları; hep geri alınır, veri bırakmaz)
+#   sudo ./uygula.sh --yeniden  # TÜM göçleri yeniden çalıştır (hepsi idempotent): geri yükleme sonrası yetki/politika tazeleme
 #
 # Konteyner adı SUPABASE_DB_KONTEYNER ile değiştirilebilir (varsayılan supabase-db).
 set -euo pipefail
@@ -26,11 +27,12 @@ psql_ <<'SQL'
 create table if not exists public.goc_gecmisi (ad text primary key, uygulama timestamptz not null default now());
 revoke all on public.goc_gecmisi from public, anon, authenticated;
 SQL
+YENIDEN=0; [ "${1:-}" = "--yeniden" ] && YENIDEN=1
 n=0
 for f in "$BURASI"/goc/*.sql; do
   ad="$(basename "$f")"
-  if [ "$(psql_ -tA -c "select count(*) from public.goc_gecmisi where ad = '$ad'")" = "0" ]; then
-    { echo "begin;"; cat "$f"; printf "insert into public.goc_gecmisi (ad) values ('%s');\ncommit;\n" "$ad"; } | psql_ || hata "$ad uygulanamadı (geri alındı)."
+  if [ "$YENIDEN" = 1 ] || [ "$(psql_ -tA -c "select count(*) from public.goc_gecmisi where ad = '$ad'")" = "0" ]; then
+    { echo "begin;"; cat "$f"; printf "insert into public.goc_gecmisi (ad) values ('%s') on conflict (ad) do nothing;\ncommit;\n" "$ad"; } | psql_ || hata "$ad uygulanamadı (geri alındı)."
     echo "uygulandı: $ad"; n=$((n+1))
   fi
 done
