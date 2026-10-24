@@ -200,7 +200,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 <div id="app"><div class="panel"><p class="muted">Yükleniyor…</p></div></div>
 <script>
 // Script daha başlamadan çökerse "Yükleniyor…" yerine hatayı göster (sürüm damgasıyla).
-window.KG_VER='2026-10-26a';
+window.KG_VER='2026-10-26b';
 window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ff6b6b"><p><b>Sayfa açılamadı.</b> Sürüm '+KG_VER+'</p><p class="small" style="word-break:break-all">'+String(e.message||e.error||e)+(e.filename?' @'+e.lineno:'')+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}});
 setTimeout(function(){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ffb347"><p><b>Sayfa yüklenemedi.</b> Sürüm '+KG_VER+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}},8000);
 </script>
@@ -741,7 +741,7 @@ function startAmbience(){clearInterval(ambTimer);ambTimer=setInterval(()=>{if(Ma
 startAmbience();
 // ---------- Arayüz ----------
 function render(){
-  const keep={};['chatInput','nameInput','joinCode','nameEdit'].forEach(id=>{const e=document.getElementById(id);if(e)keep[id]={v:e.value,f:document.activeElement===e}});
+  const keep={};['chatInput','nameInput','joinCode','nameEdit','sure_night','sure_talk','sure_vote'].forEach(id=>{const e=document.getElementById(id);if(e)keep[id]={v:e.value,f:document.activeElement===e}});
   renderInner();
   Object.entries(keep).forEach(([id,k])=>{const e=document.getElementById(id);if(e){e.value=k.v;if(k.f)e.focus()}});
 }
@@ -798,7 +798,7 @@ function renderLobbyUI(stage){
   else if(!ui.custom)stage.append(el('div','ov hint','Ev sahibinin oyunu başlatması bekleniyor… Karakterine dokunup rengini ve şapkanı değiştirebilirsin.'));
   if(isHost){
     const items=[{h:'SÜRELER (saniye)'}];
-    [['night','Gece'],['talk','Tartışma'],['vote','Oylama']].forEach(([k,l])=>{const lab=el('label',null,l);const i=el('input');i.type='number';i.min=15;i.max=600;i.value=settings[k];i.onchange=()=>{settings[k]=Math.max(15,Math.min(600,+i.value||30));ls('kg_settings',settings);send({t:'settings',...settings})};lab.append(i);items.push({node:lab})});
+    [['night','Gece'],['talk','Tartışma'],['vote','Oylama']].forEach(([k,l])=>{const lab=el('label',null,l);const i=el('input');i.id='sure_'+k;i.type='number';i.min=15;i.max=600;i.value=settings[k];i.onchange=()=>{settings[k]=Math.max(15,Math.min(600,+i.value||30));ls('kg_settings',settings);send({t:'settings',...settings})};lab.append(i);items.push({node:lab})});
     items.push({node:el('div','h','Roller oyun başlayınca rastgele seçilir ve dağıtılır.')});
     items.push({h:'ODA'},{t:soundOn?'🔊 Ses: açık':'🔇 Ses: kapalı',on:()=>{soundOn=!soundOn;ls('kg_sound',soundOn)}},{t:'📖 Nasıl oynanır',on:()=>{ui.rules=!ui.rules}},{t:'✖ Odayı kapat',cls:'d',on:()=>{send({t:'close'});fatal=true;setTimeout(()=>{location.search=''},150)}});
     gearMenu(stage,items);
@@ -883,7 +883,9 @@ function renderEndUI(stage){
 setInterval(()=>{if(P.ends&&P.phase!=='lobby'&&P.phase!=='end'&&P.phase!=='landing'){const t=document.querySelector('.timer');if(t)t.textContent=fmtTime(P.ends-now())}},1000);
 setInterval(()=>{if(!everConnected&&!connErr&&myId)render()},3000);
 setInterval(()=>{if(P.phase==='talk'||P.phase==='vote')render()},2500); // konuşma balonları ve ufak güncellemeler
-let resizeT=null;window.addEventListener('resize',()=>{clearTimeout(resizeT);resizeT=setTimeout(render,150)}); // döndürme: halka yeniden sığdırılır
+// döndürme: halka yeniden sığdırılır. Telefonda klavye açılınca da resize gelir; bir giriş kutusu odaktayken yeniden çizme
+// (menü yeniden kurulur, kutu odağını kaybeder, klavye kapanır)
+let resizeT=null;window.addEventListener('resize',()=>{clearTimeout(resizeT);resizeT=setTimeout(()=>{const a=document.activeElement;if(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))return;render()},150)});
 // ---------- Başlat (tüm tanımlar yüklendikten sonra) ----------
 const qs=new URLSearchParams(location.search);
 if(qs.get('oda')){joinRoom(qs.get('oda').toLowerCase().replace(/[^a-z0-9]/g,''))}else{render()}
