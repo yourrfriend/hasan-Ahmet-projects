@@ -1,6 +1,7 @@
 'use strict';
 // Sunucu testleri: gerçek WebSocket bağlantılarıyla oda, oyun, kopma ve geri dönme.
 process.env.HOST_GRACE_MS='300';
+process.env.EMPTY_ROOM_MS='300';
 const test=require('node:test');
 const assert=require('node:assert');
 const http=require('http');
@@ -16,11 +17,11 @@ test.after(()=>new Promise(r=>srv.close(r)));
 function client(uid,name,join){
   const ws=new WebSocket('ws://'+base+'/ws');
   // me: sunucunun verdiği açık kimlik (uid gizli anahtardır, state içinde geçmez); chat: parça parça gelen sohbet
-  const c={ws,uid,me:null,P:null,priv:null,errs:[],states:0,chat:[],
+  const c={ws,uid,me:null,P:null,priv:null,privN:0,errs:[],states:0,chat:[],
     send:m=>ws.send(JSON.stringify(m)),
     until(f,ms=3000){return new Promise((res,rej)=>{const t0=Date.now();const iv=setInterval(()=>{if(f(c)){clearInterval(iv);res(c)}else if(Date.now()-t0>ms){clearInterval(iv);rej(new Error(uid+' beklenen duruma gelmedi'))}},10)})},
     close(){return new Promise(r=>{if(ws.readyState>=2)return r();ws.once('close',r);ws.close()})}}; // sunucu kapattıysa beklemeden döner
-  ws.on('message',d=>{const m=JSON.parse(d);if(m.t==='state'){c.P=m.P;c.states++;c.raw=String(d)}else if(m.t==='you')c.me=m.id;else if(m.t==='chat')c.chat.push(...m.a);else if(m.t==='priv')c.priv=m.d;else if(m.t==='err')c.errs.push(m)});
+  ws.on('message',d=>{const m=JSON.parse(d);if(m.t==='state'){c.P=m.P;c.states++;c.raw=String(d)}else if(m.t==='you')c.me=m.id;else if(m.t==='chat')c.chat.push(...m.a);else if(m.t==='priv'){c.priv=m.d;c.privN++}else if(m.t==='err')c.errs.push(m)});
   ws.on('open',()=>c.send({t:'join',uid,name,color:G.COLORS[0],hat:'cap',...join}));
   return c;
 }
@@ -81,9 +82,10 @@ test('oda kur, katıl, oyna; ev sahibi kopunca oyun sürer; kopan oyuncu geri d�
   assert.strictEqual(back.P.gameId,others[0].P.gameId);
 
   // eski ev sahibi de geri gelebilir; artık ev sahibi değildir ama rolü durur
-  const h2=client('h1','Ev',{room});
+  // (gerçek istemci ev sahibi sekmesinde host:true göndermeyi sürdürür; yetki devredilmiş olsa da kendi oyununa döner)
+  const h2=client('h1','Ev',{room,host:true});
   await h2.until(c=>c.priv&&c.priv.role);
-  assert.strictEqual(h2.priv.role.label,roleOf.h1);
+  assert.strictEqual(h2.priv.role.label,roleOf.h1);assert.strictEqual(h2.P.room,room);
   assert.strictEqual(h2.me,host.me);assert.notStrictEqual(h2.P.hostId,h2.me);
 
   // yeni ev sahibi iptal edebilir → herkes lobiye, roller silinir
@@ -134,4 +136,39 @@ test('lobiden kopan üye silinir; 13 kişiyle oyun başlamaz; ev sahibi odayı k
   host.send({t:'close'});
   await cs[0].until(c=>c.errs.some(e=>e.code==='closed'));assert.ok(!srv.rooms.has(room));
   for(const c of [host,...cs])await c.close();
+});
+
+test('aynı soket üst üste oda kurunca boş odalar birikmez; boş oda süresi dolunca kapanır',async()=>{
+  const before=srv.rooms.size;
+  const c=client('r0','A',{host:true});await c.until(c=>c.P&&c.P.room);
+  let prev=c.P.room;
+  for(let i=0;i<5;i++){c.send({t:'join',uid:'r0',name:'A',host:true});await c.until(x=>x.P.room!==prev);prev=c.P.room}
+  assert.strictEqual(srv.rooms.size,before+1,'terk edilen boş lobi odaları hemen silinmeli');
+  await c.close();
+  await new Promise(r=>setTimeout(r,700));
+  assert.ok(!srv.rooms.has(prev),'kimsenin kalmadığı oda EMPTY_ROOM_MS sonra kapanmalı');
+});
+
+test('ev sahibinin eski kodu başkasının odası çıkarsa yeni oda alır',async()=>{
+  const a=client('s0','A',{host:true});await a.until(c=>c.P&&c.P.room);const code=a.P.room;
+  const b=client('s1','B',{host:true,room:code}); // "önceki odamı aç": kod artık a'nın odası
+  await b.until(c=>c.P&&c.P.room);
+  assert.notStrictEqual(b.P.room,code,'yabancının lobisine oyuncu olarak düşmemeli');
+  assert.strictEqual(b.P.hostId,b.me);
+  await new Promise(r=>setTimeout(r,100));assert.strictEqual(a.P.lobby.length,1);
+  await a.close();await b.close();
+});
+
+test('iptalden sonra çevrimdışı üyeler bellekte kalmaz; yeni katılan tek priv alır',async()=>{
+  const host=client('m0','A',{host:true});await host.until(c=>c.P&&c.P.room);const room=host.P.room;
+  const cs=['m1','m2','m3'].map(u=>client(u,u,{room}));await host.until(c=>c.P.lobby.length===4);
+  await new Promise(r=>setTimeout(r,150));
+  for(const c of cs)assert.strictEqual(c.privN,1,c.uid+' katılırken priv bir kez gelmeli');
+  host.send({t:'start'});await Promise.all([host,...cs].map(c=>c.until(c=>c.P.phase==='night'&&c.priv.role)));
+  await cs[0].close();await new Promise(r=>setTimeout(r,100));
+  const r=srv.rooms.get(room);assert.strictEqual(r.members.size,4,'oyundaki oyuncu kopsa da kaydı durur');
+  host.send({t:'cancel'});await host.until(c=>c.P.phase==='lobby');
+  await new Promise(r=>setTimeout(r,100));
+  assert.strictEqual(r.members.size,3,'lobide çevrimdışı üye kalmamalı');assert.ok(!r.lastPriv.has(cs[0].me));
+  for(const c of [host,cs[1],cs[2]])await c.close();
 });

@@ -10,6 +10,7 @@ const G=require('./game.js');
 
 const ROOM_TTL_MS=+process.env.ROOM_TTL_MS||2*60*60*1000;   // bu kadar süre mesaj gelmezse oda silinir
 const HOST_GRACE_MS=+process.env.HOST_GRACE_MS||10*60*1000; // ev sahibi bu kadar dönmezse yetki devredilir
+const EMPTY_ROOM_MS=+process.env.EMPTY_ROOM_MS||10*60*1000; // kimse bağlı değilse oda bu kadar sonra silinir
 const MAX_ROOMS=+process.env.MAX_ROOMS||1000;
 const MAX_SOCKS_PER_ROOM=40;
 const INDEX=path.join(__dirname,'..','index.html');
@@ -50,10 +51,14 @@ function createServer(opts={}){
 
   // ---------- oda yardımcıları ----------
   function newRoom(code,hostId){
-    const room={code,hostId,game:G.createGame(),members:new Map(),lastActive:Date.now(),hostGoneSince:null,flushT:null,lastPriv:new Map()};
+    const room={code,hostId,game:G.createGame(),members:new Map(),lastActive:Date.now(),hostGoneSince:null,emptySince:null,flushT:null,lastPriv:new Map()};
     rooms.set(code,room);log('oda açıldı',code);return room;
   }
   const online=m=>m.socks.size>0;
+  const anyOnline=room=>[...room.members.values()].some(online);
+  // oyunda olmayan (lobideki ya da izleyen) üye kopunca kaydı silinir; oyuncu dönebilsin diye kalır.
+  // Lobiye dönüşte (iptal) ya da yeni oyunda eski oyuncular da buradan temizlenir.
+  function prune(room){const players=room.game.P.players||[];for(const [id,m] of room.members)if(!online(m)&&!players.some(p=>p.id===id)){room.members.delete(id);room.lastPriv.delete(id)}}
   // lobi: bağlı ve adı olan üyeler, ev sahibi önde; aynı rengi seçen ikinciye boş renk
   function lobbyOf(room){
     const list=[];
@@ -81,6 +86,7 @@ function createServer(opts={}){
   function flush(room){
     clearTimeout(room.flushT);room.flushT=null;
     if(!rooms.has(room.code))return;
+    prune(room);
     const st=stateMsg(room);
     for(const [uid,m] of room.members){for(const ws of m.socks){sendRaw(ws,st);sendChat(ws,room)}sendPriv(room,uid)}
   }
@@ -97,11 +103,12 @@ function createServer(opts={}){
     m.socks.delete(ws);
     if(!online(m)){
       if(ws.uid===room.hostId)room.hostGoneSince=Date.now();
-      // oyunda olmayan (lobideki ya da izleyen) üye kopunca kaydı silinir; oyuncu dönebilsin diye kalır
-      if(!(room.game.P.players||[]).some(p=>p.id===ws.uid)){room.members.delete(ws.uid);room.lastPriv.delete(ws.uid)}
+      if(!anyOnline(room))room.emptySince=Date.now();
     }
     schedule(room);
   }
+  // soket başka bir odaya geçiyor: ayrılır; boş bıraktığı lobi odası süre dolmasını beklemeden silinir
+  function leave(ws){const old=ws.room;if(!old)return;detach(ws);if(old.game.P.phase==='lobby'&&!anyOnline(old))deleteRoom(old,'Oda terk edildi.')}
   function isHost(ws){return ws.room&&ws.uid===ws.room.hostId}
 
   // ---------- mesajlar ----------
@@ -109,6 +116,10 @@ function createServer(opts={}){
     const key=cleanUid(m.uid);if(!key)return send(ws,{t:'err',m:'Geçersiz oyuncu kimliği.',code:'bad'});
     const uid=pubId(key);
     let code=cleanCode(m.room);let room=code&&rooms.get(code);
+    // ev sahibi eski kodunu getirdi ama oda artık başkasının (eskisi kapanmış, kod yeniden dağıtılmış):
+    // üyesi ya da oyuncusu değilse yabancının lobisine düşmesin, yeni oda alsın
+    if(room&&m.host&&room.hostId!==uid&&!room.members.has(uid)&&!(room.game.P.players||[]).some(p=>p.id===uid)){room=null;code=''}
+    if(ws.room&&ws.room!==room)leave(ws);
     if(!room){
       if(!m.host)return send(ws,{t:'err',m:'Oda bulunamadı. Kod doğru mu? Oda uzun süre boş kaldıysa kapanmış olabilir.',code:'noroom'});
       if(rooms.size>=MAX_ROOMS)return send(ws,{t:'err',m:'Sunucu dolu, biraz sonra tekrar dene.',code:'full'});
@@ -117,7 +128,7 @@ function createServer(opts={}){
     let sockCount=0;for(const x of room.members.values())sockCount+=x.socks.size;
     if(sockCount>=MAX_SOCKS_PER_ROOM)return send(ws,{t:'err',m:'Oda dolu.',code:'full'});
     if(ws.room)detach(ws);
-    ws.uid=uid;ws.room=room;ws.chatSeen=0;
+    ws.uid=uid;ws.room=room;ws.chatSeen=0;room.emptySince=null;
     let mem=room.members.get(uid);
     if(!mem){mem={name:'',color:null,hat:'none',socks:new Set()};room.members.set(uid,mem)}
     applyLook(mem,m);
@@ -126,7 +137,7 @@ function createServer(opts={}){
     room.lastActive=Date.now();
     // yeni bağlanana açık kimliği ve hemen tam durum; diğerlerine lobi değişikliği
     send(ws,{t:'you',id:uid});
-    sendRaw(ws,stateMsg(room));sendChat(ws,room);sendRaw(ws,JSON.stringify({t:'priv',d:G.privFor(room.game,uid)}));
+    sendRaw(ws,stateMsg(room));sendChat(ws,room);sendPriv(room,uid,true);
     schedule(room);
   }
   function applyLook(mem,m){
@@ -180,6 +191,7 @@ function createServer(opts={}){
     const now=Date.now();
     for(const room of [...rooms.values()]){
       if(now-room.lastActive>ROOM_TTL_MS){deleteRoom(room,'Oda uzun süre kullanılmadığı için kapandı.');continue}
+      if(room.emptySince&&now-room.emptySince>EMPTY_ROOM_MS&&!anyOnline(room)){deleteRoom(room,'Odada kimse kalmadı.');continue}
       try{if(G.tick(room.game))flush(room)}catch(e){log('hata',room.code,e&&e.stack||e)}
       if(room.hostGoneSince&&now-room.hostGoneSince>=HOST_GRACE_MS){
         const players=(room.game.P.players||[]).map(p=>p.id);

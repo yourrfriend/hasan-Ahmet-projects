@@ -37,7 +37,13 @@ tamam "npm test ($(grep -E '^# pass' /tmp/kg-test.log | awk '{print $3}') test)"
 
 # 4) İsteğe bağlı: uçtan uca
 if [ "${1:-}" = "--e2e" ]; then
+  # Playwright: global kurulum, yoksa npx önbelleği. Tarayıcı: Playwright'ın kendi Chromium'u, yoksa sistemdeki Chrome (PW_CHROMIUM)
   NP="$(npm root -g)"
+  if [ ! -d "$NP/playwright" ]; then aday="$(ls -d "$HOME"/.npm/_npx/*/node_modules/playwright 2>/dev/null | head -1 || true)"; [ -n "$aday" ] && NP="$(dirname "$aday")"; fi
+  [ -d "$NP/playwright" ] || hata "Playwright bulunamadı (npm i -g playwright)"
+  if [ -z "${PW_CHROMIUM:-}" ] && [ ! -d "$HOME/.cache/ms-playwright" ]; then
+    for b in google-chrome google-chrome-stable chromium chromium-browser; do if command -v "$b" >/dev/null; then export PW_CHROMIUM="$(command -v "$b")"; break; fi; done
+  fi
   (cd "$SUNUCU" && NODE_PATH="$NP${NODE_PATH:+:$NODE_PATH}" npm run e2e --silent >/tmp/kg-e2e.log 2>&1) || { tail -40 /tmp/kg-e2e.log; hata "e2e başarısız"; }
   tamam "e2e (tarayıcı)"
 fi

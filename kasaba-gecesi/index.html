@@ -179,7 +179,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 <div id="app"><div class="panel"><p class="muted">Yükleniyor…</p></div></div>
 <script>
 // Script daha başlamadan çökerse "Yükleniyor…" yerine hatayı göster (sürüm damgasıyla).
-window.KG_VER='2026-10-12t';
+window.KG_VER='2026-10-24a';
 window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ff6b6b"><p><b>Sayfa açılamadı.</b> Sürüm '+KG_VER+'</p><p class="small" style="word-break:break-all">'+String(e.message||e.error||e)+(e.filename?' @'+e.lineno:'')+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}});
 setTimeout(function(){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ffb347"><p><b>Sayfa yüklenemedi.</b> Sürüm '+KG_VER+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}},8000);
 </script>
@@ -229,7 +229,7 @@ function connect(){
   clearTimeout(retryT);
   if(ws){ws.onclose=null;try{ws.close()}catch(e){}ws=null}
   try{ws=new WebSocket(wsUrl())}catch(e){connErr='Sunucu adresi geçersiz: '+wsUrl();render();return}
-  ws.onopen=()=>{connected=true;retryN=0;connErr=null;send({t:'join',room:roomCode,uid,name:myName,color:myLook.color,hat:myLook.hat,host:wantHost||undefined,settings:wantHost?settings:undefined});render()};
+  ws.onopen=()=>{connected=true;send({t:'join',room:roomCode,uid,name:myName,color:myLook.color,hat:myLook.hat,host:wantHost||undefined,settings:wantHost?settings:undefined});render()};
   ws.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch(x){return}onServerMsg(m)};
   ws.onclose=()=>{ws=null;connected=false;if(fatal)return;render();retryT=setTimeout(connect,Math.min(15000,1000*2**retryN++))};
   ws.onerror=()=>{};
@@ -239,7 +239,7 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 function onServerMsg(m){
   if(m.t==='you'){myId=m.id;render()}
   else if(m.t==='state'){
-    const prev=P;P=m.P;if(m.now)skew=Date.now()-m.now;lobby=P.lobby||[];roomCode=P.room||roomCode;isHost=P.hostId===myId;everConnected=true;connErr=null;
+    const prev=P;P=m.P;if(m.now)skew=Date.now()-m.now;lobby=P.lobby||[];roomCode=P.room||roomCode;isHost=P.hostId===myId;everConnected=true;connErr=null;retryN=0;
     // yeni oyun ya da lobi: sohbet sıfırlanır (sunucu yeni satırları ayrıca yollar)
     if(P.phase==='lobby'||P.gameId!==prev.gameId)chatLog=[];
     P.chat=chatLog;
@@ -249,14 +249,18 @@ function onServerMsg(m){
     onStateChange(prev);render();
   }
   else if(m.t==='chat'){
-    const a=Array.isArray(m.a)?m.a:[];chatLog.push(...a);if(chatLog.length>150)chatLog.splice(0,chatLog.length-150);P.chat=chatLog;
+    const a=Array.isArray(m.a)?m.a:[];
+    if(m.init)chatLog=[]; // yeniden bağlanınca sunucu tüm geçmişi yollar: üstüne eklenmez, yerine konur
+    chatLog.push(...a);if(chatLog.length>150)chatLog.splice(0,chatLog.length-150);P.chat=chatLog;
     if(!m.init&&a.some(c=>!c.sys&&c.id!==myId))SFX.pop();
     render();
   }
   else if(m.t==='priv'){priv=m.d||{role:null,notes:[],mates:[],dchat:[]};render()}
   else if(m.t==='err'){
     if(m.code==='soft')return;
-    fatal=true;connErr=m.m||'Bağlantı hatası.';if(ws){try{ws.close()}catch(e){}}render();
+    connErr=m.m||'Bağlantı hatası.';
+    if(m.code!=='full')fatal=true; // oda/sunucu dolu geçicidir: soket kapanır, onclose artan aralıkla yeniden dener
+    if(ws){try{ws.close()}catch(e){}}render();
   }
 }
 function send(m){if(ws&&ws.readyState===1){try{ws.send(JSON.stringify(m))}catch(e){}}}

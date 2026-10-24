@@ -141,6 +141,8 @@ bilgi "$AD: dosyalar hazırlanıyor ($SURUM, $COMMIT)"
 rm -rf "$YENI" "$ESKI";mkdir -p "$YENI/sunucu"
 install -m 644 "$OYUN/index.html" "$YENI/index.html"
 for f in server.js game.js package.json package-lock.json; do install -m 644 "$OYUN/sunucu/$f" "$YENI/sunucu/"; done
+# Caddy şablonu da sürümle birlikte durur: parça hep kurulu sürümün şablonundan üretilir (eski sürümlerde yoksa bu klasördeki)
+[ -f "$OYUN/sunucu/Caddyfile" ] && install -m 644 "$OYUN/sunucu/Caddyfile" "$YENI/sunucu/" || true
 (cd "$YENI/sunucu" && npm ci --omit=dev --no-audit --no-fund --loglevel=error)
 
 # ---------- systemd: tek şablon, her kurulum game@AD ----------
@@ -179,7 +181,8 @@ systemctl restart "game@$AD"
 if ! saglikli; then
   if [ -d "$ESKI" ]; then
     uyari "Yeni sürüm yanıt vermedi; eski sürüm geri yükleniyor."
-    rm -rf "$HEDEF";mv "$ESKI" "$HEDEF";[ -f "$ENV_ESKI" ] && cp "$ENV_ESKI" "$AYAR_KOK/$AD.env"
+    rm -rf "$HEDEF";mv "$ESKI" "$HEDEF"
+    if [ -f "$ENV_ESKI" ]; then cp "$ENV_ESKI" "$AYAR_KOK/$AD.env";PORT="$(ayar_oku "$AD" PORT)";fi # eski sürüm eski portunda; sağlık da orada bakılır
     systemctl restart "game@$AD"
     saglikli && hata "Yeni sürüm ($SURUM@$COMMIT) çalışmadı; eski sürüm geri yüklendi ve çalışıyor. Günlük: journalctl -u game@$AD -n 50"
   fi
@@ -204,7 +207,8 @@ fi
 for f in "$AYAR_KOK"/*.env; do [ -e "$f" ] || continue; a="$(basename "$f" .env)"
   a_alan="$(ayar_oku "$a" ALAN)";a_port="$(ayar_oku "$a" PORT)"
   if [ "$KIP" = tunel ]; then site="http:\/\/$a_alan:$TUNEL_PORT {\n\tbind 127.0.0.1";else site="$a_alan {";fi
-  sed "s/^ALAN {/$site/; s/127.0.0.1:8787/127.0.0.1:$a_port/" "$KAYNAK/Caddyfile" > "$CADDY_KOK/games/$a.caddy"
+  sablon="$APP_KOK/$a/sunucu/Caddyfile";[ -f "$sablon" ] || sablon="$KAYNAK/Caddyfile"
+  sed "s/^ALAN {/$site/; s/127.0.0.1:8787/127.0.0.1:$a_port/" "$sablon" > "$CADDY_KOK/games/$a.caddy"
 done
 caddy validate --config "$ANA" --adapter caddyfile >"$GECICI/caddy.log" 2>&1 || { cat "$GECICI/caddy.log" >&2; hata "Caddy ayarı geçersiz: $ANA"; }
 systemctl enable --quiet caddy

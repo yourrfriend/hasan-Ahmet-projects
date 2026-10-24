@@ -156,3 +156,25 @@ test('lobiye dönüş gizli durumu siler',()=>{
   const R=fixed(['hain','masum','masum','masum']);G.endToLobby(R);
   assert.strictEqual(R.g,null);assert.strictEqual(R.P.phase,'lobby');assert.strictEqual(G.privFor(R,'u0').role,null);
 });
+
+test('tutulan ya da tuzağa yakalanan deli de bilgi alamaz (gerçek rolden ayırt edilemez)',()=>{
+  // u0 polis u1'i tutar; u1 deli (kendini gözcü sanır) u2'ye bakar → yalnız "tuttu" notu, "kişi geldi" olmamalı
+  let R=fixed(['polis','deli','hain','masum','masum']);R.g.roles.u1.mad='gozcu';
+  G.act(R,'u0',{ab:'u1'});G.act(R,'u1',{ab:'u2'});G.advance(R);
+  assert.match(notesOf(R,'u1'),/Polis seni evde tuttu/);assert.ok(!/kişi geldi/.test(notesOf(R,'u1')),notesOf(R,'u1'));
+  // u0 tuzakçı u2'nin kapısına tuzak kurar; deli(gözcü) u2'ye gidince yakalanır, bilgi alamaz
+  R=fixed(['tuzakci','deli','hain','masum','masum']);R.g.roles.u1.mad='gozcu';
+  G.act(R,'u0',{ab:'u2'});G.act(R,'u1',{ab:'u2'});G.advance(R);
+  assert.match(notesOf(R,'u1'),/tuzağa yakalandın/);assert.ok(!/kişi geldi/.test(notesOf(R,'u1')),notesOf(R,'u1'));
+});
+test('izci: tuzağa yakalanan eve gitmiş sayılır, polisin tuttuğu çıkmamış sayılır',()=>{
+  // u0 hain u3'e gider ve u1'in tuzağına yakalanır; u2 izci u0'ı izler → "u3 evine gitti" (gözcü de onu orada sayar)
+  let R=fixed(['hain','tuzakci','izci','masum']);
+  G.act(R,'u0',{kill:'u3'});G.act(R,'u1',{ab:'u3'});G.act(R,'u2',{ab:'u0'});G.advance(R);
+  assert.ok(G.pl(R,'u3').alive);assert.match(notesOf(R,'u0'),/tuzağa yakalandın/);
+  assert.match(notesOf(R,'u2'),/Oyuncu0 gece Oyuncu3 evine gitti/);
+  // polis u0'ı evde tutar → izci "evinden çıkmadı" der
+  R=fixed(['hain','polis','izci','masum']);
+  G.act(R,'u0',{kill:'u3'});G.act(R,'u1',{ab:'u0'});G.act(R,'u2',{ab:'u0'});G.advance(R);
+  assert.ok(G.pl(R,'u3').alive);assert.match(notesOf(R,'u2'),/Oyuncu0 gece evinden çıkmadı/);
+});

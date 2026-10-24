@@ -82,6 +82,8 @@ const step=t=>console.log('•',t);
       await lost.evaluate(()=>ws.close());
       await lost.waitForSelector('.ov.offline',{timeout:3000});
       await lost.waitForSelector('.ov.offline',{state:'detached',timeout:8000});
+      await lost.waitForFunction(()=>(P.chat||[]).some(m=>m.t==='merhaba kasaba'));
+      assert.strictEqual(await lost.evaluate(()=>P.chat.filter(m=>m.t==='merhaba kasaba').length),1,'yeniden bağlanınca sohbet çiftlenmemeli');
 
       step('oylama: herkes çekimser kalınca faz kendiliğinden geçer');
       roomOf().game.P.ends=Date.now()-1;

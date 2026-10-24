@@ -81,7 +81,7 @@ Playwright betiğinde süreleri beklemek yerine sunucuyu aynı süreçte `create
 
 - İlk gece rol kartı (`ui.roleCard`) açıkken evler tıklanmaz; testte önce "Anladım"a bas. Eylem düğmeleri gece başladıktan ~2,5 sn sonra açılır.
 - Evler SVG; tıklama `scene.houses[id].g.onclick` ile bağlı.
-- Playwright global kurulu (`npm root -g`); `NODE_PATH` vermeden `require('playwright')` bulunmaz. `playwright install` çalıştırma.
+- Playwright global olmayabilir: `kontrol.sh --e2e` sırayla `npm root -g` ve npx önbelleğine (`~/.npm/_npx/*/node_modules`) bakar, Playwright'ın Chromium'u yoksa sistemdeki Chrome'u `PW_CHROMIUM` ile verir. `test/e2e.js`'yi elle çalıştırırken `NODE_PATH` (ve gerekirse `PW_CHROMIUM`) ver. `playwright install` çalıştırma.
 - `pkill -f "node server.js"` kendi kabuğunu da öldürür (komut satırında aynı metin geçer). `pkill -f "[n]ode server.js"` kullan.
 - Odalar bellekte: servis yeniden başlarsa açık oyunlar kaybolur. Kalıcılık istenirse bu ayrı bir iş (PLAN.md "Sonrası").
 - `kur.sh` systemd ister; konteynerde gerçek kurulum yapılamaz. Değiştirirsen `bash -n` çalıştır ve betiği sahte ortamda dene: `KG_APP_KOK`, `KG_AYAR_KOK`, `KG_CADDY_KOK`, `KG_SYSTEMD_KOK` ile yolları geçici klasöre çevir, PATH'e `systemctl` (game@AD'yi `node server.js` ile başlatan) ve `apt-get` taklitleri koy, `caddy` ikilisini GitHub sürümünden indir. Kurulum, `--surum`, aynı alan adı, geri alma, `--liste`, `--kaldir` senaryolarını dene.

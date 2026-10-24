@@ -182,11 +182,11 @@ function resolveNight(R){
     if(at.thief){const vr=g.roles[at.v];const nr=vr.mad?{key:'masum',team:'inn'}:{key:vr.key,team:vr.team};g.roles[at.thief].orig='hirsiz';g.roles[at.thief].key=nr.key;g.roles[at.thief].team=nr.team;g.roles[at.thief].uses={};nt(at.thief,nm(at.v)+' rolünü çaldın: artık '+roleLabel(nr)+' olarak oynuyorsun.');causes[at.v]='vanish'}
   }
   // 6) bilgi rolleri
-  for(const id of al){const r=g.roles[id];const k=eff(id);const t=tgt(id,'ab');const bk=r.mad||k;if(!t||!bk)continue;
-    if(k&&!ok(id))continue;
+  // deli de dahil: tutulan ya da tuzağa yakalanan bilgi alamaz (yoksa deli olduğunu anlar)
+  for(const id of al){const r=g.roles[id];const k=eff(id);const t=tgt(id,'ab');const bk=r.mad||k;if(!t||!bk||!ok(id))continue;
     if(bk==='polis'&&r.mad)nt(id,nm(t)+' bu gece evden çıkamadı.');
     if(bk==='gozcu'){const n=r.mad?Math.floor(Math.random()*3):visits[t].length;nt(id,nm(t)+' evine bu gece '+n+' kişi geldi.')}
-    if(bk==='izci'){let w;if(r.mad){const o=al.filter(x=>x!==t&&x!==id);w=Math.random()<.4?null:o[Math.floor(Math.random()*o.length)]}else w=(blocked.has(t)?null:went[t])||null;nt(id,w?nm(t)+' gece '+nm(w)+' evine gitti.':nm(t)+' gece evinden çıkmadı.')}
+    if(bk==='izci'){let w;if(r.mad){const o=al.filter(x=>x!==t&&x!==id);w=Math.random()<.4?null:o[Math.floor(Math.random()*o.length)]}else w=went[t]||null;nt(id,w?nm(t)+' gece '+nm(w)+' evine gitti.':nm(t)+' gece evinden çıkmadı.')}
     if(bk==='dedektif'){const sk=r.mad?INVGROUPS[Math.floor(Math.random()*INVGROUPS.length)]:INVGROUPS.find(gp=>gp.includes(shownRole(R,t).key))||INVGROUPS[4];nt(id,nm(t)+' şunlardan biri: '+sk.map(x=>ROLES[x].n).join(' / '))}
     if(bk==='ispiyoncu'&&!r.uses.ispiyoncu&&!died.includes(id)){r.uses.ispiyoncu=true;const sr=r.mad?{key:MADPOOL[Math.floor(Math.random()*MADPOOL.length)],team:'inn'}:shownRole(R,t);M.snitch.push({by:id,t,role:roleLabel(sr)});nt(id,nm(t)+' rolünü sabah meydanda açıkladın.')}
     if(bk==='provokator'&&!r.uses.provokator){r.uses.provokator=true;if(r.mad)r.fakeProvoked={t,day:P.day};else g.provoke={t,day:P.day};nt(id,nm(t)+' yarınki oylamaya 2 oyla başlayacak.')}
