@@ -1,7 +1,8 @@
-# Kasaba Gecesi — Caddy ayarı. kur.sh bunu /etc/caddy/Caddyfile olarak yazar ve ALAN yerine
-# alan adını koyar (ör. oyun.ornek.com). Alan adı verilirse Caddy HTTPS sertifikasını kendisi alır.
-# Alan adı yoksa ALAN yerine :80 yazılır; oyun http://SUNUCU_IP adresinden açılır.
-# Sayfa (index.html) ve WebSocket (/ws) aynı Node sürecinden gelir; Caddy hepsini oraya iletir.
+# Bir oyun kurulumunun Caddy parçası. kur.sh bunu /etc/caddy/games/AD.caddy olarak yazar:
+# ALAN yerine kurulumun alan adını (ör. kasaba.games.munupixi.com), 8787 yerine kurulumun portunu koyar.
+# Ana /etc/caddy/Caddyfile yalnız "import /etc/caddy/games/*.caddy" satırını içerir.
+# Caddy her alan adı için HTTPS sertifikasını kendisi alır. Sayfa, game.js ve WebSocket (/ws)
+# aynı Node sürecinden gelir; Caddy hepsini oraya iletir.
 ALAN {
 	encode gzip
 	reverse_proxy 127.0.0.1:8787

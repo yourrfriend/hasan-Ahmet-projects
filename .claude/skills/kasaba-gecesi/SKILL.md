@@ -16,7 +16,7 @@ Oda ve oyun mantığı Node sunucusunda yaşar; ev sahibi dahil herkes WebSocket
 | `kasaba-gecesi/sunucu/game.js` | Oyun kuralları, ağdan bağımsız: `startGame`, `setPhase`, `resolveNight`, `resolveVote`, `checkWin`, `act/vote/chat/deadChat`, `privFor`, `tick`. Tarayıcı da yükler (sabitler için). |
 | `kasaba-gecesi/sunucu/server.js` | HTTP (sayfayı sunar, `/saglik`) + WebSocket (`/ws`), bellek içi odalar, 500 ms'lik zamanlayıcı. |
 | `kasaba-gecesi/sunucu/test/` | `game.test.js`, `server.test.js` (`npm test`), `e2e.js` (`npm run e2e`). |
-| `kasaba-gecesi/sunucu/kur.sh`, `Caddyfile` | VPS kurulumu: Node 20, Caddy (otomatik HTTPS), systemd `kasaba-gecesi`, uygulama `/opt/kasaba-gecesi`. |
+| `kasaba-gecesi/sunucu/kur.sh`, `Caddyfile` | VPS kurulumu, çok oyunlu/çok sürümlü: `kur.sh AD ALAN [--surum REF]` → `/opt/games/AD`, `/etc/games/AD.env` (PORT, ALAN, SURUM, COMMIT), systemd şablonu `game@AD`, Caddy parçası `/etc/caddy/games/AD.caddy` (`Caddyfile` bunun şablonu). |
 | `kasaba-gecesi/sunucu/PLAN.md` | Sunucuya taşıma planı ve durumu. |
 
 ## Mimari ve veri akışı
@@ -84,8 +84,10 @@ Playwright betiğinde süreleri beklemek yerine sunucuyu aynı süreçte `create
 - Playwright global kurulu (`npm root -g`); `NODE_PATH` vermeden `require('playwright')` bulunmaz. `playwright install` çalıştırma.
 - `pkill -f "node server.js"` kendi kabuğunu da öldürür (komut satırında aynı metin geçer). `pkill -f "[n]ode server.js"` kullan.
 - Odalar bellekte: servis yeniden başlarsa açık oyunlar kaybolur. Kalıcılık istenirse bu ayrı bir iş (PLAN.md "Sonrası").
-- `kur.sh` systemd ister; konteynerde uçtan uca çalıştırılamaz. Değiştirirsen `bash -n`, Caddyfile için `caddy validate` ile doğrula.
+- `kur.sh` systemd ister; konteynerde gerçek kurulum yapılamaz. Değiştirirsen `bash -n` çalıştır ve betiği sahte ortamda dene: `KG_APP_KOK`, `KG_AYAR_KOK`, `KG_CADDY_KOK`, `KG_SYSTEMD_KOK` ile yolları geçici klasöre çevir, PATH'e `systemctl` (game@AD'yi `node server.js` ile başlatan) ve `apt-get` taklitleri koy, `caddy` ikilisini GitHub sürümünden indir. Kurulum, `--surum`, aynı alan adı, geri alma, `--liste`, `--kaldir` senaryolarını dene.
+- `kur.sh` `set -euo pipefail` ile çalışır: olmayan dosyayı okuyan bir boru (`cat x | sed`) ya da `[ … ] && …` ile biten bir döngü betiği sessizce bitirir. Koşulları `if` ile yaz.
+- Sunucu `PORT`, `HOST` ve `KG_SURUM` ortam değişkenlerini okur; `/saglik` sürümü döner. Başka bir oyun da aynı kurala uyarsa (`sunucu/server.js`, `/saglik`) aynı `kur.sh` düzenine girer.
 
 ## Yayına alma
 
-VPS'te: `git pull && sudo ./kur.sh <alan-adı>` (`kasaba-gecesi/sunucu` içinden). Günlük: `journalctl -u kasaba-gecesi -f`. Sağlık: `curl http://127.0.0.1:8787/saglik`.
+VPS'te (`kasaba-gecesi/sunucu` içinden): `git pull && sudo ./kur.sh kasaba kasaba.games.munupixi.com`. Test sürümü: `sudo ./kur.sh kasaba-test kasaba-test.games.munupixi.com --surum <branch>`. Liste: `sudo ./kur.sh --liste`. Günlük: `journalctl -u game@kasaba -f`. Sağlık ve sürüm: `curl https://kasaba.games.munupixi.com/saglik`.
