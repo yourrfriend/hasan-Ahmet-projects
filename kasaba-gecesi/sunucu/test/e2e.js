@@ -50,8 +50,10 @@ const step=t=>console.log('•',t);
     for(const p of all())await p.click('text=Anladım');
     let acted=0;
     for(const p of all()){
-      const did=await p.evaluate(()=>{if(!canTarget())return false;const t=P.players.find(x=>x.id!==myId);const g=scene.houses[t.id].g;if(!g.onclick)throw new Error('ev tıklanamıyor');g.dispatchEvent(new MouseEvent('click',{bubbles:true}));return true});
-      if(did)acted++;
+      // gerçek tıklama, ekrandaki konuma: evin üstünü örten bir katman varsa (gece karartması, ipucu) burada yakalanır
+      const at=await p.evaluate(()=>{if(!canTarget())return null;const t=P.players.find(x=>x.id!==myId);const g=scene.houses[t.id].g;if(!g.onclick)throw new Error('ev tıklanamıyor');const r=g.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}});
+      if(!at)continue;
+      await p.mouse.click(at.x,at.y);acted++;
     }
     await host.waitForTimeout(300);
     assert.ok(acted>0&&Object.keys(R.g.acts).length===acted,'sunucu gece hamlelerini almalı ('+acted+' / '+Object.keys(R.g.acts).length+')');

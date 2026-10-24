@@ -179,7 +179,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 <div id="app"><div class="panel"><p class="muted">Yükleniyor…</p></div></div>
 <script>
 // Script daha başlamadan çökerse "Yükleniyor…" yerine hatayı göster (sürüm damgasıyla).
-window.KG_VER='2026-10-24a';
+window.KG_VER='2026-10-24b';
 window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ff6b6b"><p><b>Sayfa açılamadı.</b> Sürüm '+KG_VER+'</p><p class="small" style="word-break:break-all">'+String(e.message||e.error||e)+(e.filename?' @'+e.lineno:'')+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}});
 setTimeout(function(){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ffb347"><p><b>Sayfa yüklenemedi.</b> Sürüm '+KG_VER+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}},8000);
 </script>
@@ -414,7 +414,7 @@ function buildScene(players){
   const pos={};const rp=ringPos(Math.max(players.length,4));players.forEach((p,i)=>pos[p.id]=rp[i]);
   const houseLayer=SE('g',{},svg),graveLayer=SE('g',{},svg),beanLayer=SE('g',{},svg),fx=SE('g',{},svg);
   const houses={};[...players].sort((a,b)=>pos[a.id].hy-pos[b.id].hy).forEach(p=>houses[p.id]=drawHouse(houseLayer,pos[p.id].hx,pos[p.id].hy,p.name));
-  const nightLayer=SE('g',{class:'nightlayer',opacity:0},svg);
+  const nightLayer=SE('g',{class:'nightlayer',opacity:0,style:'pointer-events:none'},svg); // karartma evlerin üstünde: dokunmayı yutmasın
   SE('rect',{width:SW,height:SH,fill:'#0e1a3d',opacity:.58},nightLayer);
   for(let i=0;i<40;i++)SE('circle',{cx:(i*263)%SW,cy:(i*97)%220,r:1.2+(i%3)*.5,fill:'#fff',opacity:.5+(i%4)*.12},nightLayer);
   SE('circle',{cx:1040,cy:90,r:120,fill:'url(#s_moon)'},nightLayer);SE('circle',{cx:1040,cy:90,r:34,fill:'#fff3c4'},nightLayer);SE('circle',{cx:1052,cy:80,r:28,fill:'#1a2a55',opacity:.25},nightLayer);
