@@ -1,0 +1,14 @@
+# Kasaba Gecesi: Supabase yalnız yerelde dinler (dış kapı Caddy + Cloudflare Tunnel, bkz. caddy.sh);
+# anonim kullanıcı ve kimlik bağlama (Google'ı sonradan aynı hesaba ekleme) açık.
+# kur-supabase.sh bu dosyayı /opt/supabase-kasaba içine kopyalar ve COMPOSE_FILE'a ekler.
+services:
+  api-gw:
+    ports: !override
+      - "127.0.0.1:8000:8000/tcp"
+  supavisor:
+    ports: !override
+      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:6543:6543"
+  auth:
+    environment:
+      GOTRUE_SECURITY_MANUAL_LINKING_ENABLED: "true"
