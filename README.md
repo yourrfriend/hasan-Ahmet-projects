@@ -29,6 +29,7 @@ sudo ./kur.sh kasaba-v1 kasaba-v1.games.munupixi.com --surum v1               # 
 - Kurulumlar: `sudo ./kur.sh --liste` (adres, port, sürüm, commit, durum). Kaldırmak: `sudo ./kur.sh --kaldir kasaba-test`
 - Sürüm: `curl https://kasaba.games.munupixi.com/saglik` çalışan sürümü ve commit'i gösterir.
 - Günlük: `journalctl -u game@kasaba -f`
+- Claude Code ile: depoyu kendi bilgisayarına klonla, `.claude/yayin.env.ornek` dosyasını `.claude/yayin.env` olarak kopyalayıp VPS'in SSH adresini yaz, depo klasöründe `claude` çalıştır ve `/yayinla` (yayındaki sürüm), `/yayinla kasaba-test sunucu`, `/yayinla --liste` ya da `/yayinla --kaldir kasaba-test` yaz. Claude önce testleri çalıştırır, komutu gösterip onay ister, sunucuda `kur.sh`'yi çalıştırır ve adresi `/saglik` ile doğrular. VPS'e SSH anahtarıyla bağlanabilmen ve kullanıcının `root` ya da parolasız `sudo` yetkili olması gerekir.
 - Eski tek oyunluk kurulum (`kasaba-gecesi` servisi) varsa ilk yeni kurulumda durdurulur; eski Caddyfile `Caddyfile.eski` olarak saklanır.
 - Odalar bellekte tutulur; servis yeniden başlarsa açık odalar kapanır. 2 saat kullanılmayan oda kendiliğinden silinir.
 - Sayfayı GitHub Pages gibi başka bir yerden açacaksan sunucu adresini `index.html` içindeki `KG_SERVER` sabitine yaz ya da linke `?s=wss://oyun.ornek.com` ekle.
