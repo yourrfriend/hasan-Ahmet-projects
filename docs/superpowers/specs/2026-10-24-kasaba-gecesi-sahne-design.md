@@ -1,6 +1,6 @@
 # Kasaba Gecesi — Rol Dağılımı, Gece Yürüyüşü ve Rol Animasyonları, Evler
 
-Tarih: 2026-10-24 · Dal: `sahne` (`sunucu`'dan) · Durum: taslak, denetleyici okuyacak
+Tarih: 2026-10-24 · Dal: `sahne` (`sunucu`'dan) · Durum: denetleyici okudu, beş soru benim kararımla kapatıldı; uygulanıyor
 
 ## 1. Niyet ve neden
 
@@ -58,32 +58,38 @@ Kullanıcı A/A/A'yı ve önce denemeyi seçti; deneme yapıldı.
 ### 5.1 Rol dağılımı (`game.js` `autoSetup(n)`)
 
 Formül ("tehdit bütçesi"); `n` oyuncu sayısı (4–12):
-- `hain = round(n/4)` → 4–5: 1, 6–9: 2, 10–12: 3. En az biri düz **Hain**; hainlerin en çok `floor(hain/2)`'si
+- `hain`: 4–5 kişi 1, 6–9 kişi 2, 10–12 kişi 3 (açık eşik tablosu; formül değil). En az biri düz **Hain**; hainlerin en çok `floor(hain/2)`'si
   yetenekli (havuz: Temizlikçi, Suçlayıcı, Polis(H), Gözcü(H), Dedektif(H), Tuzakçı(H), İzci(H), İspiyoncu(H),
   Provokatör(H)); **aynı rol iki kez çıkmaz** (bugünkü "iki Temizlikçi" ve "Seri Katil çifte ağırlık" kalkar).
-- Saldırgan tarafsız (Seri Katil, Bombacı, Hırsız, Büyücü; eşit olasılık): `n ≥ 7` → 1; `n ≥ 11` → 2;
-  bütçe: `hain + 0,5 × saldırgan ≤ n/3`, aşarsa saldırgan azalır.
+- Saldırgan tarafsız (Seri Katil, Bombacı, Hırsız, Büyücü; eşit olasılık): `n ≥ 7` → 1; `n ≥ 11` → 2.
+  (İlk taslaktaki "tehdit bütçesi" formülü eşiklerle çelişiyordu — n=7 ve 10'da tarafsızı düşürüyordu — kaldırıldı;
+  dengeyi eşikler ve kalibrasyon belirler.)
 - Pasif tarafsız (Hayatta Kalan, Hortlak; eşit olasılık): `n ≥ 9` → 1.
 - Deli: `n ≥ 6` → 1 (masum sayılır).
-- Masum yetenekliler: Doktor hep; Polis `n ≥ 5`; sonra havuzdan tekrarsız (Gözcü, İzci, Dedektif, Tuzakçı,
-  İspiyoncu, Provokatör); **bilgi rolü sayısı ≥ hain sayısı** (Gözcü, İzci, Dedektif, Polis, İspiyoncu bilgi
-  rolü sayılır); kalan Masum.
+- Masumlar (`m = n − hain − tarafsız − deli`): yetenekli sayısı `ceil(0,75 × m)`, gerisi düz **Masum** (n ≥ 6'dan
+  itibaren en az bir Masum çıkar). Yetenekliler: Doktor hep; Polis `n ≥ 5`; sonra havuzdan tekrarsız (Gözcü, İzci,
+  Dedektif, Tuzakçı, İspiyoncu, Provokatör), önce bilgi rolleri gelecek şekilde: **bilgi rolü sayısı ≥ hain sayısı**
+  (Gözcü, İzci, Dedektif, Polis, İspiyoncu bilgi rolüdür).
 - Bu sayılar varsayılandır; **kalibrasyon** (5.1.1) sonucuna göre eşikler (`n ≥ 7`, `n ≥ 11`, `n ≥ 9`) ve
   `round(n/4)` yuvarlaması değişebilir. Son tablo README'ye yazılır.
 
 5.1.1 Kalibrasyon: `kasaba-gecesi/sunucu/test/denge.js` (komut: `node test/denge.js [oyun=2000]`):
 her `n` için `createGame`/`startGame`/`act`/`vote`/`advance` ile oyunlar oynatır; basit strateji —
 hainler yaşayan masum/tarafsızı öldürür, Seri Katil rastgele, Doktor rastgele korur, bilgi rolleri rastgele
-hedef, gündüz herkes rastgele yaşayan birine oy verir (hainler masuma). Çıktı tablo: `n, masum %, hain %,
-tarafsız %, ort. gün, 1. gece ölüm`. Hedef bandı dışındaki satırlar işaretlenir. Araç test değildir, `npm test`'e
-girmez; ama `game.test.js`'te dağılım **kısıtları** test edilir: her n için 500 dağılımda özel rol tekrarı yok,
+hedef; gündüz: hainler masuma oy verir, masumlar şüpheliye — şüpheli = o gece ölen evin ziyaretçisi olarak
+Gözcü/İzci/Dedektif notlarında geçen biri (o oyuncunun notu varsa), yoksa rastgele yaşayan biri. Çıktı tablo:
+`n, masum %, hain %, tarafsız %, ort. gün, 1. gece ölüm`. **Bant (%45–55) rapor eşiğidir, otomatik hedef değil:**
+rastgele/basit strateji gerçek oyuncuyu temsil etmez; araç dağılımları birbiriyle karşılaştırmak içindir. Bant dışı
+satırlar işaretlenir ve eşik değişikliğine kullanıcı karar verir (§7). Araç test değildir, `npm test`'e girmez; ama `game.test.js`'te dağılım **kısıtları** test edilir: her n için 500 dağılımda özel rol tekrarı yok,
 hain sayısı formüle uyar, bilgi rolü ≥ hain, toplam = n.
 
 ### 5.2 Yürüyüş (istemci)
 
 - Hız 190 sahne birimi/sn; süre `clamp(500 ms, mesafe/hız, 3500 ms)`; yürüyüş boyunca `walkhop` sürekli,
   varınca `landed` → `idle`. Mevcut konumdan başlar (hedef değiştirirse yeni hedefe mevcut yerden yürür;
-  "Vazgeç" evine yürüyerek döner).
+  "Vazgeç" evine yürüyerek döner). **Yalnız gece hamle yürüyüşü** mesafeye bağlıdır: `moveBean` isteğe bağlı süre
+  alır; sabah/akşam dizileri ve meydan hareketleri bugünkü sabit süreyle kalır (deneme tüm hareketleri
+  değiştirmişti; o kısım alınmaz).
 - Süre `pickHouse` içinde **render'dan önce** hesaplanır (deneme bunu öğretti), `anim.walkMs`'e yazılır;
   varış anı `anim.enteredAt + walkMs`; sesler (kapı/tıklama) varışta.
 - "SEN"/"HEDEFİN" etiketleri karakteri izler (etiket konumu karakterin görsel konumu: `getBoundingClientRect`
@@ -109,7 +115,7 @@ Nesneler `S_.fx` katmanına, karakterin yanına; hareket bitince silinir (iz har
 | İspiyoncu | pencere | fotoğraf flaşı (beyaz parlama) | — |
 | Provokatör | kapı | megafon + "!!" | — |
 | Tuzakçı | kapı | tuzak yerleştirme | kapı önünde tuzak |
-| Bombacı | kapı | dinamit bırakma | kapı önünde dinamit (her gece birikir) |
+| Bombacı | kapı | dinamit bırakma | kapı önünde dinamit; önceki gecelerinkiler de durur (`priv.planted` ev listesi olur; `game.js`'te küçük değişiklik: `privFor` `r.planted` listesini döner, istemci sayı için `.length` kullanır) |
 | Hortlak | kapı | mum yakma | kapıda mum |
 | Büyücü | evinde | elini kaldırır, hedef eve yıldırım çizgisi + parlama | — |
 | Hayatta Kalan | evinde | yelek giyme (iki kol) | — |
