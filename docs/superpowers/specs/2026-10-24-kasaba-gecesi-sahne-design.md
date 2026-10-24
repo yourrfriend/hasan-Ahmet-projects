@@ -58,10 +58,14 @@ Kullanıcı A/A/A'yı ve önce denemeyi seçti; deneme yapıldı.
 ### 5.1 Rol dağılımı (`game.js` `autoSetup(n)`)
 
 Formül ("tehdit bütçesi"); `n` oyuncu sayısı (4–12):
-- `hain`: 4–5 kişi 1, 6–9 kişi 2, 10–12 kişi 3 (açık eşik tablosu; formül değil). En az biri düz **Hain**; hainlerin en çok `floor(hain/2)`'si
+- `hain`: 4–8 kişi 1, 9–12 kişi 2; 3 hain hiç yok (kalibrasyon kararı, aşağıda). En az biri düz **Hain**; hainlerin en çok `floor(hain/2)`'si
   yetenekli (havuz: Temizlikçi, Suçlayıcı, Polis(H), Gözcü(H), Dedektif(H), Tuzakçı(H), İzci(H), İspiyoncu(H),
   Provokatör(H)); **aynı rol iki kez çıkmaz** (bugünkü "iki Temizlikçi" ve "Seri Katil çifte ağırlık" kalkar).
-- Saldırgan tarafsız (Seri Katil, Bombacı, Hırsız, Büyücü; eşit olasılık): `n ≥ 7` → 1; `n ≥ 11` → 2.
+- Saldırgan tarafsız (Seri Katil, Bombacı, Hırsız, Büyücü; eşit olasılık): `n ≥ 9` → 1; `n = 12` → 2.
+- **Kalibrasyon kararı (2026-10-24, kullanıcı):** `denge.js` ölçümü 6–8 kişide 2 bağımsız hainin oyunu ilk gece bitirdiğini
+  (ilk gece ~1,3 ölüm, eşitlik hemen) gösterdi; "ekip tek kurban" kural değişikliği önerildi, kullanıcı her hainin
+  ayrı öldürmesini (Feign tarzı) korumayı seçti; bunun karşılığı düşük hain sayısı. 2+ hainli oyunlarda simülasyonun
+  masum kazanma yüzdesi anlamsızdır (basit oyuncular haini bulamaz); orada ölçü ilk gece ölüm ve süredir.
   (İlk taslaktaki "tehdit bütçesi" formülü eşiklerle çelişiyordu — n=7 ve 10'da tarafsızı düşürüyordu — kaldırıldı;
   dengeyi eşikler ve kalibrasyon belirler.)
 - Pasif tarafsız (Hayatta Kalan, Hortlak; eşit olasılık): `n ≥ 9` → 1.

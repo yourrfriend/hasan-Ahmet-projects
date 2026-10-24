@@ -199,7 +199,7 @@ test('gece bitiminde bağlantısı kopuk yaşayan oyuncu varsa bir kez en çok 3
 const BILGI=['polis','gozcu','izci','dedektif','ispiyoncu'];
 const OZEL=Object.keys(G.ROLES).filter(k=>!['masum','hain'].includes(k));
 test('rol dağılımı: eşikler, tekrarsız özel roller, bilgi rolü ≥ hain, %75 yetenekli',()=>{
-  const bekle={4:[1,0,0,0],5:[1,0,0,0],6:[2,0,0,1],7:[2,1,0,1],8:[2,1,0,1],9:[2,1,1,1],10:[3,1,1,1],11:[3,2,1,1],12:[3,2,1,1]}; // hain, saldırgan, pasif, deli
+  const bekle={4:[1,0,0,0],5:[1,0,0,0],6:[1,0,0,1],7:[1,0,0,1],8:[1,0,0,1],9:[2,1,1,1],10:[2,1,1,1],11:[2,1,1,1],12:[2,2,1,1]}; // hain, saldırgan, pasif, deli
   for(let n=4;n<=12;n++){
     const kumeler=new Set();
     for(let i=0;i<500;i++){

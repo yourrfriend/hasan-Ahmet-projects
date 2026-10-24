@@ -51,9 +51,10 @@ function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random
 // sayısına göre; her özel rol en fazla bir kez; hain tarafında en az bir düz Hain, en çok floor(hain/2) yetenekli;
 // masumların yetenekli sayısı min(m, max(ceil(0,75·m), hain+1)); bilgi rolü sayısı ≥ hain; gerisi Masum.
 // Eşikler test/denge.js ile ölçülür (README "Rol dağılımı").
+// Eşikler denge.js ölçümüyle seçildi (2026-10-24): her hain ayrı öldürdüğü için 2 hain ancak 9+ kişide; 3 hain hiç yok.
 const DAGILIM={
-  hain:n=>n<=5?1:n<=9?2:3,
-  saldirgan:n=>n>=11?2:n>=7?1:0,   // serikatil / bombaci / hirsiz / buyucu
+  hain:n=>n<=8?1:2,
+  saldirgan:n=>n>=12?2:n>=9?1:0,   // serikatil / bombaci / hirsiz / buyucu
   pasif:n=>n>=9?1:0,               // hayatta / hortlak
   deli:n=>n>=6?1:0
 };
