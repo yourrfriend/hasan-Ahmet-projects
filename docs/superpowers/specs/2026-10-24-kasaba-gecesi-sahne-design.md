@@ -66,8 +66,9 @@ Formül ("tehdit bütçesi"); `n` oyuncu sayısı (4–12):
   dengeyi eşikler ve kalibrasyon belirler.)
 - Pasif tarafsız (Hayatta Kalan, Hortlak; eşit olasılık): `n ≥ 9` → 1.
 - Deli: `n ≥ 6` → 1 (masum sayılır).
-- Masumlar (`m = n − hain − tarafsız − deli`): yetenekli sayısı `ceil(0,75 × m)`, gerisi düz **Masum** (n ≥ 6'dan
-  itibaren en az bir Masum çıkar). Yetenekliler: Doktor hep; Polis `n ≥ 5`; sonra havuzdan tekrarsız (Gözcü, İzci,
+- Masumlar (`m = n − hain − tarafsız − deli`): yetenekli sayısı `min(m, max(ceil(0,75 × m), hain + 1))` — "+1"
+  Doktor'dur, böylece bilgi rolü ≥ hain her zaman sağlanabilir; gerisi düz **Masum** (bu kurallarla Masum 8, 9 ve
+  12 kişide çıkar). Yetenekliler: Doktor hep; Polis `n ≥ 5`; sonra havuzdan tekrarsız (Gözcü, İzci,
   Dedektif, Tuzakçı, İspiyoncu, Provokatör), önce bilgi rolleri gelecek şekilde: **bilgi rolü sayısı ≥ hain sayısı**
   (Gözcü, İzci, Dedektif, Polis, İspiyoncu bilgi rolüdür).
 - Bu sayılar varsayılandır; **kalibrasyon** (5.1.1) sonucuna göre eşikler (`n ≥ 7`, `n ≥ 11`, `n ≥ 9`) ve
