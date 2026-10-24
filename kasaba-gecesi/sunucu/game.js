@@ -47,12 +47,37 @@ const has=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
 
 function roleLabel(r){const b=ROLES[r.key];return b.n+((r.team==='imp'&&b.team!=='imp')?' (Hain)':'')}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+// Rol dağılımı (tasarım docs/superpowers/specs/2026-10-24-kasaba-gecesi-sahne-design.md §5.1): eşikler oyuncu
+// sayısına göre; her özel rol en fazla bir kez; hain tarafında en az bir düz Hain, en çok floor(hain/2) yetenekli;
+// masumların yetenekli sayısı min(m, max(ceil(0,75·m), hain+1)); bilgi rolü sayısı ≥ hain; gerisi Masum.
+// Eşikler test/denge.js ile ölçülür (README "Rol dağılımı").
+const DAGILIM={
+  hain:n=>n<=5?1:n<=9?2:3,
+  saldirgan:n=>n>=11?2:n>=7?1:0,   // serikatil / bombaci / hirsiz / buyucu
+  pasif:n=>n>=9?1:0,               // hayatta / hortlak
+  deli:n=>n>=6?1:0
+};
+const BILGI_ROLLERI=['polis','gozcu','izci','dedektif','ispiyoncu'];
 function autoSetup(n){
   const c={};const add=id=>{c[id]=(c[id]||0)+1};
-  const imp=n<=5?1:n<=8?2:3;add('hain');if(imp>=2)add(shuffle(['temizlikci','suclayici','polis_h','gozcu_h','dedektif_h','tuzakci_h','izci_h'])[0]);if(imp>=3)add(shuffle(['hain','ispiyoncu_h','provokator_h','temizlikci'])[0]);
-  let used=imp;if(n>=7){add(shuffle(['serikatil','serikatil','bombaci','hirsiz','buyucu','hortlak'])[0]);used++}if(n>=10){add('hayatta');used++}
-  const inn=['doktor','polis',...shuffle(['gozcu','dedektif','tuzakci','deli','ispiyoncu','provokator','izci'])];
-  for(let i=0;used<n;i++,used++)add(inn[i]||'masum');
+  const hain=DAGILIM.hain(n),sald=DAGILIM.saldirgan(n),pasif=DAGILIM.pasif(n),deli=DAGILIM.deli(n);
+  const yh=shuffle(['temizlikci','suclayici','polis_h','gozcu_h','dedektif_h','tuzakci_h','izci_h','ispiyoncu_h','provokator_h']).slice(0,Math.floor(hain/2));
+  yh.forEach(add);for(let i=yh.length;i<hain;i++)add('hain');
+  shuffle(['serikatil','bombaci','hirsiz','buyucu']).slice(0,sald).forEach(add);
+  shuffle(['hayatta','hortlak']).slice(0,pasif).forEach(add);
+  if(deli)add('deli');
+  const m=n-hain-sald-pasif-deli;
+  const yetenekli=Math.min(m,Math.max(Math.ceil(0.75*m),hain+1),8);
+  const secilen=['doktor'];if(n>=5&&secilen.length<yetenekli)secilen.push('polis');
+  let bilgi=secilen.filter(k=>BILGI_ROLLERI.includes(k)).length;
+  const havuzB=shuffle(['gozcu','izci','dedektif','ispiyoncu']),havuzD=shuffle(['tuzakci','provokator']);
+  while(secilen.length<yetenekli&&(havuzB.length||havuzD.length)){
+    let k;
+    if(bilgi<hain&&havuzB.length)k=havuzB.shift();            // önce bilgi rolleri, hain sayısına ulaşana kadar
+    else{k=shuffle([...havuzB,...havuzD])[0];const ix=havuzB.indexOf(k);if(ix>=0)havuzB.splice(ix,1);else havuzD.splice(havuzD.indexOf(k),1)}
+    secilen.push(k);if(BILGI_ROLLERI.includes(k))bilgi++;
+  }
+  secilen.forEach(add);for(let i=secilen.length;i<m;i++)add('masum');
   return c;
 }
 function cleanSettings(s){
@@ -289,7 +314,7 @@ function privFor(R,id){
     uses:r.uses,vest:r.vest,planted:r.planted.length,candle:g.candle[id]||null};
 }
 
-return{ROLES,SETUP,COLORS,HATS,DEFAULT_SETTINGS,roleLabel,autoSetup,cleanSettings,setClock,
+return{ROLES,SETUP,COLORS,HATS,DEFAULT_SETTINGS,DAGILIM,roleLabel,autoSetup,cleanSettings,setClock,
   lobbyState,createGame,startGame,setPhase,advance,tick,resolveNight,resolveVote,checkWin,endToLobby,
   act,vote,chat,deadChat,privFor,pl,alivePlayers,inGame};
 });

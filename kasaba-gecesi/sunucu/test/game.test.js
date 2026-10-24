@@ -195,3 +195,30 @@ test('gece bitiminde bağlantısı kopuk yaşayan oyuncu varsa bir kez en çok 3
     t=R3.P.ends;G.tick(R3,new Set(['u2']));assert.strictEqual(R3.P.phase,'vote');
   }finally{G.setClock()}
 });
+
+const BILGI=['polis','gozcu','izci','dedektif','ispiyoncu'];
+const OZEL=Object.keys(G.ROLES).filter(k=>!['masum','hain'].includes(k));
+test('rol dağılımı: eşikler, tekrarsız özel roller, bilgi rolü ≥ hain, %75 yetenekli',()=>{
+  const bekle={4:[1,0,0,0],5:[1,0,0,0],6:[2,0,0,1],7:[2,1,0,1],8:[2,1,0,1],9:[2,1,1,1],10:[3,1,1,1],11:[3,2,1,1],12:[3,2,1,1]}; // hain, saldırgan, pasif, deli
+  for(let n=4;n<=12;n++){
+    const kumeler=new Set();
+    for(let i=0;i<500;i++){
+      const c=G.autoSetup(n);const ids=Object.keys(c);
+      assert.strictEqual(Object.values(c).reduce((a,b)=>a+b,0),n,'toplam '+n);
+      const say=(f)=>ids.filter(f).reduce((a,id)=>a+c[id],0);
+      const hain=say(id=>G.SETUP.find(s=>s.id===id).team==='imp');
+      const sald=say(id=>['serikatil','bombaci','hirsiz','buyucu'].includes(id));
+      const pasif=say(id=>['hayatta','hortlak'].includes(id));
+      assert.deepStrictEqual([hain,sald,pasif,c.deli||0],bekle[n],'n='+n+' '+JSON.stringify(c));
+      for(const id of ids)if(id!=='masum'&&id!=='hain')assert.strictEqual(c[id],1,'özel rol tekrar: '+id+' n='+n);
+      assert.ok((c.hain||0)>=1,'düz hain şart');
+      assert.ok(say(id=>id.endsWith('_h')||['temizlikci','suclayici'].includes(id))<=Math.floor(hain/2),'yetenekli hain sınırı n='+n);
+      assert.ok(c.doktor===1,'doktor hep');assert.strictEqual(c.polis||0,n>=5?1:0,'polis 5+');
+      const bilgi=say(id=>BILGI.includes(id));assert.ok(bilgi>=hain,'bilgi rolü ≥ hain n='+n+' '+JSON.stringify(c));
+      const m=n-hain-sald-pasif-(c.deli||0);const yetenekli=m-(c.masum||0);
+      assert.strictEqual(yetenekli,Math.min(m,Math.max(Math.ceil(0.75*m),hain+1),8),'yetenekli masum sayısı n='+n);
+      kumeler.add(ids.sort().join(','));
+    }
+    if(n>=7)assert.ok(kumeler.size>1,'n='+n+' hep aynı küme');
+  }
+});
