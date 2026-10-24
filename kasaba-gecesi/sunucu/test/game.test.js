@@ -4,7 +4,7 @@ const test=require('node:test');
 const assert=require('node:assert');
 const G=require('../game.js');
 
-const SECRET_KEYS=['roles','acts','votes','notes','dchat','candle','planted','mad','uses','vest','haunt','provoke','blame','log'];
+const SECRET_KEYS=['roles','acts','votes','notes','dchat','candle','planted','mad','uses','vest','haunt','provoke','blame','log','gameLog'];
 function keysDeep(o,out=new Set()){if(o&&typeof o==='object'){for(const k of Object.keys(o)){out.add(k);keysDeep(o[k],out)}}return out}
 function noLeak(P){const ks=keysDeep(P);for(const k of SECRET_KEYS)assert.ok(!ks.has(k),'state içinde gizli alan: '+k)}
 
@@ -226,4 +226,36 @@ test('olay günlüğü: iptal yazılır, lobide ve bitmiş oyunda yazılmaz',()=
   const R=fixed(['hain','masum','masum','masum']);G.advance(R);G.endToLobby(R);
   const son=R.log[R.log.length-1];assert.strictEqual(son.tur,'iptal');assert.deepStrictEqual(son.veri,{gun:1,faz:'talk'});
   const n=R.log.length;G.endToLobby(R);assert.strictEqual(R.log.length,n,'lobideyken iptal yazılmaz');
+});
+
+test('oyun sonu özeti ve senin payın günlükten türer',()=>{
+  const R=fixed(['hain','doktor','tuzakci','masum','masum']);
+  G.act(R,'u0',{kill:'u3'});G.act(R,'u1',{ab:'u3'});G.act(R,'u2',{ab:'u4'});G.advance(R); // doktor u3'ü kurtarır
+  G.advance(R);for(const id of ['u0','u1','u2','u3'])G.vote(R,id,'u4');G.vote(R,'u4','skip'); // u4 asılır
+  G.act(R,'u0',{kill:'u2'});G.advance(R); // gece 2: tuzakçı ölür → 1 hain, 2 masum → sürer
+  G.advance(R);for(const id of ['u1','u3'])G.vote(R,id,'u0');G.vote(R,'u0','u1'); // hain asılır → masumlar
+  assert.strictEqual(R.P.phase,'end');
+  const oz=R.P.ozet;assert.deepStrictEqual(oz.kazanan,{takim:'inn',metin:'Masumlar kazandı!'});
+  const by=Object.fromEntries(oz.oyuncular.map(o=>[o.id,o]));
+  assert.deepStrictEqual(by.u4.olum,{gun:1,faz:'gunduz',sekil:'asildi',kimden:[]});
+  assert.deepStrictEqual(by.u2.olum,{gun:2,faz:'gece',sekil:'stab',kimden:['u0']});
+  assert.strictEqual(by.u1.olum,null);assert.strictEqual(by.u1.sag,true);assert.strictEqual(by.u0.rol,'Hain');
+  assert.deepStrictEqual(G.privFor(R,'u0').payin,{oldurdu:['Oyuncu2'],kurtardi:[],yakaladi:[],tuttu:[]});
+  assert.deepStrictEqual(G.privFor(R,'u1').payin.kurtardi,['Oyuncu3']);
+  noLeak(R.P);
+});
+test('payin oyun bitmeden null; hırsız ve deli özette doğru görünür',()=>{
+  let R=fixed(['hain','masum','masum','masum']);assert.strictEqual(G.privFor(R,'u0').payin,null);assert.strictEqual(R.P.ozet,undefined);
+  R=fixed(['hirsiz','hain','doktor','masum','masum','masum','masum']);
+  G.act(R,'u0',{ab:'u2'});G.advance(R); // hırsız doktorun rolünü çalar
+  assert.strictEqual(R.g.roles.u0.key,'doktor');
+  // kalan oyunu hızlıca bitir: hain ve hırsız (artık doktor) dışında herkes gece ölmüş gibi
+  for(const id of ['u3','u4','u5','u6'])G.pl(R,id).alive=false;
+  G.advance(R);G.advance(R); // talk → vote → çözüm (kimse oy vermez) → checkWin
+  assert.strictEqual(R.P.phase,'end');
+  const o=Object.fromEntries(R.P.ozet.oyuncular.map(o=>[o.id,o]));
+  assert.match(o.u0.rol,/Hırsız çaldı/);assert.deepStrictEqual(G.privFor(R,'u0').payin.oldurdu,['Oyuncu2']);
+  R=fixed(['hain','deli','masum','masum','masum']);R.g.roles.u1.mad='doktor';
+  G.act(R,'u0',{kill:'u2'});G.act(R,'u1',{ab:'u2'});G.advance(R);
+  assert.ok(!R.log.some(e=>e.tur==='gece_hamle'&&e.veri.kim==='u1'),'deli hamlesi etkin değildir');
 });

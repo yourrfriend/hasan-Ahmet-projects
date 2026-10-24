@@ -65,7 +65,7 @@ let clock=()=>Date.now();
 function setClock(f){clock=f||(()=>Date.now())}
 
 function lobbyState(){return{phase:'lobby',chat:[],dead:[],players:[]}}
-function createGame(settings){return{P:lobbyState(),g:null,settings:cleanSettings(settings),seq:0,log:[],logSeq:0}}
+function createGame(settings){return{P:lobbyState(),g:null,settings:cleanSettings(settings),seq:0,log:[],logSeq:0,gameLog:[]}}
 
 function pl(R,id){return (R.P.players||[]).find(p=>p.id===id)}
 function alivePlayers(R){return (R.P.players||[]).filter(p=>p.alive)}
@@ -78,7 +78,8 @@ function pushChat(R,m){m.s=R.seq=(R.seq||0)+1;R.P.chat.push(m);if(R.P.chat.lengt
 function sysChat(R,t){pushChat(R,{sys:true,t})}
 // Olay günlüğü (R.log): hikâye, özet ve istatistiğin tek kaynağı. Gizlidir, P'ye girmez; sunucu her yayında boşaltır.
 // Oyuncular açık kimlikle (P.players[].id) geçer. Olay türleri ve alanları: docs/superpowers/specs/…gecmis-design.md §5.4
-function logEv(R,tur,veri){R.log.push({sira:++R.logSeq,gun:R.P.day||0,faz:R.P.phase,tur,veri})}
+// R.log sunucuya giden kuyruktur (her yayında boşaltılır); R.gameLog bu oyunun tam günlüğüdür (özet ve "senin payın" buradan).
+function logEv(R,tur,veri){const e={sira:++R.logSeq,gun:R.P.day||0,faz:R.P.phase,tur,veri};R.log.push(e);R.gameLog.push(e)}
 
 // ---------- Oyun akışı ----------
 // lobby: [{id,name,color,hat}] (oda sırasıyla). En az 4, en çok 12 kişi.
@@ -87,7 +88,7 @@ function startGame(R,lobby){
   const counts=autoSetup(players.length);
   const bag=[];for(const e of SETUP)for(let i=0;i<(counts[e.id]||0);i++)bag.push({key:e.key,team:e.team});shuffle(bag);
   const roles={};players.forEach((p,i)=>{const r=bag[i];roles[p.id]={key:r.key,team:r.team,mad:r.key==='deli'?MADPOOL[Math.floor(Math.random()*MADPOOL.length)]:null,uses:{},vest:3,planted:[]}});
-  R.g={roles,acts:{},notes:{},dchat:[],votes:{},provoke:null,blame:null,clean:null,candle:{},haunt:null,hauntWins:[]};
+  R.g={roles,acts:{},notes:{},dchat:[],votes:{},provoke:null,blame:null,clean:null,candle:{},haunt:null,hauntWins:[]};R.gameLog=[];
   players.forEach(p=>R.g.notes[p.id]=[]);
   const settings={...R.settings};
   R.P={phase:'night',day:1,ends:clock()+settings.night*1000+6000,chat:[],dead:[],voted:[],settings,gameId:clock(),morning:null,evening:null,provoked:null,
@@ -140,7 +141,7 @@ function resolveNight(R){
   const tgt=(id,f)=>{const t=A(id)[f];return(t&&alive(t)&&t!==id)?t:null};
   const M={deaths:[],saved:[],snitch:[],lightning:[],exploded:[],haunted:[],news:[]};
   // günlük: yalnız etkin hamleler (deli ve geçersiz hedefler yazılmaz; hainde öldürme seçildiyse yetenek zaten düşmüştür)
-  const L={tutulan:[],tuzak:[],yelek:[],bombalar:[],mum:[],caldi:null,provokasyon:null,killers:{},killerAd:{}};
+  const L={tutulan:[],tutanlar:[],tuzak:[],yelek:[],kurtaranlar:[],bombalar:[],mum:[],caldi:null,provokasyon:null,killers:{},killerAd:{}};
   for(const id of al){const k=eff(id);if(!k)continue;const a=A(id);
     if(g.roles[id].team==='imp'&&tgt(id,'kill'))logEv(R,'gece_hamle',{kim:id,tur:'kill',hedef:tgt(id,'kill'),tahmin:null});
     if(k==='hayatta'&&a.ab==='self')logEv(R,'gece_hamle',{kim:id,tur:'self',hedef:null,tahmin:null});
@@ -169,7 +170,7 @@ function resolveNight(R){
     visits[t].push(c);went[c]=t;
     if(trappedAt(c,t)){blocked.add(c);L.tuzak.push({kim:c,ev:t,kuran:traps[t]});nt(c,'Tuzağa yakalandın, kimseyi tutamadın.');nt(traps[t],nm(c)+' tuzağına yakalandı.')}
     else if(eff(t)==='serikatil'){nt(c,nm(t)+' evde durmadı; onu tutamadın.')}
-    else{blocked.add(t);L.tutulan.push(t);nt(c,nm(t)+' bu gece evden çıkamadı.');if(!heldCop.has(t)&&!heldTrapper.has(t))nt(t,'Polis seni evde tuttu, rolünü kullanamadın.')}}
+    else{blocked.add(t);L.tutulan.push(t);L.tutanlar.push({kim:c,hedef:t});nt(c,nm(t)+' bu gece evden çıkamadı.');if(!heldCop.has(t)&&!heldTrapper.has(t))nt(t,'Polis seni evde tuttu, rolünü kullanamadın.')}}
   // 3) ziyaretler ve tuzak yakalamaları (büyücü evinden çıkmaz; polis ve tuzakçının yetenek hedefi yukarıda, öldürme hedefi burada)
   for(const id of al){const k=eff(id);const r=g.roles[id];const targets=new Set();
     if(r.team==='imp'&&tgt(id,'kill'))targets.add(tgt(id,'kill'));
@@ -198,7 +199,7 @@ function resolveNight(R){
   g.haunt=null;
   const died=[],causes={};
   for(const at of attacks){if(!alive(at.v)||died.includes(at.v)){at.ids.forEach(i=>nt(i,nm(at.v)+' zaten ölmüştü.'));continue}
-    if(!at.sure&&heals.has(at.v)){nt(at.v,'Saldırıya uğradın ama Doktor seni kurtardı!');for(const id of al)if(eff(id)==='doktor'&&tgt(id,'ab')===at.v)nt(id,nm(at.v)+' saldırıya uğradı, onu kurtardın!');at.ids.forEach(i=>nt(i,nm(at.v)+' saldırınızdan kurtuldu.'));if(!M.saved.includes(at.v))M.saved.push(at.v);continue}
+    if(!at.sure&&heals.has(at.v)){nt(at.v,'Saldırıya uğradın ama Doktor seni kurtardı!');for(const id of al)if(eff(id)==='doktor'&&tgt(id,'ab')===at.v){L.kurtaranlar.push({kim:id,hedef:at.v});nt(id,nm(at.v)+' saldırıya uğradı, onu kurtardın!')}at.ids.forEach(i=>nt(i,nm(at.v)+' saldırınızdan kurtuldu.'));if(!M.saved.includes(at.v))M.saved.push(at.v);continue}
     if(!at.sure&&vested.has(at.v)){L.yelek.push(at.v);nt(at.v,'Saldırıya uğradın, yelek seni kurtardı.');at.ids.forEach(i=>nt(i,nm(at.v)+' saldırınızdan kurtuldu.'));continue}
     died.push(at.v);causes[at.v]=at.cause;L.killers[at.v]=at.ids;L.killerAd[at.v]=at.by;at.ids.forEach(i=>nt(i,nm(at.v)+' öldürüldü.'));
     if(at.thief){const vr=g.roles[at.v];const nr=vr.mad?{key:'masum',team:'inn'}:{key:vr.key,team:vr.team};g.roles[at.thief].orig='hirsiz';g.roles[at.thief].key=nr.key;g.roles[at.thief].team=nr.team;g.roles[at.thief].uses={};nt(at.thief,nm(at.v)+' rolünü çaldın: artık '+roleLabel(nr)+' olarak oynuyorsun.');causes[at.v]='vanish';L.caldi={hirsiz:at.thief,kurban:at.v,yeni_rol:roleLabel(nr)}}
@@ -225,7 +226,7 @@ function resolveNight(R){
   g.clean=null;
   sysChat(R,'— Gündüz '+P.day+' —');M.news.forEach(n=>sysChat(R,n));
   P.morning=M;
-  logEv(R,'gece_sonuc',{ziyaretler:visits,tutulan:L.tutulan,tuzak:L.tuzak,kurtarilan:M.saved,yelek:L.yelek,olenler,caldi:L.caldi,bombalar:L.bombalar,
+  logEv(R,'gece_sonuc',{ziyaretler:visits,tutulan:L.tutulan,tutanlar:L.tutanlar,tuzak:L.tuzak,kurtarilan:M.saved,kurtaranlar:L.kurtaranlar,yelek:L.yelek,olenler,caldi:L.caldi,bombalar:L.bombalar,
     yildirim:M.lightning,ispiyon:M.snitch.map(x=>({kim:x.by,hedef:x.t,rol:x.role})),provokasyon:L.provokasyon,mum:L.mum,haberler:M.news});
   if(checkWin(R))return;setPhase(R,'talk');
 }
@@ -260,8 +261,26 @@ function checkWin(R){
   P.phase='end';P.ends=null;
   P.winner={...w,survivors:al.filter(id=>key(id)==='hayatta').map(id=>nameOf(R,id)),haunters:g.hauntWins.map(id=>nameOf(R,id))};
   P.reveal=P.players.map(p=>({id:p.id,name:p.name,role:roleLabel(shownRole(R,p.id))+(g.roles[p.id].mad?' (aslında Deli)':g.roles[p.id].orig?' (Hırsız çaldı)':''),team:g.roles[p.id].mad?'inn':g.roles[p.id].team,alive:p.alive}));
+  P.ozet=ozetFor(R);
   logEv(R,'bitis',{kazanan:w.team,kazanan_metin:w.t,sag_kalanlar:P.winner.survivors,hortlak_kazananlar:P.winner.haunters,acilis:P.reveal});
   return true;
+}
+// Maç özeti (herkese açık, yalnız oyun bitince): kazanan ve her oyuncunun rolü/akıbeti, oyun günlüğünden.
+function ozetFor(R){const P=R.P;const olum={};
+  for(const e of R.gameLog){
+    if(e.tur==='gece_sonuc')for(const o of e.veri.olenler)olum[o.kim]={gun:e.gun,faz:'gece',sekil:o.sekil,kimden:o.kimden};
+    else if(e.tur==='gunduz_sonuc'&&e.veri.asilan)olum[e.veri.asilan]={gun:e.gun,faz:'gunduz',sekil:'asildi',kimden:[]};
+  }
+  return{kazanan:{takim:P.winner.team,metin:P.winner.t},oyuncular:P.reveal.map(r=>({id:r.id,ad:r.name,rol:r.role,takim:r.team,sag:r.alive,olum:olum[r.id]||null}))};
+}
+// "Senin payın" (kişiye özel, yalnız oyun bitince): öldürdüklerin, kurtardıkların, yakaladıkların, tuttukların.
+function payinFor(R,id){const nm=x=>nameOf(R,x);const o={oldurdu:[],kurtardi:[],yakaladi:[],tuttu:[]};
+  for(const e of R.gameLog){if(e.tur!=='gece_sonuc')continue;const v=e.veri;
+    for(const d of v.olenler)if(d.kimden.includes(id))o.oldurdu.push(nm(d.kim));
+    for(const k of v.kurtaranlar||[])if(k.kim===id)o.kurtardi.push(nm(k.hedef));
+    for(const t of v.tuzak)if(t.kuran===id)o.yakaladi.push(nm(t.kim));
+    for(const t of v.tutanlar||[])if(t.kim===id)o.tuttu.push(nm(t.hedef));
+  }return o;
 }
 function endToLobby(R){if(R.g&&['night','talk','vote'].includes(R.P.phase))logEv(R,'iptal',{gun:R.P.day,faz:R.P.phase});R.g=null;R.P=lobbyState()}
 
@@ -296,7 +315,7 @@ function deadChat(R,id,x){
 }
 
 // Kişiye özel paket (yalnız o oyuncuya gider). Oyunda değilse boş paket.
-const EMPTY_PRIV={role:null,notes:[],mates:[],dchat:[]};
+const EMPTY_PRIV={role:null,notes:[],mates:[],dchat:[],payin:null};
 function privFor(R,id){
   const g=R.g;if(!g||!g.roles[id])return EMPTY_PRIV;const P=R.P;const r=g.roles[id];const sr=r.mad?{key:r.mad,team:'inn'}:{key:r.key,team:r.team};
   const me=pl(R,id);
@@ -304,7 +323,7 @@ function privFor(R,id){
     mates:r.team==='imp'?Object.keys(g.roles).filter(x=>g.roles[x].team==='imp'&&x!==id):[],
     notes:g.notes[id]||[],dchat:me&&!me.alive?g.dchat:[],
     fakeProvoked:r.fakeProvoked&&r.fakeProvoked.day===P.day&&P.phase==='vote'?r.fakeProvoked.t:null,
-    uses:r.uses,vest:r.vest,planted:r.planted.length,candle:g.candle[id]||null};
+    uses:r.uses,vest:r.vest,planted:r.planted.length,candle:g.candle[id]||null,payin:P.phase==='end'?payinFor(R,id):null};
 }
 
 return{ROLES,SETUP,COLORS,HATS,DEFAULT_SETTINGS,roleLabel,autoSetup,cleanSettings,setClock,
