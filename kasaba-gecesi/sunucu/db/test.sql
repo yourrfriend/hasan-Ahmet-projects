@@ -110,4 +110,14 @@ do $$ begin
 end $$;
 reset role;
 
+-- 8) kasaba sahibi olan kullanıcı silinemez (kasaba sessizce gitmesin); üye olan silinebilir
+do $$ begin
+  begin
+    delete from auth.users where id = '22222222-2222-2222-2222-222222222222';   -- U2: K1'in sahibi (birleştirme sonrası)
+    raise exception 'BAŞARISIZ 8: kasaba sahibi silinebildi, kasaba gitti';
+  exception when foreign_key_violation then null; end;
+  if (select count(*) from public.kasabalar where id = 'aaaaaaaa-0000-0000-0000-000000000001') <> 1 then raise exception 'BAŞARISIZ 8: kasaba kayboldu'; end if;
+  raise notice 'GEÇTİ 8: kasaba sahibi silinemez';
+end $$;
+
 rollback;
