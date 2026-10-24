@@ -29,6 +29,7 @@ Tasarım: `docs/superpowers/specs/2026-10-24-kasaba-gecesi-sahne-design.md`.
 - `sahne` dalını canlıya alma zamanı.
 
 ## Diğer
+- Güvenlik taraması (2026-10-24, `main...sahne`): tek bulgu — `?s=` ile gizli anahtar yabancı sunucuya gidiyordu; `sahne@2c291c0`'da düzeltildi (`sunucuIzinli`). **Canlıdaki `sunucu` dalında hâlâ açık**; `sahne` canlıya alınınca kapanır. Diğer alanlar (P/priv sızıntısı, doğrulama, XSS, dosya sunumu, kur.sh) temiz.
 - Oyunu başka asistanlara anlatan teknik olmayan tanıtım: `docs/kasaba-gecesi-tanitim.md`.
 
 ## Bilinen açık konular
