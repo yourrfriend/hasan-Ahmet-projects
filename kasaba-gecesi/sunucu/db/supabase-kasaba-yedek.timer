@@ -1,0 +1,11 @@
+# kur-supabase.sh kurar. Her gün 04:10; kapalı kalınan günün yedeği açılışta alınır.
+[Unit]
+Description=Kasaba Gecesi Supabase yedeği (günlük)
+
+[Timer]
+OnCalendar=*-*-* 04:10:00
+Persistent=true
+RandomizedDelaySec=10m
+
+[Install]
+WantedBy=timers.target

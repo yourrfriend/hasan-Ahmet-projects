@@ -1,0 +1,8 @@
+# kur-supabase.sh kurar. Günlük veritabanı yedeği (bkz. yedek.sh); zamanlayıcı: supabase-kasaba-yedek.timer
+[Unit]
+Description=Kasaba Gecesi Supabase yedeği
+After=docker.service snap.docker.dockerd.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/supabase-kasaba-yedek
