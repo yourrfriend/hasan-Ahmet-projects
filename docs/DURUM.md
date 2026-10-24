@@ -1,6 +1,6 @@
 # İş durumu
 
-Son güncelleme: 2026-10-24 (akşam). Bu dosya oturumlar arası bağlam içindir; her plan bitişinde güncelle.
+Son güncelleme: 2026-10-24 (gece). Bu dosya oturumlar arası bağlam içindir; her plan bitişinde güncelle.
 
 ## Canlı
 - `kasaba.munupixi.com` ← `sunucu@91a4aa4` (ionos, tünel kipi). `kasaba-test.munupixi.com` ← o an denenen dal.
@@ -18,15 +18,18 @@ Tasarım: `docs/superpowers/specs/2026-10-24-kasaba-gecesi-gecmis-design.md`.
 ### sahne — rol dağılımı, gece yürüyüşü ve rol animasyonları, evler
 Tasarım: `docs/superpowers/specs/2026-10-24-kasaba-gecesi-sahne-design.md`.
 - ✅ Plan 1 `…sahne-1-rol-dagilimi.md`: `autoSetup` eşikleri (`DAGILIM`), 500×9 kısıt testi, `npm run denge`, README tablosu; **Bombacı Polis tarafından tutulamaz** (Polis–Bombacı kilidi kapandı).
-- 🔄 Plan 2 `…sahne-2-gece-yuruyus-animasyon.md`: Görev 0–3 bitti (`3f02a47`: deneme geri alındı, `priv.planted` liste, mesafeye göre yürüyüş + karakter üstü etiketler, 17 rol hareketi + izler, iki ses); Görev 4 kullanıcı denemesi kasaba-test'te sürüyor (Gözcü onaylandı). Sonra: geri bildirim düzeltmeleri → taze inceleme → `/yayinla`.
+- ✅ Plan 2 `…sahne-2-gece-yuruyus-animasyon.md`: mesafeye göre yürüyüş, karakter üstü etiketler, 17 rol hareketi + kalıcı izler, iki ses; telefon klavye/odak düzeltmesi. Taze inceleme (0 kritik, 5 önemli) düzeltildi: hedef değiştirme (yürüyüş damgası `walkN`, gerçek konumdan başlama), gece bitince hareket temizliği, Hayatta Kalan/Hırsız hareketleri, akşam dizisinde erken seçim, e2e senaryoları. Canlıya alma kararı bekliyor.
 - ⏳ Plan 3 evler (referans görsel kullanıcıdan; bej duvar, koyu çatı, baca + tabela).
-- Ertelenen küçükler: spec §5.1'de eski eşik/formül cümleleri; n=9'da Tuzakçı/Provokatör hiç çıkmıyor; test temizliği (`OZEL`, somut Masum iddiaları); `DAGILIM` dondurulmamış.
+- Ertelenen küçükler: spec §5.1'de eski eşik/formül cümleleri; n=9'da Tuzakçı/Provokatör hiç çıkmıyor; test temizliği (`OZEL`, somut Masum iddiaları); `DAGILIM` dondurulmamış; **gece ortasında yenilemede karakter evde görünür** (sunucu hamleyi geri yollamaz; `priv`'e kendi hamlesi eklenirse hedefte gösterilebilir — kullanıcı kararı).
 
 ## Kullanıcıdan bekleyenler
 - Cloudflare tünel token'ını yenilemesi (sohbete yapıştırılmıştı) → sonra sunucuda `cloudflared service install YENI`.
 - `alt-php-internal` (Imunify) güncelleme onayı (ionos).
 - Plan 6 için Google OAuth istemci kimliği.
 - `sahne` dalını canlıya alma zamanı.
+
+## Diğer
+- Oyunu başka asistanlara anlatan teknik olmayan tanıtım: `docs/kasaba-gecesi-tanitim.md`.
 
 ## Bilinen açık konular
 - `munupixi.com` kök adresi 522 (188.119.45.227, bilinmeyen sunucu); oyunla ilgisi yok.
