@@ -126,7 +126,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 .act button{border:0;border-radius:12px;padding:7px 12px;font-weight:800;font-size:clamp(11px,1.4vw,14px);background:rgba(255,255,255,.88);color:var(--ink);box-shadow:0 3px 0 rgba(0,0,0,.15);min-height:0}
 .act button.on{background:#e23b3b;color:#fff;box-shadow:0 3px 0 #8f1f1f}
 .act button.ab.on{background:#2563eb;box-shadow:0 3px 0 #1e3a8a}
-.skip{right:10px;bottom:66px;border:0;border-radius:12px;background:var(--paper);color:var(--ink);font-weight:900;font-family:var(--display);font-size:clamp(13px,1.8vw,18px);padding:7px 20px;box-shadow:0 4px 0 #c9bba0,0 6px 12px rgba(0,0,0,.25);min-height:0}
+.skip{right:56px;top:54px;border:0;border-radius:12px;background:var(--paper);color:var(--ink);font-weight:900;font-family:var(--display);font-size:clamp(13px,1.8vw,18px);padding:7px 20px;box-shadow:0 4px 0 #c9bba0,0 6px 12px rgba(0,0,0,.25);min-height:0}
 .skip.on{background:var(--orange);color:#fff;box-shadow:0 4px 0 #a86a1c}
 .lobbybar{top:10px;left:50%;transform:translateX(-50%);display:flex;gap:8px;align-items:center;background:rgba(255,255,255,.9);border-radius:14px;padding:6px 8px 6px 12px;font-size:clamp(11px,1.4vw,14px);box-shadow:0 2px 0 rgba(0,0,0,.12);max-width:min(92vw,560px)}
 .lobbybar code{background:#f1e6cc;padding:4px 8px;border-radius:8px;font-size:clamp(10px,1.2vw,13px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:40vw}
@@ -179,7 +179,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 <div id="app"><div class="panel"><p class="muted">Yükleniyor…</p></div></div>
 <script>
 // Script daha başlamadan çökerse "Yükleniyor…" yerine hatayı göster (sürüm damgasıyla).
-window.KG_VER='2026-10-24b';
+window.KG_VER='2026-10-24c';
 window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ff6b6b"><p><b>Sayfa açılamadı.</b> Sürüm '+KG_VER+'</p><p class="small" style="word-break:break-all">'+String(e.message||e.error||e)+(e.filename?' @'+e.lineno:'')+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}});
 setTimeout(function(){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ffb347"><p><b>Sayfa yüklenemedi.</b> Sürüm '+KG_VER+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}},8000);
 </script>
@@ -289,8 +289,16 @@ const SW=1200,SH=760,SCX=600,SCY=425,HRX=430,HRY=235;
 let scene=null;      // kurulu sahne
 let anim={};         // devam eden animasyon dizisi
 function seeded(seed){let s=seed>>>0;return()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296}}
+// Görünür sahne alanı: preserveAspectRatio "slice" geniş ekranda üstten ve alttan kırpar (telefon yatayda çok).
+// unit: 1 CSS piksel kaç sahne birimi.
+function visibleScene(){const vw=innerWidth||SW,vh=innerHeight||SH;const h=vw/vh>SW/SH?SW*vh/vw:SH;return{top:(SH-h)/2,h,unit:SW/Math.max(vw,1)}}
 // Ev halkası oyuncu sayısına göre daralır: 4-6 kişide evler meydana yakın, 9+ kişide en geniş.
-function ringPos(N){const t=Math.max(0,Math.min(1,(N-4)/6));const hrx=300+(HRX-300)*t,hry=170+(HRY-170)*t;const crx=175+25*t,cry=72+8*t;const o=[];for(let i=0;i<N;i++){const a=-Math.PI/2+i*2*Math.PI/N;o.push({hx:SCX+Math.cos(a)*hrx,hy:SCY+Math.sin(a)*hry,cx:SCX+Math.cos(a)*(N>=9?235:crx),cy:SCY-22+Math.sin(a)*(N>=9?112:cry)})}return o}
+// Kısa ekranda halka dikeyde basılır ve kayar: evler üstteki şeridin (ipucu, zamanlayıcı ~80px) altında, alt kenarın içinde kalır;
+// yoksa alt sıradaki evler ekrandan taşıyor ve sohbet/düğme kutularının altında kalıp dokunulamıyordu.
+function ringPos(N){const t=Math.max(0,Math.min(1,(N-4)/6));const hrx=300+(HRX-300)*t;let hry=170+(HRY-170)*t,hcy=SCY;
+  const vis=visibleScene();const topY=vis.top+80*vis.unit+105,botY=vis.top+vis.h-12*vis.unit+(-40); // ev: tepe -105 (ad etiketi dahil), taban +40
+  if(botY-topY<2*hry){hry=Math.max(60,(botY-topY)/2);hcy=(topY+botY)/2}else hcy=Math.min(Math.max(SCY,topY+hry),botY-hry);
+  const crx=175+25*t,cry=72+8*t;const o=[];for(let i=0;i<N;i++){const a=-Math.PI/2+i*2*Math.PI/N;o.push({hx:SCX+Math.cos(a)*hrx,hy:hcy+Math.sin(a)*hry,cx:SCX+Math.cos(a)*(N>=9?235:crx),cy:SCY-22+Math.sin(a)*(N>=9?112:cry)})}return o}
 function sceneDefs(svg){
   const defs=SE('defs',{},svg);
   const grad=(id,stops,x2=0,y2=1)=>{const g=SE('linearGradient',{id,x1:0,y1:0,x2,y2},defs);stops.forEach(([o,c])=>SE('stop',{offset:o,'stop-color':c},g))};
@@ -426,7 +434,7 @@ function buildScene(players){
 }
 function ensureScene(){
   const players=P.phase==='lobby'?(P.lobby||[]):(P.players||[]);
-  const key=[P.gameId||'lobby',players.map(p=>p.id+p.color+p.hat).join(',')].join('|');
+  const key=[P.gameId||'lobby',Math.round((innerWidth/Math.max(innerHeight,1))*20),players.map(p=>p.id+p.color+p.hat).join(',')].join('|'); // en-boy değişince (döndürme) halka yeniden hesaplanır
   if(!scene||scene.key!==key){const old=scene;buildScene(players);scene.key=key;if(old&&old.wrap.parentNode)old.wrap.replaceWith(scene.wrap)}
   return scene;
 }
@@ -469,7 +477,7 @@ function renderScene(){
     const dead=!lobbyMode&&!p.alive;const freshDeath=morningDeaths.some(d=>d.id===p.id)&&a<7;
     h.dim.setAttribute('opacity',dead&&!freshDeath&&!(eveningOut&&eveningOut.id===p.id&&a<5)?1:0);
     h.label.textContent=lobbyMode?'':p.name;
-    const selHouse=myTarget===p.id;const pick=pickable&&!dead&&p.id!==myId&&myRoleKey()!=='hayatta';
+    const selHouse=myTarget===p.id;const pick=pickable&&!dead&&p.id!==myId&&!(night&&myRoleKey()==='hayatta');
     h.glow.setAttribute('opacity',pick||selHouse?.9:0);h.glow.setAttribute('stroke',selHouse?'#ffb020':'#8cff5a');h.glow.setAttribute('stroke-width',selHouse?10:6);h.glow.setAttribute('filter',selHouse?'url(#s_glowO)':'url(#s_glow)');
     h.g.style.cursor=pick?'pointer':'default';h.g.onclick=pick?()=>pickHouse(p.id):null;
     h.doorOpen.setAttribute('opacity',selHouse&&entered?1:0);
@@ -515,6 +523,8 @@ function renderScene(){
       else if(myMates.has(p.id)&&!lobbyMode)tagAt(S_.labels,x,y-44,'HAİN','#ff5c5c','#fff');
       if(P.phase==='vote'&&(P.voted||[]).includes(p.id)){const t=SE('g',{transform:`translate(${x+16},${y-28})`},S_.labels);SE('circle',{r:9,fill:'#3ddc5a',filter:'url(#s_sh)'},t);SE('path',{d:'M-4 0 L-1 3 L4 -3',fill:'none',stroke:'#fff','stroke-width':2.4,'stroke-linecap':'round','stroke-linejoin':'round'},t)}
       if(lobbyMode&&p.id===myId){b.g.style.pointerEvents='auto';b.g.style.cursor='pointer';b.g.onclick=()=>{ui.custom=!ui.custom;render()}}
+      else if(pick&&P.phase==='vote'){b.g.style.pointerEvents='auto';b.g.style.cursor='pointer';b.g.onclick=()=>pickHouse(p.id)}
+      else b.g.onclick=null;
     }
     // mezarlar
     const wantGrave=dead&&!freshDeath&&!(eveningOut&&eveningOut.id===p.id&&a<5);
@@ -700,7 +710,7 @@ function renderGameUI(stage){
   else if(anim.seq==='evening'&&a<4.5&&P.evening){box=el('div','ov box');box.append(el('div','t',P.evening.out?'⚖️ Kasaba '+nameOf(P.evening.out.id)+' kişisini gönderdi · Rolü: '+P.evening.out.role:'⚖️ Oylar yetersiz, kimse gönderilmedi'));if(P.evening.summary)box.append(el('div',null,'Oylar: '+P.evening.summary))}
   else if(anim.seq==='evening'&&a<4.5&&P.day===1){box=el('div','ov box');box.append(el('div','t','🌙 Gece 1 başlıyor… herkes evine'))}
   if(box)stage.append(box);
-  else{const hint=!me?'Bu oyuna oyuncu olarak dahil değilsin; izliyorsun.':!alive?'Öldün. Kasabayı izliyorsun; ölülerle konuşabilirsin.':night?(priv.role&&canTarget()?(myRoleKey()==='buyucu'?'Bir ev seç, sonra rolünü tahmin et. Evinden çıkmazsın.':'Bir eve dokun; karakterin oraya gider. Bunu sadece sen görürsün. Süre dolunca gece biter.'):'Bu gece yapacağın bir şey yok; evde kal.'):P.phase==='talk'?'Konuşun: kim şüpheli?':'Göndermek istediğin evi seç · oylar gizli, sonunda sadece toplamlar açıklanır';stage.append(el('div','ov hint',hint))}
+  else{const hint=!me?'Bu oyuna oyuncu olarak dahil değilsin; izliyorsun.':!alive?'Öldün. Kasabayı izliyorsun; ölülerle konuşabilirsin.':night?(priv.role&&canTarget()?(myRoleKey()==='buyucu'?'Bir ev seç, sonra rolünü tahmin et. Evinden çıkmazsın.':'Bir eve dokun; karakterin oraya gider. Bunu sadece sen görürsün. Süre dolunca gece biter.'):'Bu gece yapacağın bir şey yok; evde kal.'):P.phase==='talk'?'Konuşun: kim şüpheli?':'Göndermek istediğin evi ya da karakteri seç · oylar gizli, sonunda sadece toplamlar açıklanır';stage.append(el('div','ov hint',hint))}
   // rol kartı (ilk gece büyük, sonra sağ altta küçük)
   if(me&&priv.role){
     if(ui.roleCard&&!(anim.seq==='evening'&&P.day===1&&a<5)){const c=el('div','ov box center');c.style.borderColor='var(--'+priv.role.team+')';c.append(el('div','small',TEAMN[priv.role.team].toUpperCase()));const ic=el('div',null,priv.role.ico);ic.style.fontSize='44px';c.append(ic,el('div','t',priv.role.label),el('div',null,priv.role.desc));
@@ -727,7 +737,9 @@ function renderGameUI(stage){
   const isDead=me&&!alive;const msgs=isDead?(priv.dchat||[]).map(m=>({...m,dead:true})):(P.chat||[]);
   if(!(night&&!isDead)){
     const chatBox=el('div','ov chat');const log=el('div','log');
-    msgs.slice(-60).forEach(m=>{const d=el('div',m.sys?'sys':m.dead?'dead':'');if(!m.sys){const b=el('b');b.style.background=(pl(m.id)||{}).color||'#999';d.append(b)}d.append(document.createTextNode(m.sys?m.t:nameOf(m.id)+': '+m.t));log.append(d)});
+    // kısa ekranda (telefon yatay) oylamada sohbet kutusu alt sıradaki evleri örtüyor: yalnız son satır kalır, yazı kutusu durur
+    const shortScreen=innerHeight<420;
+    msgs.slice(P.phase==='vote'&&shortScreen?-1:-60).forEach(m=>{const d=el('div',m.sys?'sys':m.dead?'dead':'');if(!m.sys){const b=el('b');b.style.background=(pl(m.id)||{}).color||'#999';d.append(b)}d.append(document.createTextNode(m.sys?m.t:nameOf(m.id)+': '+m.t));log.append(d)});
     chatBox.append(log);
     if(me&&(isDead||alive)){const r=el('div','in');const i=el('input');i.id='chatInput';i.placeholder=isDead?'👻 Ölülere yaz…':'Mesaj yaz…';i.maxLength=240;const b=el('button',null,'Gönder');b.onclick=()=>{sendMsg(i.value,isDead?'dead':'town');i.value='';i.focus()};i.onkeydown=e=>{if(e.key==='Enter')b.click()};r.append(i,b);chatBox.append(r)}
     stage.append(chatBox);queueMicrotask(()=>{log.scrollTop=log.scrollHeight});
@@ -747,6 +759,7 @@ function renderEndUI(stage){
 setInterval(()=>{if(P.ends&&P.phase!=='lobby'&&P.phase!=='end'&&P.phase!=='landing'){const t=document.querySelector('.timer');if(t)t.textContent=fmtTime(P.ends-now())}},1000);
 setInterval(()=>{if(!everConnected&&!connErr&&myId)render()},3000);
 setInterval(()=>{if(P.phase==='talk'||P.phase==='vote')render()},2500); // konuşma balonları ve ufak güncellemeler
+let resizeT=null;window.addEventListener('resize',()=>{clearTimeout(resizeT);resizeT=setTimeout(render,150)}); // döndürme: halka yeniden sığdırılır
 // ---------- Başlat (tüm tanımlar yüklendikten sonra) ----------
 const qs=new URLSearchParams(location.search);
 if(qs.get('oda')){joinRoom(qs.get('oda').toLowerCase().replace(/[^a-z0-9]/g,''))}else{render()}
