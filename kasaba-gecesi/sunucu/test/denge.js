@@ -30,27 +30,31 @@ function nightMove(R,id,alive){
   if(k==='masum')return{};
   return{ab:pick(others)};
 }
-// gündüz oyu: hain → masum/tarafsız; diğerleri → notlarında geçen şüpheli ya da rastgele
+// gündüz oyu: hain → masum/tarafsız; diğerleri → şüpheli ya da rastgele.
+// Şüpheli: oyuncunun kendi notlarına göre (İzci: "X gece Y evine gitti" ve Y o gece öldüyse X; Tuzakçı: "X tuzağına
+// yakalandı" → X). Gözcü notu ad vermez. oluAdlar: o sabah ölü bulunanların adları.
 function dayVote(R,id,alive,oluAdlar){
   const others=alive.filter(x=>x!==id);
   if(isImp(R,id)){const t=others.filter(x=>!isImp(R,x));return pick(t.length?t:others)}
-  const notes=G.privFor(R,id).notes||[];const names=others.map(x=>[x,R.P.players.find(p=>p.id===x).name]);
+  const notes=G.privFor(R,id).notes||[];const adId={};for(const x of others)adId[R.P.players.find(p=>p.id===x).name]=x;
   const suspects=[];
-  for(const n of notes.slice(-4)){
-    if(!(/kişi geldi|evine gitti|tuzağına yakalandı/.test(n)))continue;
-    for(const [x,nm] of names)if(n.includes(nm+' gece ')||n.includes(nm+' tuzağına')||n.includes(nm+' evine'))suspects.push(x);
+  for(const n of notes.slice(-3)){
+    let m=n.match(/: (\S+) gece (\S+) evine gitti/);if(m&&adId[m[1]]&&oluAdlar.includes(m[2]))suspects.push(adId[m[1]]);
+    m=n.match(/: (\S+) tuzağına yakalandı/);if(m&&adId[m[1]])suspects.push(adId[m[1]]);
   }
-  return suspects.length&&Math.random()<.7?pick(suspects):pick(others);
+  return suspects.length&&Math.random()<.8?pick(suspects):pick(others);
 }
 
 function play(n){
   const R=G.createGame({night:15,talk:15,vote:15});G.startGame(R,lobby(n));
-  let steps=0,firstNightDeaths=null;
+  let steps=0,firstNightDeaths=null,oluAdlar=[];
   while(R.P.phase!=='end'&&steps++<60){
     const alive=G.alivePlayers(R).map(p=>p.id);
-    if(R.P.phase==='night'){for(const id of alive)G.act(R,id,nightMove(R,id,alive));const before=alive.length;G.advance(R);if(firstNightDeaths===null)firstNightDeaths=before-G.alivePlayers(R).length}
+    if(R.P.phase==='night'){for(const id of alive)G.act(R,id,nightMove(R,id,alive));const before=alive;G.advance(R);
+      const sonra=G.alivePlayers(R).map(p=>p.id);oluAdlar=before.filter(x=>!sonra.includes(x)).map(x=>R.P.players.find(p=>p.id===x).name);
+      if(firstNightDeaths===null)firstNightDeaths=oluAdlar.length}
     else if(R.P.phase==='talk')G.advance(R);
-    else if(R.P.phase==='vote'){const day=R.P.day;for(const id of alive){if(R.P.phase!=='vote'||R.P.day!==day)break;G.vote(R,id,dayVote(R,id,alive))}if(R.P.phase==='vote')G.advance(R)}
+    else if(R.P.phase==='vote'){const day=R.P.day;for(const id of alive){if(R.P.phase!=='vote'||R.P.day!==day)break;G.vote(R,id,dayVote(R,id,alive,oluAdlar))}if(R.P.phase==='vote')G.advance(R)}
   }
   return{bitti:R.P.phase==='end',kazanan:R.P.winner?R.P.winner.team:null,gun:R.P.day,ilkGece:firstNightDeaths||0};
 }
@@ -59,10 +63,10 @@ const satirlar=[];
 for(let n=ARALIK[0];n<=(ARALIK[1]||ARALIK[0]);n++){
   const s={inn:0,imp:0,neu:0,none:0,gun:0,ilk:0,bitmeyen:0};
   for(let i=0;i<OYUN;i++){const r=play(n);if(!r.bitti){s.bitmeyen++;continue}s[r.kazanan||'none']++;s.gun+=r.gun;s.ilk+=r.ilkGece}
-  const b=OYUN-s.bitmeyen||1;const pct=v=>(100*v/b).toFixed(0).padStart(3);
-  const masum=100*s.inn/b;const bant=masum<45||masum>55?'!':' ';
-  satirlar.push(`${String(n).padStart(2)} | ${pct(s.inn)}% | ${pct(s.imp)}% | ${pct(s.neu)}% | ${(s.gun/b).toFixed(1).padStart(4)} | ${(s.ilk/b).toFixed(2).padStart(5)} | ${String(s.bitmeyen).padStart(3)} ${bant}`);
+  const b=OYUN-s.bitmeyen||1;const pct=v=>Math.round(100*v/b);const P=v=>String(pct(v)).padStart(3);
+  const masum=pct(s.inn);const bant=masum<45||masum>55?'!':' ';
+  satirlar.push(`${String(n).padStart(2)} | ${P(s.inn)}% | ${P(s.imp)}% | ${P(s.neu)}% | ${P(s.none)}% | ${(s.gun/b).toFixed(1).padStart(4)} | ${(s.ilk/b).toFixed(2).padStart(5)} | ${String(s.bitmeyen).padStart(3)} ${bant}`);
 }
-console.log(`${OYUN} oyun/n · strateji basit (rapor eşiği %45–55 masum; "!" bant dışı)`);
-console.log(' n | masum | hain | taraf | gün  | 1.gece | bitmeyen');
+console.log(`${OYUN} oyun/n · strateji basit (rapor eşiği %45–55 masum; "!" bant dışı; beraberlik = herkes öldü; bitmeyen = 60 fazda sonuç yok, ör. Polis–Bombacı kilidi)`);
+console.log(' n | masum | hain | taraf | berab | gün  | 1.gece | bitmeyen');
 console.log(satirlar.join('\n'));

@@ -18,19 +18,20 @@
 | pasif tarafsız (Hayatta Kalan/Hortlak) | 0 | 0 | 0 | 0 | 0 | 1 | 1 | 1 | 1 |
 | Deli | 0 | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
 
-Eşikler `npm run denge` ile ölçüldü (her kişi sayısı için 2000 oyun, basit stratejili oyuncular; gerçek oyuncuyu temsil etmez, dağılımları karşılaştırmak içindir). Her hain ayrı öldürdüğü için 2 hain ancak 9+ kişide; 6–8 kişide 2 hain oyunu ilk gece bitiriyordu. 2+ hainli satırlarda "masum %" basit oyuncuların haini bulamamasından düşüktür; o satırlarda anlamlı ölçü ilk gece ölüm ve süredir. Son ölçüm:
+Eşikler `npm run denge` ile ölçüldü (her kişi sayısı için 2000 oyun, basit stratejili oyuncular; gerçek oyuncuyu temsil etmez, dağılımları karşılaştırmak içindir). Her hain ayrı öldürdüğü için 2 hain ancak 9+ kişide; 6–8 kişide 2 hain oyunu ilk gece bitiriyordu. 2+ hainli satırlarda "masum %" basit oyuncuların haini bulamamasından düşüktür; o satırlarda anlamlı ölçü ilk gece ölüm ve süredir. Son ölçüm (beraberlik = herkes öldü; bitmeyen = 60 fazda sonuç yok — Polis her gece Bombacı'yı tutunca 2 kişilik kilit, kural boşluğu):
 
 ```
- n | masum | hain | taraf | gün  | 1.gece | bitmeyen
- 4 |  28% |  72% |   0% |  1.4 |  0.75 |   0 !
- 5 |  35% |  65% |   0% |  2.2 |  0.63 |   0 !
- 6 |  39% |  61% |   0% |  2.7 |  0.67 |   0 !
- 7 |  45% |  56% |   0% |  3.2 |  0.73 |   0 !
- 8 |  49% |  51% |   0% |  3.8 |  0.73 |   0  
- 9 |   8% |  83% |   5% |  2.7 |  1.92 |  11 !
-10 |   9% |  81% |   5% |  3.2 |  1.97 |   6 !
-11 |  12% |  80% |   6% |  3.7 |  1.99 |   5 !
-12 |  13% |  70% |  10% |  3.9 |  2.58 |   7 !
+2000 oyun/n · strateji basit (rapor eşiği %45–55 masum; "!" bant dışı; beraberlik = herkes öldü; bitmeyen = 60 fazda sonuç yok, ör. Polis–Bombacı kilidi)
+ n | masum | hain | taraf | berab | gün  | 1.gece | bitmeyen
+ 4 |  28% |  72% |   0% |   0% |  1.4 |  0.73 |   0 !
+ 5 |  35% |  65% |   0% |   0% |  2.2 |  0.66 |   0 !
+ 6 |  41% |  59% |   0% |   0% |  2.7 |  0.70 |   0 !
+ 7 |  44% |  56% |   0% |   0% |  3.3 |  0.72 |   0 !
+ 8 |  48% |  52% |   0% |   0% |  3.8 |  0.74 |   0  
+ 9 |   8% |  84% |   5% |   3% |  2.7 |  1.92 |   7 !
+10 |  10% |  80% |   6% |   3% |  3.3 |  1.91 |   3 !
+11 |  12% |  79% |   6% |   3% |  3.7 |  2.00 |   2 !
+12 |  14% |  69% |  12% |   5% |  3.9 |  2.56 |  10 !
 ```
 
 **Kurallar:** her hain kendi başına öldürür, yardımcı hainler gece ya yeteneğini kullanır ya öldürür; hainler birbirini tanır ama yazışamaz ve gece birbirini göremez. Oylar gizlidir; sonunda yalnızca toplamlar açıklanır. Ölen oyuncular kendi aralarında yazışabilir.
