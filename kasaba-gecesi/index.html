@@ -52,7 +52,8 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 .stage svg.scene{position:absolute;inset:0;width:100%;height:100%}
 .stage .bean{transition:transform 1s cubic-bezier(.4,0,.2,1),opacity .5s}
 .stage .bean .hop{transform-box:fill-box;transform-origin:50% 100%}
-.stage .bean.walking .hop{animation:walkhop .22s ease-in-out 5 alternate}
+.stage .bean.walking .hop{animation:walkhop .22s ease-in-out infinite alternate}
+.btag text{font-size:10px;font-weight:900;font-family:Nunito,system-ui,sans-serif}
 @keyframes walkhop{0%{transform:translateY(0) scaleY(1)}100%{transform:translateY(-7px) scaleY(1.06)}}
 .stage .bean.landed .hop{animation:land .35s ease-out}
 @keyframes land{0%{transform:scaleY(.85) scaleX(1.12)}60%{transform:scaleY(1.06) scaleX(.96)}100%{transform:scaleY(1) scaleX(1)}}
@@ -179,7 +180,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 <div id="app"><div class="panel"><p class="muted">Yükleniyor…</p></div></div>
 <script>
 // Script daha başlamadan çökerse "Yükleniyor…" yerine hatayı göster (sürüm damgasıyla).
-window.KG_VER='2026-10-24d';
+window.KG_VER='2026-10-26a';
 window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ff6b6b"><p><b>Sayfa açılamadı.</b> Sürüm '+KG_VER+'</p><p class="small" style="word-break:break-all">'+String(e.message||e.error||e)+(e.filename?' @'+e.lineno:'')+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}});
 setTimeout(function(){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ffb347"><p><b>Sayfa yüklenemedi.</b> Sürüm '+KG_VER+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}},8000);
 </script>
@@ -394,14 +395,23 @@ function beanInner(g,c,hat,o){
   else if(hat==='glasses'&&pose!=='dead'){SE('circle',{cx:-5+ex,cy:-17,r:5,fill:'none',stroke:'#1e1b2e','stroke-width':1.5},body);SE('circle',{cx:5+ex,cy:-17,r:5,fill:'none',stroke:'#1e1b2e','stroke-width':1.5},body)}
   else if(hat==='hood'){SE('path',{d:`M${-16+ex*.5} -20 a16 14 0 0 1 32 0 L${16+ex*.5} -10 L${-16+ex*.5} -10 Z`,fill:'#2f8f3a',stroke:'#1f5f27','stroke-width':1.5},body);if(pose!=='dead'){SE('circle',{cx:-5+ex,cy:-17,r:2.3,fill:'#1e1b2e'},body);SE('circle',{cx:5+ex,cy:-17,r:2.3,fill:'#1e1b2e'},body)}}
 }
-function drawBean(parent,p){const g=SE('g',{class:'bean idle'},parent);const hop=SE('g',{class:'hop'},g);const inner=SE('g',{},hop);const b={g,inner,p,o:null,x:0,y:0,s:1};setBean(b,{look:0,tilt:0,pose:'idle'});return b}
+// Etiketler (SEN / HAİN / KOPUK) karakter grubunun içinde durur: karakter yürürken onunla gider
+function beanTag(g,y){const t=SE('g',{class:'btag',opacity:0,transform:`translate(0,${y})`},g);const r=SE('rect',{y:-9,height:18,rx:9,filter:'url(#s_sh)'},t);const tx=SE('text',{y:4,'text-anchor':'middle'},t);return{g:t,r,tx}}
+function setBeanTag(tag,text,bg,fg){if(!text){tag.g.setAttribute('opacity',0);tag.tx.textContent='';return}const w=text.length*7+16;tag.r.setAttribute('x',-w/2);tag.r.setAttribute('width',w);tag.r.setAttribute('fill',bg);tag.tx.setAttribute('fill',fg);tag.tx.textContent=text;tag.g.setAttribute('opacity',1)}
+function drawBean(parent,p){const g=SE('g',{class:'bean idle'},parent);const hop=SE('g',{class:'hop'},g);const inner=SE('g',{},hop);const tag=beanTag(g,-44),tag2=beanTag(g,-62);const b={g,inner,p,o:null,x:0,y:0,s:1,tag:tag.g,_tag:tag,_tag2:tag2};setBean(b,{look:0,tilt:0,pose:'idle'});return b}
 function setBean(b,o){const n={look:o.look||0,tilt:o.tilt||0,pose:o.pose||'idle'};if(!b.o||n.look!==b.o.look||n.tilt!==b.o.tilt||n.pose!==b.o.pose){b.o=n;beanInner(b.inner,b.p.color,b.p.hat,n)}}
-function moveBean(b,x,y,s,fast,mode){
-  const moved=Math.hypot(x-b.x,y-b.y)>12;b.x=x;b.y=y;b.s=s||1;b.g.classList.toggle('fast',!!fast);b.g.style.transform=`translate(${x}px,${y}px) scale(${b.s})`;
+// Gece hedef yürüyüşü: sabit hız, süre mesafeye göre (sahne birimi); diğer hareketler bugünkü sabit sürede
+const YURUYUS_HIZ=190;
+function walkMs(x0,y0,x1,y1){return Math.round(Math.max(500,Math.min(3500,Math.hypot(x1-x0,y1-y0)/YURUYUS_HIZ*1000)))}
+// ms verilirse geçiş süresi odur (yürüyüş, doğrusal); verilmezse CSS'teki varsayılan (1 s / hızlı .6 s)
+function moveBean(b,x,y,s,fast,mode,ms){
+  const moved=Math.hypot(x-b.x,y-b.y)>12;b.x=x;b.y=y;b.s=s||1;b.g.classList.toggle('fast',!!fast);
+  if(moved){b.g.style.transitionDuration=ms?ms+'ms,.5s':'';b.g.style.transitionTimingFunction=ms?'linear,ease':''}
+  b.g.style.transform=`translate(${x}px,${y}px) scale(${b.s})`;
   const cl=b.g.classList;
   if(mode==='enter'){if(!cl.contains('enter')){cl.remove('walking','landed','idle');cl.add('enter')}return}
   cl.remove('enter');
-  if(moved){cl.remove('landed','idle');cl.remove('walking');void b.g.getBBox();cl.add('walking');clearTimeout(b.tm);b.tm=setTimeout(()=>{cl.remove('walking');cl.add('landed');setTimeout(()=>{cl.remove('landed');cl.add('idle')},380)},fast?620:1020)}
+  if(moved){cl.remove('landed','idle');cl.remove('walking');void b.g.getBBox();cl.add('walking');clearTimeout(b.tm);b.tm=setTimeout(()=>{cl.remove('walking');cl.add('landed');setTimeout(()=>{cl.remove('landed');cl.add('idle')},380)},ms||(fast?620:1020))}
   else if(!cl.contains('walking')&&!cl.contains('landed')&&!cl.contains('idle'))cl.add('idle');
 }
 function drawGrave(parent,x,y,ico){const g=SE('g',{transform:`translate(${x},${y})`,filter:'url(#s_sh)'},parent);SE('ellipse',{cx:0,cy:26,rx:24,ry:8,fill:'#7a5234'},g);SE('path',{d:'M-18 24 V-8 a18 18 0 0 1 36 0 V24 Z',fill:'#a6adb4'},g);SE('path',{d:'M-14 20 V-8 a14 14 0 0 1 28 0',fill:'none',stroke:'#c9ced3','stroke-width':3},g);SE('text',{y:11,'text-anchor':'middle','font-size':18},g).textContent=ico;return g}
@@ -471,7 +481,8 @@ function renderScene(){
   const mseq=anim.seq==='morning'||(anim.seq==='end'&&P.morning),eseq=anim.seq==='evening'||(anim.seq==='end'&&P.evening&&!P.morning);
   const morningDeaths=mseq&&P.morning?P.morning.deaths:[];
   const eveningOut=eseq&&P.evening&&P.evening.out?P.evening.out:null;
-  const entered=!!(night&&myTarget&&myPosKind()==='enter'&&anim.enteredAt&&Date.now()-anim.enteredAt>900);
+  const varildi=!!(night&&myTarget&&anim.walkT0&&Date.now()-anim.walkT0>=(anim.walkMs||0));
+  const entered=!!(varildi&&myPosKind()==='enter'&&Date.now()-anim.walkT0>=(anim.walkMs||0)+(anim.hareketMs||900));
   for(const p of players){
     const h=S_.houses[p.id],b=S_.beans[p.id];if(!h||!b)continue;
     const dead=!lobbyMode&&!p.alive;const freshDeath=morningDeaths.some(d=>d.id===p.id)&&a<7;
@@ -486,7 +497,7 @@ function renderScene(){
     if(P.phase==='vote'&&(P.provoked===p.id||priv.fakeProvoked===p.id)){const t=SE('g',{transform:`translate(${h.x+66},${h.y-90})`},S_.labels);SE('circle',{r:15,fill:'#ff5c5c',filter:'url(#s_sh)'},t);SE('text',{y:5,'text-anchor':'middle','font-size':13,'font-weight':900,fill:'#fff'},t).textContent='+2'}
     if(night&&priv.candle===p.id&&myRoleKey()==='hortlak'&&!selHouse)iconAt(S_.labels,h.x+50,h.y+30,'🕯️',11);
     // karakter konumu
-    const pos=S_.pos[p.id];let x=pos.cx,y=pos.cy,show=true,look=pos.cx<SCX?1:-1,pose='idle',tilt=((p.name.length*7)%9)-4,front=false,s=players.length>=9?.88:1,fast=false,enterMode=false;
+    const pos=S_.pos[p.id];let x=pos.cx,y=pos.cy,show=true,look=pos.cx<SCX?1:-1,pose='idle',tilt=((p.name.length*7)%9)-4,front=false,s=players.length>=9?.88:1,fast=false,enterMode=false,yuruyusMs;
     const home=nightSpot(h,'door');
     if(lobbyMode){const i=players.indexOf(p);const N=players.length;const ang=-Math.PI/2+i*2*Math.PI/Math.max(N,3);x=SCX+Math.cos(ang)*(N>6?170:120);y=SCY+Math.sin(ang)*(N>6?85:60)}
     else if(dead){
@@ -508,7 +519,8 @@ function renderScene(){
       if(!isMe)show=false;
       else{front=true;const kind=myPosKind();
         if(myTarget&&S_.houses[myTarget]&&kind!=='home'){const sp=nightSpot(S_.houses[myTarget],kind);x=sp.x;y=sp.y;look=kind==='bush'||kind==='window'?1:-1;if(entered)enterMode=true}
-        else{x=home.x;y=home.y;look=pos.hx>SCX?-1:1}}
+        else{x=home.x;y=home.y;look=pos.hx>SCX?-1:1}
+        yuruyusMs=anim.walkMs||undefined}
     }else if(mseq&&a<1.2){x=home.x;y=home.y;look=pos.hx>SCX?-1:1}
     else{ // gündüz / oylama meydanda
       if(P.phase==='vote'&&p.id===myId&&myTarget&&S_.houses[myTarget])look=S_.houses[myTarget].x>x?1:-1;
@@ -516,12 +528,15 @@ function renderScene(){
       const m=[...(P.chat||[])].reverse().find(m=>!m.sys&&m.id===p.id&&m.ts&&now()-m.ts<6000);if(m){pose='point';bubbleAt(S_.labels,x,y,m.t)}
       const sn=mseq&&P.morning&&P.morning.snitch.find(s=>s.by===p.id);if(sn&&a>1.5&&a<7){x=SCX;y=SCY+10;pose='point';look=S_.pos[sn.t]&&S_.pos[sn.t].cx<SCX?-1:1;front=true}
     }
-    if(pose!=='dead')b.inner.classList.remove('collapse');if(!(eveningOut&&eveningOut.id===p.id))b.inner.classList.remove('launch');setBean(b,{look,tilt,pose});moveBean(b,x,y,s,fast,enterMode?'enter':null);b.g.style.opacity=show?1:0;b.g.style.pointerEvents='none';
+    if(pose!=='dead')b.inner.classList.remove('collapse');if(!(eveningOut&&eveningOut.id===p.id))b.inner.classList.remove('launch');setBean(b,{look,tilt,pose});moveBean(b,x,y,s,fast,enterMode?'enter':null,yuruyusMs);b.g.style.opacity=show?1:0;b.g.style.pointerEvents='none';
     if(front&&b.g.parentNode!==S_.topLayer)S_.topLayer.appendChild(b.g);else if(!front&&b.g.parentNode!==S_.beanLayer)S_.beanLayer.appendChild(b.g);
     if(show){
-      if(p.id===myId)tagAt(S_.labels,x,y-44,lobbyMode?'SEN · DOKUN':'SEN','#ffb020','#3a2f1c');
-      else if(myMates.has(p.id)&&!lobbyMode)tagAt(S_.labels,x,y-44,'HAİN','#ff5c5c','#fff');
-      if(!lobbyMode&&!dead&&Array.isArray(P.online)&&!P.online.includes(p.id))tagAt(S_.labels,x,y-(p.id===myId||myMates.has(p.id)?62:44),'📡 KOPUK','#555','#fff');
+      if(p.id===myId)setBeanTag(b._tag,lobbyMode?'SEN · DOKUN':'SEN','#ffb020','#3a2f1c');
+      else if(myMates.has(p.id)&&!lobbyMode)setBeanTag(b._tag,'HAİN','#ff5c5c','#fff');
+      else setBeanTag(b._tag,null);
+      const kopuk=!lobbyMode&&!dead&&Array.isArray(P.online)&&!P.online.includes(p.id);
+      if(kopuk&&!(p.id===myId||myMates.has(p.id)))setBeanTag(b._tag,'📡 KOPUK','#555','#fff');
+      setBeanTag(b._tag2,kopuk&&(p.id===myId||myMates.has(p.id))?'📡 KOPUK':null,'#555','#fff');
       if(P.phase==='vote'&&(P.voted||[]).includes(p.id)){const t=SE('g',{transform:`translate(${x+16},${y-28})`},S_.labels);SE('circle',{r:9,fill:'#3ddc5a',filter:'url(#s_sh)'},t);SE('path',{d:'M-4 0 L-1 3 L4 -3',fill:'none',stroke:'#fff','stroke-width':2.4,'stroke-linecap':'round','stroke-linejoin':'round'},t)}
       if(lobbyMode&&p.id===myId){b.g.style.pointerEvents='auto';b.g.style.cursor='pointer';b.g.onclick=()=>{ui.custom=!ui.custom;render()}}
       else if(pick&&P.phase==='vote'){b.g.style.pointerEvents='auto';b.g.style.cursor='pointer';b.g.onclick=e=>pickHouse(houseAt(e)||p.id)}
@@ -556,9 +571,22 @@ function modesFor(){if(!priv.role)return[];const k=priv.role.key,imp=priv.role.t
   if(ROLES[k].act==='other'){const used=ROLES[k].once&&priv.uses&&priv.uses[k];modes.push(['ab',ROLES[k].ico+' '+ROLES[k].n+(used?' (kullanıldı)':''),used])}
   return modes}
 function ensureMode(){const modes=modesFor().filter(m=>!m[2]);if(modes.length&&(!sel.mode||!modes.some(m=>m[0]===sel.mode)))sel.mode=modes[0][0]}
+// Gece yürüyüşü: hedef (ev id ya da null = eve dön) için süre, render'dan ÖNCE mevcut konumdan hesaplanır;
+// zamanlayıcılar yalnız bu gecenin anim nesnesi yaşarken çalışır
+function yuruyusBaslat(hedef,uygula){
+  const b=scene&&scene.beans[myId];const bx=b?b.x:0,by=b?b.y:0;
+  uygula();
+  const kind=myPosKind();const h=scene&&scene.houses[hedef||myId];
+  const sp=h?nightSpot(h,hedef&&kind!=='home'?kind:'door'):null;
+  const a=anim;a.hedef=hedef;a.walkT0=Date.now();a.walkMs=b&&sp&&!(hedef&&kind==='home')?walkMs(bx,by,sp.x,sp.y):0;a.hareketT0=null;
+  const sonra=(ms,f)=>setTimeout(()=>{if(anim===a)f()},ms);
+  if(hedef){sonra(a.walkMs,()=>{if(kind!=='enter')SFX.knock();render()});sonra(a.walkMs+(a.hareketMs||900),()=>{if(kind==='enter')SFX.door();render()});sonra(a.walkMs+(a.hareketMs||900)+400,render)}
+  else{sonra(a.walkMs,render)}
+  render();
+}
 function pickHouse(id){
   if(P.phase==='night'){ensureMode();const m=sel.mode||'ab';const patch={[m]:local.act[m]===id?null:id};if(m==='kill')patch.ab=null;if(m==='ab'&&priv.role&&priv.role.team==='imp')patch.kill=null;if(m==='ab')patch.guess=null;
-    submitAct(patch);anim.enteredAt=patch[m]?Date.now():null;if(patch[m]){setTimeout(()=>{if(myPosKind()==='enter')SFX.door();else SFX.knock()},950)}setTimeout(render,1000);setTimeout(render,1400)}
+    yuruyusBaslat(patch[m]||null,()=>submitAct(patch))}
   else{castVote(id);SFX.vote()}
 }
 
@@ -728,7 +756,7 @@ function renderGameUI(stage){
     modes.forEach(([m,l,dis])=>{const b=el('button',(m==='ab'?'ab':'')+(sel.mode===m?' on':''),l+(local.act[m]&&local.act[m]!=='self'?' → '+nameOf(local.act[m]):''));b.disabled=!!dis;b.onclick=()=>{sel.mode=m;render()};act.append(b)});
     if(k==='hayatta'){const b=el('button',local.act.ab==='self'?'ab on':'','🦺 Yelek giy (kalan '+(priv.vest??3)+')');b.disabled=!(priv.vest>0);b.onclick=()=>submitAct({ab:local.act.ab==='self'?null:'self'});act.append(b)}
     if(k==='bombaci'){const b=el('button',local.act.det?'on':'','🧨 Hepsini patlat ('+(priv.planted||[]).length+' dinamit)');b.onclick=()=>submitAct({det:!local.act.det});act.append(b)}
-    if(sel.mode&&local.act[sel.mode]&&local.act[sel.mode]!=='self'){const b=el('button',null,'↩︎ Vazgeç');b.onclick=()=>{submitAct({[sel.mode]:null,guess:null});anim.enteredAt=null};act.append(b)}
+    if(sel.mode&&local.act[sel.mode]&&local.act[sel.mode]!=='self'){const b=el('button',null,'↩︎ Vazgeç');b.onclick=()=>{yuruyusBaslat(null,()=>submitAct({[sel.mode]:null,guess:null}))};act.append(b)}
     if(!modes.length&&k!=='hayatta')act.append(el('span','pill','Bu gece yapacağın bir şey yok.'));
     stage.append(act);
     if(k==='buyucu'&&local.act.ab){const gp=el('div','ov guess');gp.append(el('div','small',nameOf(local.act.ab)+' sence hangi rol?'));const row=el('div','row');

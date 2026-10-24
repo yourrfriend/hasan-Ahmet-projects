@@ -54,6 +54,16 @@ const step=t=>console.log('•',t);
       const at=await p.evaluate(()=>{if(!canTarget())return null;const t=P.players.find(x=>x.id!==myId);const g=scene.houses[t.id].g;if(!g.onclick)throw new Error('ev tıklanamıyor');const r=g.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}});
       if(!at)continue;
       await p.mouse.click(at.x,at.y);acted++;
+      if(acted===1){
+        // yürüyüş: 250 ms sonra karakter henüz hedefte değil; walkMs sonra hedefte, yürüyüş sınıfı düşmüş, etiket karakterin üstünde
+        await p.waitForTimeout(250);const t0=Date.now()-250;
+        const walk=await p.evaluate(()=>anim.walkMs);assert.ok(walk>=500&&walk<=3500,'walkMs '+walk);
+        const yolda=await p.evaluate(()=>{const b=scene.beans[myId];const r=b.g.getBoundingClientRect();const h=scene.houses[anim.hedef].g.getBoundingClientRect();return Math.hypot((r.x+r.width/2)-(h.x+h.width/2),(r.y+r.height/2)-(h.y+h.height/2))});
+        assert.ok(yolda>60,'250 ms sonra hâlâ yolda olmalı: '+yolda);
+        await p.waitForTimeout(Math.max(0,walk-(Date.now()-t0))+150);
+        const varis=await p.evaluate(()=>{const b=scene.beans[myId];return{walking:b.g.classList.contains('walking'),tag:b.tag.textContent}});
+        assert.strictEqual(varis.walking,false,'varışta yürüyüş sınıfı düşmeli');assert.strictEqual(varis.tag,'SEN');
+      }
     }
     await host.waitForTimeout(300);
     assert.ok(acted>0&&Object.keys(R.g.acts).length===acted,'sunucu gece hamlelerini almalı ('+acted+' / '+Object.keys(R.g.acts).length+')');
@@ -87,7 +97,7 @@ const step=t=>console.log('•',t);
       await lost.waitForSelector('.ov.offline',{timeout:3000});
       // diğerleri kopuk oyuncunun karakterinde KOPUK etiketini görür (gözlemci kopan sekme olmamalı)
       const lostId=await lost.evaluate(()=>myId);const observer=Object.values(pages).find(p=>p!==lost);
-      await observer.waitForFunction(id=>P.online&&!P.online.includes(id)&&scene.labels.textContent.includes('KOPUK'),lostId,{timeout:4000});
+      await observer.waitForFunction(id=>P.online&&!P.online.includes(id)&&scene.beans[id]&&scene.beans[id].g.textContent.includes('KOPUK'),lostId,{timeout:4000}); // etiket karakterin üstünde
       await lost.waitForSelector('.ov.offline',{state:'detached',timeout:8000});
       await lost.waitForFunction(()=>(P.chat||[]).some(m=>m.t==='merhaba kasaba'));
       assert.strictEqual(await lost.evaluate(()=>P.chat.filter(m=>m.t==='merhaba kasaba').length),1,'yeniden bağlanınca sohbet çiftlenmemeli');
