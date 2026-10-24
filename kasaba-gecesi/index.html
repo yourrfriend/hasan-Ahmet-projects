@@ -50,9 +50,11 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 /* ---------- Sahne ---------- */
 .stage{position:fixed;inset:0;background:#6aa844;overflow:hidden;font-family:var(--body)}
 .stage svg.scene{position:absolute;inset:0;width:100%;height:100%}
-.stage .bean{transition:transform 1s cubic-bezier(.4,0,.2,1),opacity .5s}
+.stage .bean{transition:transform 1s linear,opacity .5s} /* süre moveBean'de mesafeye göre verilir */
+.fx-knife{transform-box:fill-box;transform-origin:20% 80%;animation:knife .32s ease-in-out 3 alternate}
+@keyframes knife{0%{transform:rotate(-35deg)}100%{transform:rotate(40deg)}}
 .stage .bean .hop{transform-box:fill-box;transform-origin:50% 100%}
-.stage .bean.walking .hop{animation:walkhop .22s ease-in-out 5 alternate}
+.stage .bean.walking .hop{animation:walkhop .22s ease-in-out infinite alternate}
 @keyframes walkhop{0%{transform:translateY(0) scaleY(1)}100%{transform:translateY(-7px) scaleY(1.06)}}
 .stage .bean.landed .hop{animation:land .35s ease-out}
 @keyframes land{0%{transform:scaleY(.85) scaleX(1.12)}60%{transform:scaleY(1.06) scaleX(.96)}100%{transform:scaleY(1) scaleX(1)}}
@@ -179,7 +181,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 <div id="app"><div class="panel"><p class="muted">Yükleniyor…</p></div></div>
 <script>
 // Script daha başlamadan çökerse "Yükleniyor…" yerine hatayı göster (sürüm damgasıyla).
-window.KG_VER='2026-10-24d';
+window.KG_VER='2026-10-25b';
 window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ff6b6b"><p><b>Sayfa açılamadı.</b> Sürüm '+KG_VER+'</p><p class="small" style="word-break:break-all">'+String(e.message||e.error||e)+(e.filename?' @'+e.lineno:'')+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}});
 setTimeout(function(){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ffb347"><p><b>Sayfa yüklenemedi.</b> Sürüm '+KG_VER+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}},8000);
 </script>
@@ -396,12 +398,17 @@ function beanInner(g,c,hat,o){
 }
 function drawBean(parent,p){const g=SE('g',{class:'bean idle'},parent);const hop=SE('g',{class:'hop'},g);const inner=SE('g',{},hop);const b={g,inner,p,o:null,x:0,y:0,s:1};setBean(b,{look:0,tilt:0,pose:'idle'});return b}
 function setBean(b,o){const n={look:o.look||0,tilt:o.tilt||0,pose:o.pose||'idle'};if(!b.o||n.look!==b.o.look||n.tilt!==b.o.tilt||n.pose!==b.o.pose){b.o=n;beanInner(b.inner,b.p.color,b.p.hat,n)}}
+// Yürüyüş süresi mesafeye göre (sahne birimi/sn); kısa sıçrama yerine gerçek yürüyüş
+const YURUYUS_HIZ=190;
+function walkMs(x0,y0,x1,y1){return Math.max(500,Math.min(3500,Math.hypot(x1-x0,y1-y0)/YURUYUS_HIZ*1000))}
 function moveBean(b,x,y,s,fast,mode){
-  const moved=Math.hypot(x-b.x,y-b.y)>12;b.x=x;b.y=y;b.s=s||1;b.g.classList.toggle('fast',!!fast);b.g.style.transform=`translate(${x}px,${y}px) scale(${b.s})`;
+  const d=Math.hypot(x-b.x,y-b.y);const moved=d>12;const ms=fast?620:walkMs(b.x,b.y,x,y);
+  b.g.style.transitionDuration=(fast?620:ms)+'ms,500ms';
+  b.x=x;b.y=y;b.s=s||1;b.g.classList.toggle('fast',!!fast);b.g.style.transform=`translate(${x}px,${y}px) scale(${b.s})`;
   const cl=b.g.classList;
   if(mode==='enter'){if(!cl.contains('enter')){cl.remove('walking','landed','idle');cl.add('enter')}return}
   cl.remove('enter');
-  if(moved){cl.remove('landed','idle');cl.remove('walking');void b.g.getBBox();cl.add('walking');clearTimeout(b.tm);b.tm=setTimeout(()=>{cl.remove('walking');cl.add('landed');setTimeout(()=>{cl.remove('landed');cl.add('idle')},380)},fast?620:1020)}
+  if(moved){cl.remove('landed','idle');cl.remove('walking');void b.g.getBBox();cl.add('walking');clearTimeout(b.tm);b.tm=setTimeout(()=>{cl.remove('walking');cl.add('landed');setTimeout(()=>{cl.remove('landed');cl.add('idle')},380)},ms)}
   else if(!cl.contains('walking')&&!cl.contains('landed')&&!cl.contains('idle'))cl.add('idle');
 }
 function drawGrave(parent,x,y,ico){const g=SE('g',{transform:`translate(${x},${y})`,filter:'url(#s_sh)'},parent);SE('ellipse',{cx:0,cy:26,rx:24,ry:8,fill:'#7a5234'},g);SE('path',{d:'M-18 24 V-8 a18 18 0 0 1 36 0 V24 Z',fill:'#a6adb4'},g);SE('path',{d:'M-14 20 V-8 a14 14 0 0 1 28 0',fill:'none',stroke:'#c9ced3','stroke-width':3},g);SE('text',{y:11,'text-anchor':'middle','font-size':18},g).textContent=ico;return g}
@@ -471,7 +478,9 @@ function renderScene(){
   const mseq=anim.seq==='morning'||(anim.seq==='end'&&P.morning),eseq=anim.seq==='evening'||(anim.seq==='end'&&P.evening&&!P.morning);
   const morningDeaths=mseq&&P.morning?P.morning.deaths:[];
   const eveningOut=eseq&&P.evening&&P.evening.out?P.evening.out:null;
-  const entered=!!(night&&myTarget&&myPosKind()==='enter'&&anim.enteredAt&&Date.now()-anim.enteredAt>900);
+  const walked=!!(night&&myTarget&&anim.enteredAt&&Date.now()-anim.enteredAt>(anim.walkMs||900));
+  const stabbing=walked&&myPosKind()==='enter'&&Date.now()-anim.enteredAt<(anim.walkMs||900)+1000;
+  const entered=!!(night&&myTarget&&myPosKind()==='enter'&&anim.enteredAt&&Date.now()-anim.enteredAt>(anim.walkMs||900)+1000);
   for(const p of players){
     const h=S_.houses[p.id],b=S_.beans[p.id];if(!h||!b)continue;
     const dead=!lobbyMode&&!p.alive;const freshDeath=morningDeaths.some(d=>d.id===p.id)&&a<7;
@@ -482,7 +491,10 @@ function renderScene(){
     h.g.style.cursor=pick?'pointer':'default';h.g.onclick=pick?()=>pickHouse(p.id):null;
     h.doorOpen.setAttribute('opacity',selHouse&&entered?1:0);
     if(S_.winLights[p.id])S_.winLights[p.id].setAttribute('opacity',dead||(selHouse&&entered)?0:1);
-    if(selHouse){tagAt(S_.labels,h.x+70,h.y-70,night?'HEDEFİN':'SENİN OYUN','#ffb020','#3a2f1c');if(night&&priv.role)iconAt(S_.labels,h.x+26,h.y-100,priv.role.ico,17)}
+    if(selHouse){tagAt(S_.labels,h.x+70,h.y-70,night?'HEDEFİN':'SENİN OYUN','#ffb020','#3a2f1c');if(night&&priv.role)iconAt(S_.labels,h.x+26,h.y-100,priv.role.ico,17)
+      // DENEME: kapıya varınca bıçak sallama (hain/seri katil)
+      if(stabbing){const sp=nightSpot(h,'enter');const k=SE('g',{transform:`translate(${sp.x+14},${sp.y-10})`},S_.fx);const kn=SE('g',{class:'fx-knife'},k);
+        SE('path',{d:'M0 0 L4 -26 L8 0 Z',fill:'#e8eef5',stroke:'#7a8694','stroke-width':1},kn);SE('rect',{x:-1,y:-2,width:10,height:4,rx:1,fill:'#5b3a27'},kn);SE('rect',{x:2,y:2,width:4,height:9,rx:1,fill:'#8a5a3c'},kn)}}
     if(P.phase==='vote'&&(P.provoked===p.id||priv.fakeProvoked===p.id)){const t=SE('g',{transform:`translate(${h.x+66},${h.y-90})`},S_.labels);SE('circle',{r:15,fill:'#ff5c5c',filter:'url(#s_sh)'},t);SE('text',{y:5,'text-anchor':'middle','font-size':13,'font-weight':900,fill:'#fff'},t).textContent='+2'}
     if(night&&priv.candle===p.id&&myRoleKey()==='hortlak'&&!selHouse)iconAt(S_.labels,h.x+50,h.y+30,'🕯️',11);
     // karakter konumu
@@ -558,7 +570,12 @@ function modesFor(){if(!priv.role)return[];const k=priv.role.key,imp=priv.role.t
 function ensureMode(){const modes=modesFor().filter(m=>!m[2]);if(modes.length&&(!sel.mode||!modes.some(m=>m[0]===sel.mode)))sel.mode=modes[0][0]}
 function pickHouse(id){
   if(P.phase==='night'){ensureMode();const m=sel.mode||'ab';const patch={[m]:local.act[m]===id?null:id};if(m==='kill')patch.ab=null;if(m==='ab'&&priv.role&&priv.role.team==='imp')patch.kill=null;if(m==='ab')patch.guess=null;
-    submitAct(patch);anim.enteredAt=patch[m]?Date.now():null;if(patch[m]){setTimeout(()=>{if(myPosKind()==='enter')SFX.door();else SFX.knock()},950)}setTimeout(render,1000);setTimeout(render,1400)}
+    submitAct(patch);anim.enteredAt=patch[m]?Date.now():null;
+    if(patch[m]){const b=scene&&scene.beans[myId],h=scene&&scene.houses[patch[m]];const kind=myPosKind();const sp=h?nightSpot(h,kind==='home'?'door':kind):null;
+      anim.walkMs=b&&sp?walkMs(b.x,b.y,sp.x,sp.y):900;
+      setTimeout(()=>{if(myPosKind()==='enter')SFX.door();else SFX.knock()},anim.walkMs+(kind==='enter'?1000:50));
+      setTimeout(render,anim.walkMs+30);setTimeout(render,anim.walkMs+1030);setTimeout(render,anim.walkMs+1400)}
+    else{setTimeout(render,1000);setTimeout(render,1400)}}
   else{castVote(id);SFX.vote()}
 }
 
