@@ -140,7 +140,7 @@ HEDEF="$APP_KOK/$AD";YENI="$APP_KOK/.$AD.yeni";ESKI="$APP_KOK/.$AD.eski"
 bilgi "$AD: dosyalar hazırlanıyor ($SURUM, $COMMIT)"
 rm -rf "$YENI" "$ESKI";mkdir -p "$YENI/sunucu"
 install -m 644 "$OYUN/index.html" "$YENI/index.html"
-for f in server.js game.js package.json package-lock.json; do install -m 644 "$OYUN/sunucu/$f" "$YENI/sunucu/"; done
+for f in server.js game.js kayit.js package.json package-lock.json; do [ -f "$OYUN/sunucu/$f" ] && install -m 644 "$OYUN/sunucu/$f" "$YENI/sunucu/" || true; done # eski sürümlerde kayit.js yok
 # Caddy şablonu da sürümle birlikte durur: parça hep kurulu sürümün şablonundan üretilir (eski sürümlerde yoksa bu klasördeki)
 [ -f "$OYUN/sunucu/Caddyfile" ] && install -m 644 "$OYUN/sunucu/Caddyfile" "$YENI/sunucu/" || true
 (cd "$YENI/sunucu" && npm ci --omit=dev --no-audit --no-fund --loglevel=error)

@@ -144,7 +144,9 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 .guess{left:10px;bottom:62px;background:rgba(255,255,255,.95);border-radius:12px;padding:8px;display:flex;gap:4px;flex-wrap:wrap;max-width:min(92vw,520px);z-index:4}
 .guess button{border:1px solid #d9c9a6;background:#fff;color:var(--ink);border-radius:8px;padding:4px 8px;min-height:0;font-size:12px}
 .guess button.on{background:#7c3aed;color:#fff;border-color:#7c3aed}
-.endcard{left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(255,255,255,.97);border-radius:18px;padding:18px 20px;display:grid;gap:10px;box-shadow:0 14px 40px rgba(0,0,0,.45);width:min(94vw,520px);max-height:90vh;overflow:auto;z-index:6}
+.endcard{left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(255,255,255,.97);border-radius:18px;padding:18px 20px;display:grid;gap:10px;box-shadow:0 14px 40px rgba(0,0,0,.45);width:min(94vw,520px);max-height:92vh;overflow:auto;z-index:6}
+.endcard .ozet{display:grid;gap:3px;text-align:left;font-size:clamp(11px,1.4vw,14px);margin:4px 0}.endcard .ozet .satir{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:4px 10px;background:#f6efe0;border-radius:8px}.endcard .ozet .ad{font-weight:800}.endcard .ozet .rol{font-size:.85em;opacity:.8;margin-left:4px}.endcard .ozet .akibet{text-align:right;white-space:nowrap}.endcard .ozet .olu{opacity:.65}.endcard .payin{background:rgba(255,208,63,.25);border-radius:10px;padding:6px 10px;margin:6px 0;font-size:clamp(11px,1.4vw,14px);text-align:left}.endcard .payin b{display:block;font-size:.8em;letter-spacing:.08em;opacity:.8}@media (max-width:600px){.endcard .ozet .satir{grid-template-columns:1fr}.endcard .ozet .akibet{text-align:left;opacity:.8}}
+@media (max-height:450px){.endcard{padding:10px 14px;gap:6px;max-height:94vh}.endcard .w{font-size:clamp(16px,2.6vw,22px)}.endcard .ozet{gap:2px}.endcard .ozet .satir{padding:2px 8px}.endcard .payin{padding:4px 8px;margin:2px 0}.endcard .ok{padding:6px 16px}}
 .endcard .w{font-family:var(--display);font-size:clamp(22px,3.4vw,34px);font-weight:900;text-align:center}
 .endcard .roll{display:grid;gap:4px}
 .endcard .roll div{display:flex;justify-content:space-between;gap:10px;padding:5px 10px;background:#f6efe0;border-radius:8px;font-size:13px}
@@ -179,7 +181,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 <div id="app"><div class="panel"><p class="muted">Yükleniyor…</p></div></div>
 <script>
 // Script daha başlamadan çökerse "Yükleniyor…" yerine hatayı göster (sürüm damgasıyla).
-window.KG_VER='2026-10-24d';
+window.KG_VER='2026-10-25a';
 window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ff6b6b"><p><b>Sayfa açılamadı.</b> Sürüm '+KG_VER+'</p><p class="small" style="word-break:break-all">'+String(e.message||e.error||e)+(e.filename?' @'+e.lineno:'')+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}});
 setTimeout(function(){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ffb347"><p><b>Sayfa yüklenemedi.</b> Sürüm '+KG_VER+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}},8000);
 </script>
@@ -755,8 +757,15 @@ function renderEndUI(stage){
   const c=el('div','ov endcard');const w=el('div','w',P.winner?P.winner.t:'Oyun bitti');if(P.winner&&P.winner.team)w.style.color='var(--'+P.winner.team+')';c.append(w);
   const extras=[];if(P.winner&&P.winner.survivors&&P.winner.survivors.length)extras.push('Hayatta Kalan da kazandı: '+P.winner.survivors.join(', '));if(P.winner&&P.winner.haunters&&P.winner.haunters.length)extras.push('Hortlak da kazandı: '+P.winner.haunters.join(', '));
   extras.forEach(t=>c.append(el('p','small',t)));
-  const rl=el('div','roll');(P.reveal||[]).forEach(r=>{const d=el('div');d.append(el('span',null,(r.alive?'🙂 ':'💀 ')+r.name));d.append(el('span','tag '+r.team,r.role));rl.append(d)});c.append(rl);
-  if(isHost){const b=el('button','ok','Yeni oyun (lobiye dön)');b.onclick=()=>endToLobby();c.append(b)}else c.append(el('p','small','Ev sahibi yeni oyun başlatabilir.'));
+  // maç özeti: her oyuncu bir satır (ad + rol / akıbet); özet sunucudan gelir (P.ozet), Supabase gerekmez
+  const SEKIL={stab:'öldürüldü',bomb:'patladı',bolt:'yıldırım çarptı',ghost:'hortlak aldı',vanish:'kayboldu',asildi:'asıldı'};
+  const akibet=o=>!o.olum?'sağ':(o.olum.faz==='gece'?'Gece ':'Gün ')+o.olum.gun+': '+(SEKIL[o.olum.sekil]||o.olum.sekil);
+  if(P.ozet){const oz=el('div','ozet');P.ozet.oyuncular.forEach(o=>{const r=el('div','satir'+(o.sag?'':' olu'));const l=el('div');l.append(el('span','ad',(o.sag?'🙂 ':'💀 ')+o.ad),el('span','rol tag '+o.takim,o.rol));r.append(l,el('div','akibet',akibet(o)));oz.append(r)});c.append(oz)}
+  else{const rl=el('div','roll');(P.reveal||[]).forEach(r=>{const d=el('div');d.append(el('span',null,(r.alive?'🙂 ':'💀 ')+r.name));d.append(el('span','tag '+r.team,r.role));rl.append(d)});c.append(rl)}
+  // senin payın: yalnız dolu listeler
+  const py=priv.payin;if(py){const satir=[['🗡️ Öldürdün',py.oldurdu],['💉 Kurtardın',py.kurtardi],['🪤 Yakaladın',py.yakaladi],['👮 Tuttun',py.tuttu]].filter(([,a])=>a&&a.length);
+    if(satir.length){const d=el('div','payin');d.append(el('b',null,'SENİN PAYIN'));satir.forEach(([t,a])=>d.append(el('div',null,t+': '+a.join(', '))));c.append(d)}}
+  if(isHost){const b=el('button','ok tekrar','Tekrar oyna');b.onclick=()=>endToLobby();c.append(b)}else c.append(el('p','small','Ev sahibi yeni oyunu başlatınca lobiye dönersin.'));
   stage.append(c);
 }
 setInterval(()=>{if(P.ends&&P.phase!=='lobby'&&P.phase!=='end'&&P.phase!=='landing'){const t=document.querySelector('.timer');if(t)t.textContent=fmtTime(P.ends-now())}},1000);

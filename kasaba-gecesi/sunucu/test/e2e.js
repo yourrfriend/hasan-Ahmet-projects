@@ -3,12 +3,13 @@
 //   npm run e2e   (Playwright ve Chromium gerekir: npm i -g playwright && npx playwright install chromium)
 // Kontrol edilenler: davet linkiyle katılma, rol dağıtımı, gece hamlesi, ev sahibi sekmesi kapanınca
 // oyunun sürmesi ve yetkinin devri, sohbet, gizli oy, bağlantı kopunca rozet + yeniden bağlanma,
-// kopan oyuncunun (ve eski ev sahibinin) aynı linkle rolüyle geri dönmesi, oyunun iptali.
+// kopan oyuncunun (ve eski ev sahibinin) aynı linkle rolüyle geri dönmesi, oyun sonu özeti ve "Tekrar oyna".
 process.env.HOST_GRACE_MS=process.env.HOST_GRACE_MS||'1500';
 const assert=require('node:assert');
 let chromium;
 try{({chromium}=require('playwright'))}catch(e){console.error('Playwright bulunamadı: npm i -g playwright && npx playwright install chromium');process.exit(2)}
 const {createServer}=require('../server.js');
+const G=require('../game.js');
 
 const step=t=>console.log('•',t);
 (async()=>{
@@ -118,10 +119,17 @@ const step=t=>console.log('•',t);
     assert.strictEqual(await host.textContent('.ov.mine b'),roles.Ev);
     assert.strictEqual(await host.evaluate(()=>isHost),false);
 
-    step('yeni ev sahibi oyunu iptal eder, herkes lobiye döner');
-    pages[newHostName].on('dialog',d=>d.accept());
-    await pages[newHostName].click('.gear');await pages[newHostName].click('text=Oyunu iptal et');
-    for(const p of [host,...Object.values(pages)])await p.waitForFunction(()=>P.phase==='lobby'&&!priv.role,null,{timeout:5000});
+    step('oyun biter: özet, senin payın ve "Tekrar oyna"');
+    { const R2=roomOf().game; // hainler dışındaki herkesi ölmüş say → bir sonraki oylama çözümünde hainler kazanır
+      for(const [id,r] of Object.entries(R2.g.roles))if(r.team!=='imp')G.pl(R2,id).alive=false;
+      // checkWin yalnız gece ve oylama çözümünde çalışır; hangi fazdaysak süreyi bitire bitire sona gel (gece: bekleme kuralını atla)
+      for(let i=0;i<4&&R2.P.phase!=='end';i++){const ph=R2.P.phase;R2.P.waited=true;R2.P.ends=Date.now()-1;await watcher.waitForFunction(x=>P.phase!==x,ph,{timeout:5000})}
+      for(const p of [host,...Object.values(pages)])await p.waitForFunction(()=>P.phase==='end'&&P.ozet&&document.querySelector('.endcard .ozet'),null,{timeout:8000});
+      assert.strictEqual((await watcher.$$('.endcard .ozet > *')).length,4);
+      assert.strictEqual(await pages[newHostName].textContent('.endcard button.tekrar'),'Tekrar oyna');
+      await pages[newHostName].click('.endcard button.tekrar');
+      for(const p of [host,...Object.values(pages)])await p.waitForFunction(()=>P.phase==='lobby'&&!priv.role,null,{timeout:5000});
+    }
 
     assert.deepStrictEqual(errors,[],'sayfa hataları');
     console.log('\nE2E: tüm adımlar geçti');
