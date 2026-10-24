@@ -18,9 +18,9 @@ sıfır sürtünmeyle başlar (giriş yok), isteyen hesabını bağlar; sıralam
 Hedefler (ilk sürüm):
 
 - Oyuncu oyunlar arasında tanınır; hiçbir giriş ekranı olmadan başlar, isterse hesabını Google ile bağlar.
-- Her oyun bir kasabaya yazılır. Ev sahibinin ilk odasıyla kasabası kendiliğinden kurulur, adı değiştirilebilir.
+- Her oyun bir kasabaya yazılır. Ev sahibinin ilk oyunu başlarken kasabası kendiliğinden kurulur, adı değiştirilebilir.
 - Oyun bitince: maç özeti (kazanan, herkesin rolü ve akıbeti, oyuncunun kendi payı), büyük "Tekrar oyna",
-  ve oyunun hikâyesi (gece gece kim kime gitti, kim kurtarıldı, kim yakalandı; gündüz oylar ve sonuç).
+  ve oyunun hikâyesi (gece gece kim kime gitti, kim kurtarıldı, kim yakalandı; gündüz oy toplamları ve asılan).
 - Sayfa açılınca: "Son oyunların" listesi, satıra dokununca özet ve hikâye; kişisel kart (oyun, kazanma, en çok çıkan rol).
 - Kasaba sayfası: üyeler ve sıralama (oyun, kazanma, kazanma yüzdesi, en çok çıkan rol).
 - Oyun, kayıt sistemi çalışmasa da aynen oynanır.
@@ -107,8 +107,17 @@ sayfalar oyun sunucusuna değil Supabase'e sorar.
   `kasabalar.sahip`, `kasaba_uyeleri` (aynı kasabada iki kayıt → tekilleştir, 'sahip' baskın) yeni uuid'ye
   taşınır, `profiller`'de yeni olan kalır, eski anonim kullanıcı Auth admin API ile silinir. Tek işlem (transaction),
   RPC fonksiyonu `hesap_birlestir(eski uuid, yeni uuid)` olarak veritabanında yazılır. (Kullanıcının kararı.)
+  Birleştirmede iki token da **süresi geçmemiş** olmalı (oyun için kabul edilen "süresi dolmuş token" kolaylığı
+  burada geçerli değil: cihazdan sızan eski bir token'la başkasının geçmişi devralınamasın).
+- İki kimlik düzeyi: `uye` (uuid) kalıcı kimliktir, istatistik ve görünürlük ona bağlıdır; `pub_id` oyun içi
+  görüntü anahtarıdır, `olaylar.veri` içinde o geçer ve birleştirmeden sonra da değişmez (oyun sayfası
+  `oyun_oyunculari` üzerinden `pub_id → ad` eşler).
 - Görünen ad, renk, şapka: `profiller` tablosunda (uuid → ad, renk, şapka, güncellenme). Oyuncu lobide
   adını yazınca sunucu profili günceller (yalnız kayıtlı oyuncu için).
+- Açılış sırası (oyun Supabase'i beklemez): `index.html` `sayfa/supabase.js`'yi yükler, `/ayar.json`'ı alır ve
+  oturum için **en çok 2 sn** bekler (kayıtlı oturum tarayıcıda duruyorsa anında gelir). Süre dolarsa oyuncu
+  o sayfa yüklemesi boyunca misafir olarak bağlanır; sonradan gelen oturum bir sonraki yüklemede kullanılır
+  (oyun ortasında kimlik değişmez). `supabase.js` yüklenemezse de aynı yol.
 - Açık kimlik (`pubId`) uuid'nin hash'i olmaya devam eder: yayınlarda uuid geçmez.
 
 ### 5.3 Kasaba
@@ -161,7 +170,10 @@ satırlar yazılır ama kimse okuyamaz. `oyun_oyunculari.rol_key` de aynı kural
 - `kayit.js`: tek bir arka plan kuyruğu; `service_role` anahtarıyla Supabase REST'e (`/rest/v1`) HTTP
   ile yazar (ek paket yok, `fetch`). Başarısızlıkta artan aralıkla yeniden dener; kuyruk 10 000 olayı
   aşarsa en eskiyi düşürür ve loglar. Sıra numarası `sira` oyun başına sunucuda artar.
-- Oyun başlarken `oyunlar` satırı açılır (`sonuc:'devam'`); bitişte/iptalde güncellenir.
+- Oyun kimliği (`oyunId`, uuid) **sunucuda** oyun başlarken üretilir; olaylar ona bağlanır, veritabanına
+  ulaşmayı beklemez. Kuyruk oyun başına sıralıdır: önce kasaba bulma/kurma ve üyelik, sonra `oyunlar`
+  satırı (`sonuc:'devam'`), sonra olaylar; bitişte/iptalde `oyunlar` güncellenir. İptalde de `bitis` dolar
+  (`sonuc:'iptal'`): oyun bitmiştir, hikâyesi görünebilir.
 - Servis yeniden başlarsa bellekteki kuyruk gider; oyun `devam`da kalır. Temizlik: `kayit.js` açılışta 3 saatten
   eski `devam` oyunları `iptal` yapar.
 - Ayarlar `/etc/games/<AD>.env` içinde: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SUPABASE_JWT_SECRET`,
@@ -174,13 +186,14 @@ satırlar yazılır ama kimse okuyamaz. `oyun_oyunculari.rol_key` de aynı kural
 
 - Sayfalar `supabase-js` ile anon anahtar + kullanıcının oturumuyla okur. Anon anahtar ve URL
   `GET /ayar.json` ile oyun sunucusundan alınır (`index.html` ortam bilgisi içermez).
-- `profiller`: herkes okur; yalnız sahibi yazar.
+- `profiller`: oturum açmış herkes okur (anon anahtarla oturumsuz okunamaz); yalnız sahibi yazar.
 - `kasabalar`, `kasaba_uyeleri`: üyeler okur; sahip adı değiştirir.
 - `oyunlar`: oyunun oyuncuları ve kasaba üyeleri okur.
 - `olaylar`, `oyun_oyunculari.rol_key/takim/...`: aynı kişiler, **yalnız `bitis` dolu olanlar**.
 - Yazma yalnız `service_role` (sunucu). İstemciden oyun kaydı yazılamaz.
 - Görünümler (view): `kasaba_tablo(kasaba_id, uye, ad, oyun, kazanma, kazanma_yuzde, en_cok_rol)`,
-  `oyuncu_ozet(uye, oyun, kazanma, en_cok_rol, son_oyun)`. Kazanma: oyuncunun takımı `kazanan_takim`
+  `oyuncu_ozet(uye, kurulum, oyun, kazanma, en_cok_rol, son_oyun)`; `kasaba_tablo` da `kurulum` sütunu taşır ve
+  sayfalar `/ayar.json`'daki kurulum adıyla süzer (test oyunları canlı tabloya karışmaz). Kazanma: oyuncunun takımı `kazanan_takim`
   ile aynıysa; tarafsızlar: hayatta kalan sağ bitirdiyse, seri katil/bombacı/hırsız/büyücü "tek başına kazandı"ysa,
   hortlak asıldıysa. Bu kural tek yerde, görünümde durur.
 
@@ -196,7 +209,7 @@ satırlar yazılır ama kimse okuyamaz. `oyun_oyunculari.rol_key` de aynı kural
 - **Giriş sayfası** (`index.html` landing): "Yeni oda kur / Önceki odam" üstte kalır. Altında kayıtlı oyuncuya:
   kişisel kart ve son 10 oyun (tarih, kasaba, kaç kişi, kazanan, senin rolün ve sonucun); satır → `/oyun/<id>`.
   Misafire: "Bu cihaza özel · Google ile bağla, geçmişin seninle gelsin" tek düğme.
-- **`/oyun/<id>`**: özet + gece gece hikâye (zaman çizelgesi; her gece: hamleler, sonuçlar; her gündüz: oylar, asılan).
+- **`/oyun/<id>`**: özet + gece gece hikâye (zaman çizelgesi; her gece: hamleler, sonuçlar; her gündüz: oy toplamları, asılan).
 - **`/kasaba/<id>`**: ad (sahip düzenler), üyeler, sıralama tablosu, son oyunlar.
 - Bu iki sayfa `kasaba-gecesi/sayfa/` altında ayrı HTML dosyaları; `server.js` sunar; ortak küçük CSS,
   `supabase-js` sürümü sabitlenmiş tek dosya olarak repoda (`sayfa/supabase.js`), CDN yok.
@@ -209,7 +222,8 @@ satırlar yazılır ama kimse okuyamaz. `oyun_oyunculari.rol_key` de aynı kural
 - Dışarıya: Caddy parçası `/etc/caddy/games/supabase.caddy` → **`kasaba-api.munupixi.com`** → `127.0.0.1:8000`
   (tünel kipinde `http://kasaba-api.munupixi.com:8080`). Ad tek seviyeli olmak zorunda: Cloudflare'in ücretsiz
   sertifikası `a.b.munupixi.com` biçimini kapsamaz (`api.kasaba.…` olmaz). Aynı ad GoTrue `API_EXTERNAL_URL`,
-  `SITE_URL` ve Google yönlendirme adresinde kullanılır.
+  `SITE_URL` ve Google yönlendirme adresinde kullanılır. Parça `kur.sh`'nin yazdığı kurulum parçalarından
+  ayrıdır (`kur.sh` ona dokunmaz) ama aynı kip mantığına uyar; `db/caddy.sh` kipi `/etc/games/.sunucu.env`'den okuyup üretir.
 - ionos'ta başka Supabase **yok** (mevcut `retracted-authors` kurulumu netcup16gb1'de). Yine de resmi paketin
   sabit `container_name`'leri ve portları değiştirilir: `COMPOSE_PROJECT_NAME=supabase-kasaba`, konteyner
   adları `sk-*`, tüm portlar `127.0.0.1`'e bağlı; Kong 8000 (boş), Studio **3001** (3000 ionos'ta Grafana'da),
