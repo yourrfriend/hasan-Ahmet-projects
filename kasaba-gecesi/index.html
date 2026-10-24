@@ -54,6 +54,26 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 .stage .bean .hop{transform-box:fill-box;transform-origin:50% 100%}
 .stage .bean.walking .hop{animation:walkhop .22s ease-in-out infinite alternate}
 .btag text{font-size:10px;font-weight:900;font-family:Nunito,system-ui,sans-serif}
+/* rol hareketleri (gece, yalnız hamleyi yapan görür) */
+.rol-fx .sway{transform-box:fill-box;transform-origin:20% 80%;animation:fxsway .32s ease-in-out 3 alternate}
+@keyframes fxsway{0%{transform:rotate(-35deg)}100%{transform:rotate(40deg)}}
+.rol-fx .pulse{animation:fxpulse .5s ease-in-out 2 alternate}
+@keyframes fxpulse{0%{opacity:.3;transform:scale(.8)}100%{opacity:1;transform:scale(1.15)}}
+.rol-fx .look{animation:fxlook .5s ease-in-out 2 alternate}
+@keyframes fxlook{0%{transform:translateX(-6px)}100%{transform:translateX(6px)}}
+.rol-fx .flash{animation:fxflash 1s ease-out 1 forwards}
+@keyframes fxflash{0%{opacity:0;transform:scale(.2)}15%{opacity:.95;transform:scale(1)}100%{opacity:0;transform:scale(1.6)}}
+.rol-fx .snap{transform-box:fill-box;transform-origin:50% 100%;animation:fxsnap .25s ease-in 2 alternate}
+@keyframes fxsnap{0%{transform:scaleY(1)}100%{transform:scaleY(.2)}}
+.rol-fx .flicker{animation:fxflicker .12s ease-in-out infinite alternate}
+@keyframes fxflicker{0%{opacity:.7;transform:scaleY(.9)}100%{opacity:1;transform:scaleY(1.1)}}
+.rol-fx .rise{animation:fxrise 1s ease-out 1 forwards}
+@keyframes fxrise{0%{opacity:0;transform:translateY(0)}30%{opacity:1}100%{opacity:0;transform:translateY(-26px)}}
+.rol-fx .bolt{animation:fxbolt .9s ease-out 1 forwards}
+@keyframes fxbolt{0%{opacity:0}10%{opacity:1}60%{opacity:1}100%{opacity:0}}
+.rol-fx .steps>*{opacity:0;animation:fxstep .3s ease-out forwards}
+.rol-fx .steps>*:nth-child(2){animation-delay:.3s}.rol-fx .steps>*:nth-child(3){animation-delay:.6s}
+@keyframes fxstep{to{opacity:.9}}
 @keyframes walkhop{0%{transform:translateY(0) scaleY(1)}100%{transform:translateY(-7px) scaleY(1.06)}}
 .stage .bean.landed .hop{animation:land .35s ease-out}
 @keyframes land{0%{transform:scaleY(.85) scaleX(1.12)}60%{transform:scaleY(1.06) scaleX(.96)}100%{transform:scaleY(1) scaleX(1)}}
@@ -437,9 +457,9 @@ function buildScene(players){
   for(let i=0;i<40;i++)SE('circle',{cx:(i*263)%SW,cy:(i*97)%220,r:1.2+(i%3)*.5,fill:'#fff',opacity:.5+(i%4)*.12},nightLayer);
   SE('circle',{cx:1040,cy:90,r:120,fill:'url(#s_moon)'},nightLayer);SE('circle',{cx:1040,cy:90,r:34,fill:'#fff3c4'},nightLayer);SE('circle',{cx:1052,cy:80,r:28,fill:'#1a2a55',opacity:.25},nightLayer);
   const winLights={};players.forEach(p=>{const {hx,hy}=pos[p.id];const g=SE('g',{class:'fade'},nightLayer);SE('rect',{x:hx-37,y:hy-11,width:24,height:18,rx:2,fill:'#ffd766',filter:'url(#s_win)',opacity:.9},g);SE('rect',{x:hx-37,y:hy-11,width:24,height:18,rx:2,fill:'#ffe9a6'},g);winLights[p.id]=g});
-  const topLayer=SE('g',{},svg),labels=SE('g',{},svg),ambLayer=SE('g',{style:'pointer-events:none'},svg);
+  const topLayer=SE('g',{},svg),labels=SE('g',{},svg),aksiyon=SE('g',{class:'aksiyon',style:'pointer-events:none'},svg),ambLayer=SE('g',{style:'pointer-events:none'},svg);
   const beans={};players.forEach(p=>beans[p.id]=drawBean(beanLayer,p));
-  scene={wrap,svg,pos,houses,beans,houseLayer,graveLayer,beanLayer,fx,nightLayer,winLights,topLayer,labels,key:null,graves:{},env,ambLayer};
+  scene={wrap,svg,pos,houses,beans,houseLayer,graveLayer,beanLayer,fx,nightLayer,winLights,topLayer,labels,aksiyon,key:null,graves:{},env,ambLayer};
   return scene;
 }
 function ensureScene(){
@@ -449,6 +469,71 @@ function ensureScene(){
   return scene;
 }
 // karakterin gece durduğu yer
+// ---------- Gece rol hareketleri ve izler (tasarım …sahne-design.md §5.3): yalnız hamleyi yapan görür ----------
+// Küçük çizimler: g'ye SVG ekler. Renkler sahne paleti.
+const CIZ={
+  bicak(g){const k=SE('g',{class:'sway'},g);SE('path',{d:'M0 0 L5 -30 L10 0 Z',fill:'#e8eef5',stroke:'#7a8694','stroke-width':1},k);SE('rect',{x:-1,y:-2,width:12,height:5,rx:1,fill:'#5b3a27'},k);SE('rect',{x:3,y:3,width:5,height:11,rx:1,fill:'#8a5a3c'},k)},
+  igne(g){const k=SE('g',{class:'sway'},g);SE('rect',{x:-3,y:-22,width:8,height:20,rx:2,fill:'#f1e3c8',stroke:'#7a8694'},k);SE('rect',{x:0,y:-32,width:2,height:10,fill:'#9aa5b1'},k);SE('rect',{x:-5,y:-4,width:12,height:3,fill:'#9aa5b1'},k)},
+  arti(g){const k=SE('g',{class:'pulse'},g);SE('circle',{r:13,fill:'#fff',filter:'url(#s_sh)'},k);SE('path',{d:'M-7 0 H7 M0 -7 V7',stroke:'#2fb55a','stroke-width':4,'stroke-linecap':'round'},k)},
+  kelepce(g){SE('circle',{cx:-7,cy:0,r:6,fill:'none',stroke:'#9aa5b1','stroke-width':3},g);SE('circle',{cx:7,cy:0,r:6,fill:'none',stroke:'#9aa5b1','stroke-width':3},g);SE('rect',{x:-3,y:-2,width:6,height:4,fill:'#9aa5b1'},g)},
+  dur(g){const k=SE('g',{class:'rise'},g);SE('rect',{x:-16,y:-10,width:32,height:16,rx:8,fill:'#e23b3b'},k);SE('text',{y:3,'text-anchor':'middle','font-size':9,'font-weight':900,fill:'#fff','font-family':'Nunito,system-ui'},k).textContent='DUR'},
+  durbun(g){const k=SE('g',{class:'look'},g);SE('circle',{cx:-6,cy:0,r:6,fill:'#2b2b33',stroke:'#9aa5b1','stroke-width':2},k);SE('circle',{cx:6,cy:0,r:6,fill:'#2b2b33',stroke:'#9aa5b1','stroke-width':2},k);SE('rect',{x:-3,y:-3,width:6,height:4,fill:'#9aa5b1'},k)},
+  buyutec(g){const k=SE('g',{class:'look'},g);SE('circle',{r:7,fill:'rgba(200,230,255,.6)',stroke:'#5b3a27','stroke-width':2.5},k);SE('path',{d:'M5 5 L13 13',stroke:'#5b3a27','stroke-width':3,'stroke-linecap':'round'},k)},
+  ayakizi(g){const k=SE('g',{class:'steps'},g);[[0,0],[14,-10],[28,-20]].forEach(([x,y])=>{const f=SE('g',{transform:`translate(${x},${y})`},k);SE('ellipse',{rx:3,ry:4.5,fill:'#5b3a27'},f);SE('ellipse',{cx:7,cy:-3,rx:3,ry:4.5,fill:'#5b3a27'},f)})},
+  fener(g){const k=SE('g',{class:'pulse'},g);SE('path',{d:'M0 0 L-40 -22 L-40 22 Z',fill:'rgba(255,230,120,.45)'},k);SE('rect',{x:-2,y:-5,width:8,height:10,rx:2,fill:'#2b2b33'},k)},
+  flas(g){const k=SE('g',{class:'flash'},g);SE('circle',{r:26,fill:'#fff',opacity:.95},k);SE('rect',{x:-9,y:-6,width:18,height:12,rx:2,fill:'#2b2b33'},g);SE('circle',{r:3.5,fill:'#9aa5b1'},g)},
+  megafon(g){const k=SE('g',{class:'sway'},g);SE('path',{d:'M0 -6 L18 -14 L18 14 L0 6 Z',fill:'#e23b3b'},k);SE('rect',{x:-6,y:-5,width:7,height:10,rx:2,fill:'#5b3a27'},k);const t=SE('g',{class:'rise'},g);SE('text',{x:22,y:-10,'font-size':16,'font-weight':900,fill:'#ffd766','font-family':'Nunito,system-ui'},t).textContent='!!'},
+  tuzak(g){const k=SE('g',{class:'snap'},g);SE('path',{d:'M-12 0 A12 12 0 0 1 12 0',fill:'none',stroke:'#5b3a27','stroke-width':3},k);SE('path',{d:'M-10 0 L-7 -5 L-4 0 L-1 -5 L2 0 L5 -5 L8 0',fill:'none',stroke:'#9aa5b1','stroke-width':2},k);SE('rect',{x:-13,y:0,width:26,height:3,fill:'#5b3a27'},g)},
+  dinamit(g){SE('rect',{x:-5,y:-14,width:10,height:22,rx:2,fill:'#e23b3b'},g);SE('path',{d:'M0 -14 Q4 -22 8 -20',fill:'none',stroke:'#5b3a27','stroke-width':2},g);const sp=SE('circle',{cx:8,cy:-20,r:2.5,fill:'#ffd766'},g);sp.setAttribute('class','flicker')},
+  mum(g){SE('rect',{x:-4,y:-12,width:8,height:16,rx:1.5,fill:'#f1e3c8'},g);const f=SE('ellipse',{cx:0,cy:-16,rx:3,ry:5,fill:'#ffd766',class:'flicker'},g);SE('circle',{cx:0,cy:-15,r:1.3,fill:'#fff'},g)},
+  yelek(g){const k=SE('g',{class:'pulse'},g);SE('path',{d:'M-14 -10 L-6 -18 L6 -18 L14 -10 L14 14 L-14 14 Z',fill:'#ff7a2f',opacity:.9},k);SE('rect',{x:-14,y:-2,width:28,height:3,fill:'#f1e3c8'},k)},
+  maske(g){SE('rect',{x:-14,y:-6,width:28,height:9,rx:4,fill:'#2b2b33'},g);SE('circle',{cx:-6,cy:-1.5,r:2.5,fill:'#fff'},g);SE('circle',{cx:6,cy:-1.5,r:2.5,fill:'#fff'},g)},
+  supurge(g){const k=SE('g',{class:'sway'},g);SE('rect',{x:-1,y:-30,width:3,height:30,fill:'#8a5a3c'},k);SE('path',{d:'M-8 0 L10 0 L7 12 L-5 12 Z',fill:'#ffd766'},k)},
+  parmak(g){const k=SE('g',{class:'sway'},g);SE('path',{d:'M0 0 L0 -18 M0 -18 L-4 -14 M0 -18 L4 -14',stroke:'#f1e3c8','stroke-width':4,'stroke-linecap':'round'},k);const t=SE('g',{class:'rise'},g);SE('text',{x:8,y:-16,'font-size':16,'font-weight':900,fill:'#e23b3b','font-family':'Nunito,system-ui'},t).textContent='!'},
+  soru(g){const t=SE('g',{class:'rise'},g);SE('text',{y:-8,'text-anchor':'middle','font-size':18,'font-weight':900,fill:'#fff','font-family':'Nunito,system-ui'},t).textContent='?'}
+};
+// Rol → hareket: ms süre, cizim listesi (nesne, dx, dy); evde kalanlar (home) ve kendine (self) de burada
+const ROL_HAREKET={
+  kill:{ms:960,ciz:[['bicak',14,-10]],ses:'swish'},
+  hirsiz:{ms:900,ciz:[['maske',0,-20],['soru',26,-30]],ses:'swish'},
+  temizlikci:{ms:960,ciz:[['supurge',14,-4]]},
+  suclayici:{ms:900,ciz:[['parmak',14,-8]]},
+  doktor:{ms:1000,ciz:[['igne',14,-6]],ev:[['arti',26,-100]],ses:'ding'},
+  polis:{ms:1000,ciz:[['kelepce',16,-4],['dur',0,-40]],iz:'kelepce'},
+  gozcu:{ms:1000,ciz:[['durbun',0,-16]]},
+  izci:{ms:1000,ciz:[['buyutec',10,-14]],ev:[['ayakizi',-20,40]]},
+  dedektif:{ms:1000,ciz:[['fener',0,-12]]},
+  ispiyoncu:{ms:1000,ciz:[['flas',0,-14]]},
+  provokator:{ms:1000,ciz:[['megafon',14,-10]]},
+  tuzakci:{ms:900,ciz:[['tuzak',0,8]],iz:'tuzak'},
+  bombaci:{ms:900,ciz:[['dinamit',14,-6]],iz:'dinamit'},
+  hortlak:{ms:1000,ciz:[['mum',16,-6]],iz:'mum'},
+  buyucu:{ms:1000,home:true,ses:'thunder'},
+  hayatta:{ms:900,ciz:[['yelek',0,-12]]}
+};
+// Hareketi başlat: S_.aksiyon'a çizer, süre sonunda siler (yalnız aynı gece: anim damgası). Büyücü: evden hedefe yıldırım.
+function rolHareketi(key,house,sp){
+  const S_=scene;if(!S_)return;const h=ROL_HAREKET[key];if(!h)return;
+  S_.aksiyon.replaceChildren();
+  const g=SE('g',{class:'rol-fx'},S_.aksiyon);
+  if(h.home){const me=S_.houses[myId];if(me&&house){const a=nightSpot(me,'door'),b=nightSpot(house,'door');const z=SE('g',{class:'bolt'},g);
+    SE('path',{d:`M${a.x} ${a.y-30} L${(a.x+b.x)/2+18} ${(a.y+b.y)/2-40} L${(a.x+b.x)/2-6} ${(a.y+b.y)/2-10} L${b.x} ${b.y-20}`,fill:'none',stroke:'#fff3c4','stroke-width':4,'stroke-linejoin':'round',filter:'url(#s_glow)'},z);
+    SE('circle',{cx:b.x,cy:b.y-20,r:18,fill:'#ffd766',opacity:.6},z)}}
+  else{for(const [n,dx,dy] of h.ciz||[]){const c=SE('g',{transform:`translate(${sp.x+dx},${sp.y+dy})`},g);CIZ[n](c)}
+    for(const [n,dx,dy] of h.ev||[]){const c=SE('g',{transform:`translate(${house.x+dx},${house.y+dy})`},g);CIZ[n](c)}}
+  const a=anim;a.hareketT0=Date.now();a.hareketMs=h.ms;
+  setTimeout(()=>{if(anim===a&&g.parentNode)g.remove()},h.ms+200);
+}
+// Kalıcı izler (gece boyu, yalnız kendim): tuzak/kelepçe bu gecenin hedefinde (local.act), mum priv.candle, dinamit priv.planted
+function izCiz(S_){
+  if(!priv.role)return;const k=priv.role.key;const ev=id=>S_.houses[id];
+  const koy=(id,n,dx,dy)=>{const h=ev(id);if(!h)return;const g=SE('g',{class:'iz',transform:`translate(${h.x+26+dx},${h.y+44+dy})`},S_.fx);CIZ[n](g)};
+  const varildi=anim.walkT0&&Date.now()-anim.walkT0>=(anim.walkMs||0)+(anim.hareketMs||0);
+  if(k==='tuzakci'&&local.act.ab&&varildi)koy(local.act.ab,'tuzak',-8,8);
+  if(k==='polis'&&local.act.ab&&varildi)koy(local.act.ab,'kelepce',-10,-2);
+  if(k==='hortlak'&&priv.candle)koy(priv.candle,'mum',-12,-4);
+  if(k==='bombaci'){const evler=new Set(priv.planted||[]);if(local.act.ab&&varildi)evler.add(local.act.ab);let i=0;for(const id of evler)koy(id,'dinamit',-14+(i++%3)*9,-2)}
+}
 function nightSpot(h,posKind){const o={door:[h.x+26,h.y+44],enter:[h.x+25,h.y+22],bush:[h.x-78,h.y+30],window:[h.x-24,h.y+36],home:[h.x+26,h.y+44]}[posKind]||[h.x+26,h.y+44];return {x:o[0],y:o[1]}}
 function myRoleKey(){return priv.role?priv.role.key:null}
 function myPosKind(){const k=myRoleKey();if(!k)return 'door';if(priv.role.team==='imp'&&(sel.mode||'kill')==='kill'&&local.act.kill)return 'enter';return (ROLES[k].pos)||'door'}
@@ -483,6 +568,8 @@ function renderScene(){
   const eveningOut=eseq&&P.evening&&P.evening.out?P.evening.out:null;
   const varildi=!!(night&&myTarget&&anim.walkT0&&Date.now()-anim.walkT0>=(anim.walkMs||0));
   const entered=!!(varildi&&myPosKind()==='enter'&&Date.now()-anim.walkT0>=(anim.walkMs||0)+(anim.hareketMs||900));
+  if(varildi&&!anim.hareketT0&&alive){const key=myPosKind()==='enter'?'kill':myRoleKey();const h=S_.houses[myTarget];if(h)rolHareketi(key,h,nightSpot(h,myPosKind()))}
+  if(night&&alive&&!lobbyMode)izCiz(S_);
   for(const p of players){
     const h=S_.houses[p.id],b=S_.beans[p.id];if(!h||!b)continue;
     const dead=!lobbyMode&&!p.alive;const freshDeath=morningDeaths.some(d=>d.id===p.id)&&a<7;
@@ -513,7 +600,8 @@ function renderScene(){
       else if(eveningOut&&a<5){x=pos.cx;y=pos.cy;look=SCX>x?1:-1;pose=a>3.1?'scared':'sad'}
       else{x=home.x;y=home.y;look=pos.hx>SCX?-1:1;
         if(a>4.5){const isMe=p.id===myId;if(!isMe)show=false;else{front=true;const kind=myPosKind();
-          if(myTarget&&S_.houses[myTarget]&&kind!=='home'){const sp=nightSpot(S_.houses[myTarget],kind);x=sp.x;y=sp.y;look=kind==='bush'||kind==='window'?1:-1;if(entered)enterMode=true}}}}
+          if(myTarget&&S_.houses[myTarget]&&kind!=='home'){const sp=nightSpot(S_.houses[myTarget],kind);x=sp.x;y=sp.y;look=kind==='bush'||kind==='window'?1:-1;if(entered)enterMode=true}
+          yuruyusMs=anim.walkMs||undefined}}}   // gece boyunca bu dal çalışır (anim.seq 'evening' kalır): yürüyüş süresi burada da
     }else if(night){
       const isMe=p.id===myId;
       if(!isMe)show=false;
@@ -573,20 +661,23 @@ function modesFor(){if(!priv.role)return[];const k=priv.role.key,imp=priv.role.t
 function ensureMode(){const modes=modesFor().filter(m=>!m[2]);if(modes.length&&(!sel.mode||!modes.some(m=>m[0]===sel.mode)))sel.mode=modes[0][0]}
 // Gece yürüyüşü: hedef (ev id ya da null = eve dön) için süre, render'dan ÖNCE mevcut konumdan hesaplanır;
 // zamanlayıcılar yalnız bu gecenin anim nesnesi yaşarken çalışır
-function yuruyusBaslat(hedef,uygula){
+function yuruyusBaslat(hedef,uygula,kind){
   const b=scene&&scene.beans[myId];const bx=b?b.x:0,by=b?b.y:0;
-  uygula();
-  const kind=myPosKind();const h=scene&&scene.houses[hedef||myId];
+  const h=scene&&scene.houses[hedef||myId];
   const sp=h?nightSpot(h,hedef&&kind!=='home'?kind:'door'):null;
-  const a=anim;a.hedef=hedef;a.walkT0=Date.now();a.walkMs=b&&sp&&!(hedef&&kind==='home')?walkMs(bx,by,sp.x,sp.y):0;a.hareketT0=null;
+  const hr=ROL_HAREKET[kind==='enter'?'kill':myRoleKey()]||{};
+  const a=anim;a.hedef=hedef;a.walkT0=Date.now();a.walkMs=b&&sp&&!(hedef&&kind==='home')?walkMs(bx,by,sp.x,sp.y):0;a.hareketT0=null;a.hareketMs=hr.ms||900;
+  if(!hedef)scene&&scene.aksiyon.replaceChildren(); // vazgeç: süren hareket iptal
+  uygula(); // hamleyi uygular ve render eder: render artık süreyi biliyor
   const sonra=(ms,f)=>setTimeout(()=>{if(anim===a)f()},ms);
-  if(hedef){sonra(a.walkMs,()=>{if(kind!=='enter')SFX.knock();render()});sonra(a.walkMs+(a.hareketMs||900),()=>{if(kind==='enter')SFX.door();render()});sonra(a.walkMs+(a.hareketMs||900)+400,render)}
+  if(hedef){sonra(a.walkMs,()=>{if(hr.ses&&SFX[hr.ses])SFX[hr.ses]();else if(kind!=='enter')SFX.knock();render()});sonra(a.walkMs+a.hareketMs,()=>{if(kind==='enter')SFX.door();render()});sonra(a.walkMs+a.hareketMs+400,render)}
   else{sonra(a.walkMs,render)}
   render();
 }
 function pickHouse(id){
   if(P.phase==='night'){ensureMode();const m=sel.mode||'ab';const patch={[m]:local.act[m]===id?null:id};if(m==='kill')patch.ab=null;if(m==='ab'&&priv.role&&priv.role.team==='imp')patch.kill=null;if(m==='ab')patch.guess=null;
-    yuruyusBaslat(patch[m]||null,()=>submitAct(patch))}
+    const kind=m==='kill'?'enter':(ROLES[priv.role.key].pos||'door'); // myPosKind ile aynı kural, hamle uygulanmadan
+    yuruyusBaslat(patch[m]||null,()=>submitAct(patch),kind)}
   else{castVote(id);SFX.vote()}
 }
 
@@ -605,6 +696,8 @@ const SFX={
   knock(){const c=ac();if(!c)return;const t=c.currentTime;[0,.18,.36].forEach(d=>tone(180,120,.09,.12,'square',t+d))},
   door(){noise(.3,.08,900);tone(220,140,.25,.06,'sawtooth')},
   stab(){noise(.18,.12,2600);tone(300,60,.3,.1,'sawtooth')},
+  swish(){noise(.14,.09,3200);const c=ac();if(!c)return;const t=c.currentTime;[0,.32,.64].forEach(d=>tone(900,300,.12,.05,'sawtooth',t+d))},
+  ding(){const c=ac();if(!c)return;const t=c.currentTime;tone(1320,1300,.5,.07,'sine',t);tone(1760,1740,.6,.05,'sine',t+.12)},
   bell(){const c=ac();if(!c)return;const t=c.currentTime;[0,.5,1].forEach(d=>{tone(880,870,.9,.08,'sine',t+d);tone(1320,1300,.6,.04,'sine',t+d)})},
   rooster(){const c=ac();if(!c)return;const t=c.currentTime;tone(700,1100,.25,.07,'sawtooth',t);tone(1100,900,.35,.07,'sawtooth',t+.25);tone(900,600,.5,.06,'sawtooth',t+.6)},
   thunder(){noise(1.6,.18,300);tone(90,40,1.2,.14,'sawtooth')},
@@ -756,7 +849,7 @@ function renderGameUI(stage){
     modes.forEach(([m,l,dis])=>{const b=el('button',(m==='ab'?'ab':'')+(sel.mode===m?' on':''),l+(local.act[m]&&local.act[m]!=='self'?' → '+nameOf(local.act[m]):''));b.disabled=!!dis;b.onclick=()=>{sel.mode=m;render()};act.append(b)});
     if(k==='hayatta'){const b=el('button',local.act.ab==='self'?'ab on':'','🦺 Yelek giy (kalan '+(priv.vest??3)+')');b.disabled=!(priv.vest>0);b.onclick=()=>submitAct({ab:local.act.ab==='self'?null:'self'});act.append(b)}
     if(k==='bombaci'){const b=el('button',local.act.det?'on':'','🧨 Hepsini patlat ('+(priv.planted||[]).length+' dinamit)');b.onclick=()=>submitAct({det:!local.act.det});act.append(b)}
-    if(sel.mode&&local.act[sel.mode]&&local.act[sel.mode]!=='self'){const b=el('button',null,'↩︎ Vazgeç');b.onclick=()=>{yuruyusBaslat(null,()=>submitAct({[sel.mode]:null,guess:null}))};act.append(b)}
+    if(sel.mode&&local.act[sel.mode]&&local.act[sel.mode]!=='self'){const b=el('button',null,'↩︎ Vazgeç');b.onclick=()=>{yuruyusBaslat(null,()=>submitAct({[sel.mode]:null,guess:null}),'door')};act.append(b)}
     if(!modes.length&&k!=='hayatta')act.append(el('span','pill','Bu gece yapacağın bir şey yok.'));
     stage.append(act);
     if(k==='buyucu'&&local.act.ab){const gp=el('div','ov guess');gp.append(el('div','small',nameOf(local.act.ab)+' sence hangi rol?'));const row=el('div','row');

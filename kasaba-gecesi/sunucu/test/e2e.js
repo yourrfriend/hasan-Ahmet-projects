@@ -63,6 +63,14 @@ const step=t=>console.log('•',t);
         await p.waitForTimeout(Math.max(0,walk-(Date.now()-t0))+150);
         const varis=await p.evaluate(()=>{const b=scene.beans[myId];return{walking:b.g.classList.contains('walking'),tag:b.tag.textContent}});
         assert.strictEqual(varis.walking,false,'varışta yürüyüş sınıfı düşmeli');assert.strictEqual(varis.tag,'SEN');
+        // rol hareketi: varıştan hemen sonra sahnede .rol-fx (masum hariç); başka oyuncu hiçbir şey görmez; yenilemede tekrar oynamaz
+        await p.waitForTimeout(150);
+        const fx=await p.evaluate(()=>({n:document.querySelectorAll('#app .rol-fx').length,rol:priv.role.key}));
+        assert.ok(fx.n>=1||fx.rol==='masum','rol hareketi görünmeli: '+JSON.stringify(fx));
+        const other=all().find(q=>q!==p);
+        assert.strictEqual(await other.evaluate(()=>document.querySelectorAll('#app .rol-fx, #app .iz').length),0,'başkası hareket/iz görmemeli');
+        await p.reload();await p.waitForFunction(()=>P.phase==='night'&&typeof scene!=='undefined'&&scene&&scene.beans[myId],null,{timeout:8000});await p.waitForTimeout(800);
+        assert.strictEqual(await p.evaluate(()=>document.querySelectorAll('#app .rol-fx').length),0,'yenilemede hareket tekrar oynamamalı');
       }
     }
     await host.waitForTimeout(300);

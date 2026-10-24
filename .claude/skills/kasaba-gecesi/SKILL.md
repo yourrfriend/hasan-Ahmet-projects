@@ -82,6 +82,7 @@ Playwright betiğinde süreleri beklemek yerine sunucuyu aynı süreçte `create
 
 ## Bilinen tuzaklar
 
+- Gece hamlesi: `pickHouse` → `yuruyusBaslat(hedef, uygula, kind)` yürüyüş süresini (`anim.walkMs`, 190 birim/sn) **render'dan önce** hesaplar; `moveBean(...,ms)` yalnız o hareketi mesafeye göre yapar. Gece boyunca render'ın `eseq` (akşam dizisi) dalı çalışır, `night` dalı değil — konum değişikliği oraya da işlenmeli. Rol hareketleri `S_.aksiyon` katmanında (render **silmez**; `rolHareketi` kendisi siler), izler `S_.fx`'te (her render yeniden çizilir, `izCiz`). Etiketler (SEN/HAİN/KOPUK) karakter grubunun içinde (`b._tag`, `b._tag2`), `scene.labels`'da değil.
 - İlk gece rol kartı (`ui.roleCard`) açıkken evler tıklanmaz; testte önce "Anladım"a bas. Eylem düğmeleri gece başladıktan ~2,5 sn sonra açılır.
 - Evler SVG; tıklama `scene.houses[id].g.onclick` ile bağlı.
 - Playwright global olmayabilir: `kontrol.sh --e2e` sırayla `npm root -g` ve npx önbelleğine (`~/.npm/_npx/*/node_modules`) bakar, Playwright'ın Chromium'u yoksa sistemdeki Chrome'u `PW_CHROMIUM` ile verir. `test/e2e.js`'yi elle çalıştırırken `NODE_PATH` (ve gerekirse `PW_CHROMIUM`) ver. `playwright install` çalıştırma.
