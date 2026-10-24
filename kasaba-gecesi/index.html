@@ -570,11 +570,9 @@ function modesFor(){if(!priv.role)return[];const k=priv.role.key,imp=priv.role.t
 function ensureMode(){const modes=modesFor().filter(m=>!m[2]);if(modes.length&&(!sel.mode||!modes.some(m=>m[0]===sel.mode)))sel.mode=modes[0][0]}
 function pickHouse(id){
   if(P.phase==='night'){ensureMode();const m=sel.mode||'ab';const patch={[m]:local.act[m]===id?null:id};if(m==='kill')patch.ab=null;if(m==='ab'&&priv.role&&priv.role.team==='imp')patch.kill=null;if(m==='ab')patch.guess=null;
-    // yürüyüş süresi, render karakteri hedefe taşımadan ÖNCE mevcut konumdan hesaplanır
-    const b=scene&&scene.beans[myId];const bx=b?b.x:0,by=b?b.y:0;
     submitAct(patch);anim.enteredAt=patch[m]?Date.now():null;
-    if(patch[m]){const h=scene&&scene.houses[patch[m]];const kind=myPosKind();const sp=h?nightSpot(h,kind==='home'?'door':kind):null;
-      anim.walkMs=b&&sp?walkMs(bx,by,sp.x,sp.y):900;
+    if(patch[m]){const b=scene&&scene.beans[myId],h=scene&&scene.houses[patch[m]];const kind=myPosKind();const sp=h?nightSpot(h,kind==='home'?'door':kind):null;
+      anim.walkMs=b&&sp?walkMs(b.x,b.y,sp.x,sp.y):900;
       setTimeout(()=>{if(myPosKind()==='enter')SFX.door();else SFX.knock()},anim.walkMs+(kind==='enter'?1000:50));
       setTimeout(render,anim.walkMs+30);setTimeout(render,anim.walkMs+1030);setTimeout(render,anim.walkMs+1400)}
     else{setTimeout(render,1000);setTimeout(render,1400)}}
