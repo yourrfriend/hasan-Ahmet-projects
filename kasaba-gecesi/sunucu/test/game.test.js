@@ -4,7 +4,7 @@ const test=require('node:test');
 const assert=require('node:assert');
 const G=require('../game.js');
 
-const SECRET_KEYS=['roles','acts','votes','notes','dchat','candle','planted','mad','uses','vest','haunt','provoke','blame'];
+const SECRET_KEYS=['roles','acts','votes','notes','dchat','candle','planted','mad','uses','vest','haunt','provoke','blame','log'];
 function keysDeep(o,out=new Set()){if(o&&typeof o==='object'){for(const k of Object.keys(o)){out.add(k);keysDeep(o[k],out)}}return out}
 function noLeak(P){const ks=keysDeep(P);for(const k of SECRET_KEYS)assert.ok(!ks.has(k),'state içinde gizli alan: '+k)}
 
@@ -194,4 +194,36 @@ test('gece bitiminde bağlantısı kopuk yaşayan oyuncu varsa bir kez en çok 3
     // gündüz fazlarında beklenmez
     t=R3.P.ends;G.tick(R3,new Set(['u2']));assert.strictEqual(R3.P.phase,'vote');
   }finally{G.setClock()}
+});
+
+test('olay günlüğü: başlangıç, etkin gece hamleleri, gece ve gündüz sonucu, bitiş; sıra artar',()=>{
+  const R=fixed(['hain','doktor','masum','masum','masum']);
+  assert.strictEqual(R.log[0].tur,'baslangic');assert.strictEqual(R.log[0].veri.oyuncular.length,5);
+  G.act(R,'u0',{kill:'u2'});G.act(R,'u1',{ab:'u2'});G.act(R,'u3',{ab:'u4'}); // u3 masum: yeteneği yok, yazılmaz
+  G.advance(R);
+  assert.deepStrictEqual(R.log.filter(e=>e.tur==='gece_hamle').map(e=>[e.veri.kim,e.veri.tur,e.veri.hedef]),[['u0','kill','u2'],['u1','ab','u2']]);
+  const gs=R.log.find(e=>e.tur==='gece_sonuc');assert.strictEqual(gs.gun,1);assert.strictEqual(gs.faz,'night');
+  assert.deepStrictEqual(gs.veri.kurtarilan,['u2']);assert.deepStrictEqual(gs.veri.olenler,[]);assert.deepStrictEqual(gs.veri.ziyaretler.u2.sort(),['u0','u1']);
+  G.advance(R);for(const id of ['u1','u2','u3','u4'])G.vote(R,id,'u0');G.vote(R,'u0','skip');
+  const gd=R.log.find(e=>e.tur==='gunduz_sonuc');assert.strictEqual(gd.veri.asilan,'u0');assert.deepStrictEqual(gd.veri.toplamlar,{u0:4});assert.strictEqual(gd.veri.cekimser,1);
+  const b=R.log[R.log.length-1];assert.strictEqual(b.tur,'bitis');assert.strictEqual(b.veri.kazanan,'inn');assert.strictEqual(b.veri.acilis.length,5);
+  assert.ok(R.log.every((e,i)=>e.sira===i+1),'sıra 1..n');
+  noLeak(R.P);assert.ok(!JSON.stringify(R.P).includes('"log"'));
+});
+test('olay günlüğü: tuzak, tutma ve ölüm ayrıntıları; gece bitince sıra gece_sonuc → bitis',()=>{
+  // u0 hain u3'e gider, u1 tuzakçı u3'ün kapısında, u2 polis u4'ü tutar
+  let R=fixed(['hain','tuzakci','polis','masum','masum']);
+  G.act(R,'u0',{kill:'u3'});G.act(R,'u1',{ab:'u3'});G.act(R,'u2',{ab:'u4'});G.advance(R);
+  let gs=R.log.find(e=>e.tur==='gece_sonuc');
+  assert.deepStrictEqual(gs.veri.tuzak,[{kim:'u0',ev:'u3',kuran:'u1'}]);assert.deepStrictEqual(gs.veri.tutulan,['u4']);
+  // 2 hain + 2 masum: bir masum ölünce hain >= diğerleri → oyun gece biter (checkWin resolveNight içinde)
+  R=fixed(['hain','hain','masum','masum']);G.act(R,'u0',{kill:'u2'});G.advance(R);
+  assert.strictEqual(R.P.phase,'end');
+  const turler=R.log.map(e=>e.tur);assert.deepStrictEqual(turler.slice(-2),['gece_sonuc','bitis']);
+  gs=R.log.find(e=>e.tur==='gece_sonuc');assert.deepStrictEqual(gs.veri.olenler,[{kim:'u2',sekil:'stab',kimden:['u0'],kimden_ad:'Hain',rol:'Masum'}]);
+});
+test('olay günlüğü: iptal yazılır, lobide ve bitmiş oyunda yazılmaz',()=>{
+  const R=fixed(['hain','masum','masum','masum']);G.advance(R);G.endToLobby(R);
+  const son=R.log[R.log.length-1];assert.strictEqual(son.tur,'iptal');assert.deepStrictEqual(son.veri,{gun:1,faz:'talk'});
+  const n=R.log.length;G.endToLobby(R);assert.strictEqual(R.log.length,n,'lobideyken iptal yazılmaz');
 });

@@ -1,3 +1,4 @@
 # kişisel Claude Code ayarları
 .claude/yayin.env
 .claude/settings.local.json
+.superpowers/
