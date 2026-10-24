@@ -14,7 +14,7 @@ const ROLES={
   masum:{n:'Masum',team:'inn',ico:'🏠',desc:'Özel bir yeteneğin yok. Gündüz tartış, oylamayla hainleri bul.'},
   doktor:{n:'Doktor',team:'inn',ico:'💉',desc:'Gece birini seç. O gece saldırıya uğrarsa kurtulur.',act:'other',pos:'door'},
   deli:{n:'Deli',team:'inn',ico:'🌀',desc:'Masum bir rol olduğunu sanırsın ama yaptıkların hiçbir şey değiştirmez.'},
-  polis:{n:'Polis',team:'inn',ico:'👮',desc:'Seçtiğin kişi o gece evden çıkamaz; rolünü kullanamaz. Seri Katil\'i tutamazsın.',act:'other',dual:true,pos:'door'},
+  polis:{n:'Polis',team:'inn',ico:'👮',desc:'Seçtiğin kişi o gece evden çıkamaz; rolünü kullanamaz. Seri Katil\'i ve Bombacı\'yı tutamazsın.',act:'other',dual:true,pos:'door'},
   gozcu:{n:'Gözcü',team:'inn',ico:'🔭',desc:'Seçtiğin evi gözetlersin; o gece kaç kişinin geldiğini öğrenirsin.',act:'other',dual:true,pos:'bush'},
   izci:{n:'İzci',team:'inn',ico:'👣',desc:'Seçtiğin kişiyi izlersin; gece hangi eve gittiğini öğrenirsin.',act:'other',dual:true,pos:'bush'},
   dedektif:{n:'Dedektif',team:'inn',ico:'🔍',desc:'Seçtiğin kişinin evini ararsın; olabileceği rolleri öğrenirsin.',act:'other',dual:true,pos:'window'},
@@ -26,7 +26,7 @@ const ROLES={
   suclayici:{n:'Suçlayıcı',team:'imp',ico:'🫵',desc:'Gece ya öldürürsün ya suçlarsın: seçtiğin kişi o gece ölür ya da ertesi gün asılırsa rolü Hain görünür.',act:'other',pos:'door'},
   hayatta:{n:'Hayatta Kalan',team:'neu',ico:'🦺',desc:'Sona kadar yaşa. 3 kez yelek giyebilirsin; yelekliyken ölmezsin. Kazanan tarafla kazanırsın.',act:'self'},
   serikatil:{n:'Seri Katil',team:'neu',ico:'🔪',desc:'Her gece birinin evine girip onu öldürürsün. Polis seni tutamaz. Tek başına kalınca kazanırsın.',act:'other',pos:'enter'},
-  bombaci:{n:'Bombacı',team:'neu',ico:'🧨',desc:'Her gece bir eve dinamit koyarsın. İstediğin gece hepsini patlatırsın. Herkes ölünce kazanırsın.',act:'other',pos:'door'},
+  bombaci:{n:'Bombacı',team:'neu',ico:'🧨',desc:'Her gece bir eve dinamit koyarsın. İstediğin gece hepsini patlatırsın. Polis seni tutamaz. Herkes ölünce kazanırsın.',act:'other',pos:'door'},
   hirsiz:{n:'Hırsız',team:'neu',ico:'🎭',desc:'Seçtiğin kişinin evine girip onu öldürür ve rolünü çalarsın; artık o rolle o tarafta oynarsın.',act:'other',pos:'enter'},
   buyucu:{n:'Büyücü',team:'neu',ico:'⚡',desc:'Evinden çıkmadan birini seçip rolünü tahmin edersin. Doğruysa yıldırımla ölür, Doktor kurtaramaz. Yanlışsa sen ölürsün. Tek başına kazanırsın.',act:'other',guess:true,pos:'home'},
   hortlak:{n:'Hortlak',team:'neu',ico:'🕯️',desc:'Gece bir evin önüne mum koyarsın. Ertesi gün asılırsan o gece hayalet olarak gelir, mum koyduğun kişiyi öldürürsün. Asılınca kazanırsın.',act:'other',pos:'door'}
@@ -182,7 +182,7 @@ function resolveNight(R){
     if(heldCop.has(c)){blocked.add(c);nt(c,'Polis seni evde tuttu, kimseyi tutamadın.');continue}
     visits[t].push(c);went[c]=t;
     if(trappedAt(c,t)){blocked.add(c);nt(c,'Tuzağa yakalandın, kimseyi tutamadın.');nt(traps[t],nm(c)+' tuzağına yakalandı.')}
-    else if(eff(t)==='serikatil'){nt(c,nm(t)+' evde durmadı; onu tutamadın.')}
+    else if(eff(t)==='serikatil'||eff(t)==='bombaci'){nt(c,nm(t)+' evde durmadı; onu tutamadın.')} // ikisi de tutulamaz (Polis–Bombacı kilidi olmasın)
     else{blocked.add(t);nt(c,nm(t)+' bu gece evden çıkamadı.');if(!heldCop.has(t)&&!heldTrapper.has(t))nt(t,'Polis seni evde tuttu, rolünü kullanamadın.')}}
   // 3) ziyaretler ve tuzak yakalamaları (büyücü evinden çıkmaz; polis ve tuzakçının yetenek hedefi yukarıda, öldürme hedefi burada)
   for(const id of al){const k=eff(id);const r=g.roles[id];const targets=new Set();

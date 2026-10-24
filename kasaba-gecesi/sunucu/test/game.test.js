@@ -222,3 +222,15 @@ test('rol dağılımı: eşikler, tekrarsız özel roller, bilgi rolü ≥ hain,
     if(n>=7)assert.ok(kumeler.size>1,'n='+n+' hep aynı küme');
   }
 });
+
+test('polis bombacıyı tutamaz (seri katil gibi); 1\'e 1 kalınca bombacı patlatıp kazanır',()=>{
+  // u0 polis u1 bombacıyı tutmaya gider; bombacı yine dinamit koyar
+  let R=fixed(['polis','bombaci','hain','masum','masum']);
+  G.act(R,'u0',{ab:'u1'});G.act(R,'u1',{ab:'u3'});G.advance(R);
+  assert.match(notesOf(R,'u0'),/evde durmadı; onu tutamadın/);assert.strictEqual(R.g.roles.u1.planted.length,1);
+  assert.ok(!/Polis seni evde tuttu/.test(notesOf(R,'u1')));
+  // polis + bombacı: bombacı önceki geceden dinamit koymuş olsun, patlatınca polis ölür → oyun biter (kilit yok)
+  R=fixed(['polis','bombaci','masum','masum']);G.pl(R,'u2').alive=false;G.pl(R,'u3').alive=false;R.g.roles.u1.planted=['u0'];
+  G.act(R,'u0',{ab:'u1'});G.act(R,'u1',{det:true});G.advance(R);
+  assert.strictEqual(R.P.phase,'end');assert.strictEqual(R.P.winner.who,'u1');
+});
