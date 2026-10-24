@@ -312,7 +312,7 @@ function privFor(R,id){
     mates:r.team==='imp'?Object.keys(g.roles).filter(x=>g.roles[x].team==='imp'&&x!==id):[],
     notes:g.notes[id]||[],dchat:me&&!me.alive?g.dchat:[],
     fakeProvoked:r.fakeProvoked&&r.fakeProvoked.day===P.day&&P.phase==='vote'?r.fakeProvoked.t:null,
-    uses:r.uses,vest:r.vest,planted:r.planted.length,candle:g.candle[id]||null};
+    uses:r.uses,vest:r.vest,planted:r.planted.slice(),candle:g.candle[id]||null};
 }
 
 return{ROLES,SETUP,COLORS,HATS,DEFAULT_SETTINGS,DAGILIM,roleLabel,autoSetup,cleanSettings,setClock,

@@ -199,7 +199,7 @@ let isHost=false,myId=null,active=false,myName=ls('kg_name')||'',roomCode=null,w
 let chatLog=[]; // sohbet state ile değil, parça parça gelir ({t:'chat'}); P.chat buna bağlanır
 let myLook=ls('kg_look')||{color:COLORS[Math.floor(Math.random()*COLORS.length)],hat:HATS[Math.floor(Math.random()*HATS.length)][0]};
 let P={phase:'landing'};
-let priv={role:null,notes:[],mates:[],dchat:[],uses:{},vest:0,planted:[]};
+let priv={role:null,notes:[],mates:[],dchat:[],uses:{},vest:0,planted:[]}; // planted: dinamit konan evlerin id listesi
 let lobby=[];let local={act:{},vote:null};
 let settings=ls('kg_settings')||{night:30,talk:120,vote:45};
 let lastKey=null,sel={},skew=0,connSince=Date.now();
@@ -727,7 +727,7 @@ function renderGameUI(stage){
     ensureMode();const modes=modesFor();const k=priv.role.key;const act=el('div','ov act');
     modes.forEach(([m,l,dis])=>{const b=el('button',(m==='ab'?'ab':'')+(sel.mode===m?' on':''),l+(local.act[m]&&local.act[m]!=='self'?' → '+nameOf(local.act[m]):''));b.disabled=!!dis;b.onclick=()=>{sel.mode=m;render()};act.append(b)});
     if(k==='hayatta'){const b=el('button',local.act.ab==='self'?'ab on':'','🦺 Yelek giy (kalan '+(priv.vest??3)+')');b.disabled=!(priv.vest>0);b.onclick=()=>submitAct({ab:local.act.ab==='self'?null:'self'});act.append(b)}
-    if(k==='bombaci'){const b=el('button',local.act.det?'on':'','🧨 Hepsini patlat ('+(priv.planted||0)+' dinamit)');b.onclick=()=>submitAct({det:!local.act.det});act.append(b)}
+    if(k==='bombaci'){const b=el('button',local.act.det?'on':'','🧨 Hepsini patlat ('+(priv.planted||[]).length+' dinamit)');b.onclick=()=>submitAct({det:!local.act.det});act.append(b)}
     if(sel.mode&&local.act[sel.mode]&&local.act[sel.mode]!=='self'){const b=el('button',null,'↩︎ Vazgeç');b.onclick=()=>{submitAct({[sel.mode]:null,guess:null});anim.enteredAt=null};act.append(b)}
     if(!modes.length&&k!=='hayatta')act.append(el('span','pill','Bu gece yapacağın bir şey yok.'));
     stage.append(act);

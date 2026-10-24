@@ -234,3 +234,11 @@ test('polis bombacıyı tutamaz (seri katil gibi); 1\'e 1 kalınca bombacı patl
   G.act(R,'u0',{ab:'u1'});G.act(R,'u1',{det:true});G.advance(R);
   assert.strictEqual(R.P.phase,'end');assert.strictEqual(R.P.winner.who,'u1');
 });
+
+test('privFor.planted dinamit konan evlerin listesidir',()=>{
+  const R=fixed(['bombaci','hain','masum','masum','masum']);
+  G.act(R,'u0',{ab:'u2'});G.advance(R);G.advance(R);G.advance(R); // gece 1 → gündüz → oylama → gece 2
+  G.act(R,'u0',{ab:'u3'});G.advance(R);
+  assert.deepStrictEqual(G.privFor(R,'u0').planted,['u2','u3']);
+  assert.deepStrictEqual(G.privFor(R,'u1').planted,[]);
+});
