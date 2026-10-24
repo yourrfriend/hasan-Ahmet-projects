@@ -7,6 +7,7 @@ const path=require('path');
 const crypto=require('crypto');
 const {WebSocketServer}=require('ws');
 const G=require('./game.js');
+const Kayit=require('./kayit.js');
 
 const ROOM_TTL_MS=+process.env.ROOM_TTL_MS||2*60*60*1000;   // bu kadar süre mesaj gelmezse oda silinir
 const HOST_GRACE_MS=+process.env.HOST_GRACE_MS||10*60*1000; // ev sahibi bu kadar dönmezse yetki devredilir
@@ -28,6 +29,9 @@ const cleanName=v=>typeof v==='string'?v.trim().slice(0,16):'';
 function createServer(opts={}){
   const rooms=new Map();
   const log=opts.quiet?()=>{}:(...a)=>console.log(new Date().toISOString(),...a);
+  const kayit=opts.kayit||Kayit.olustur({}); // olay günlüğünün gittiği yer (testler bellekte biriktiren bir sahte verir)
+  // odanın biriken olaylarını kayıt yuvasına ver (R.log boşalır; R.gameLog oyunda kalır)
+  function bosalt(room){const R=room.game;if(R.log.length)kayit.kuyrukla(room,R.log.splice(0))}
 
   // ---------- statik dosya ----------
   const server=http.createServer((req,res)=>{
@@ -88,14 +92,14 @@ function createServer(opts={}){
   function flush(room){
     clearTimeout(room.flushT);room.flushT=null;
     if(!rooms.has(room.code))return;
-    prune(room);
+    bosalt(room);prune(room);
     const st=stateMsg(room);
     for(const [uid,m] of room.members){for(const ws of m.socks){sendRaw(ws,st);sendChat(ws,room)}sendPriv(room,uid)}
   }
   // kısa sürede gelen değişiklikleri tek pakette yolla
   function schedule(room){if(!room.flushT)room.flushT=setTimeout(()=>flush(room),40)}
   function deleteRoom(room,why){
-    clearTimeout(room.flushT);rooms.delete(room.code);
+    clearTimeout(room.flushT);bosalt(room);rooms.delete(room.code);
     for(const m of room.members.values())for(const ws of m.socks){send(ws,{t:'err',m:why,code:'closed'});ws.room=null;try{ws.close(4000,'oda kapandı')}catch(e){}}
     log('oda silindi',room.code,why);
   }
@@ -204,7 +208,7 @@ function createServer(opts={}){
     }
   },opts.tickMs||500);
 
-  function close(cb){clearInterval(pingIv);clearInterval(tickIv);for(const r of [...rooms.values()])clearTimeout(r.flushT);for(const ws of wss.clients)ws.terminate();wss.close();server.close(cb)}
+  function close(cb){clearInterval(pingIv);clearInterval(tickIv);for(const r of [...rooms.values()]){clearTimeout(r.flushT);bosalt(r)}kayit.kapat();for(const ws of wss.clients)ws.terminate();wss.close();server.close(cb)}
   return {server,wss,rooms,close};
 }
 

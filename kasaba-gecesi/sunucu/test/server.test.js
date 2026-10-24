@@ -14,8 +14,8 @@ test.before(()=>new Promise(r=>{srv=createServer({quiet:true,tickMs:50});srv.ser
 test.after(()=>new Promise(r=>srv.close(r)));
 
 // Basit istemci: gelen son state/priv'i tutar, koşul bekler.
-function client(uid,name,join){
-  const ws=new WebSocket('ws://'+base+'/ws');
+function client(uid,name,join,b=base){
+  const ws=new WebSocket('ws://'+b+'/ws');
   // me: sunucunun verdiği açık kimlik (uid gizli anahtardır, state içinde geçmez); chat: parça parça gelen sohbet
   const c={ws,uid,me:null,P:null,priv:null,privN:0,errs:[],states:0,chat:[],
     send:m=>ws.send(JSON.stringify(m)),
@@ -173,4 +173,29 @@ test('iptalden sonra çevrimdışı üyeler bellekte kalmaz; yeni katılan tek p
   await new Promise(r=>setTimeout(r,100));
   assert.strictEqual(r.members.size,3,'lobide çevrimdışı üye kalmamalı');assert.ok(!r.lastPriv.has(cs[0].me));
   for(const c of [host,cs[1],cs[2]])await c.close();
+});
+
+test('sunucu olay günlüğünü her flush\'ta kayit\'a verir; log bellekte birikmez; biten oyunda priv.payin gelir',async()=>{
+  const alinan=[];const sahte={kuyrukla:(room,ol)=>{alinan.push(...ol)},kapat(){}};
+  const s2=createServer({quiet:true,tickMs:50,kayit:sahte});await new Promise(r=>s2.server.listen(0,'127.0.0.1',r));
+  const b2='127.0.0.1:'+s2.server.address().port;
+  const host=client('g0','A',{host:true},b2);await host.until(c=>c.P&&c.P.room);const room=host.P.room;
+  const cs=[host,...['g1','g2','g3'].map(u=>client(u,u,{room},b2))];await host.until(c=>c.P.lobby.length===4);
+  try{
+  host.send({t:'start'});await Promise.all(cs.map(c=>c.until(c=>c.P.phase==='night'&&c.priv.role)));
+  const R=s2.rooms.get(room).game;
+  await new Promise(r=>setTimeout(r,100));
+  assert.strictEqual(alinan[0]&&alinan[0].tur,'baslangic');assert.strictEqual(R.log.length,0,'flush sonrası log boş');
+  // iki hain + iki masum; ev sahibi (hain) bir masumu öldürür → oyun gece biter
+  const ids=R.P.players.map(p=>p.id);ids.forEach((id,i)=>{R.g.roles[id]={key:i<2?'hain':'masum',team:i<2?'imp':'inn',mad:null,uses:{},vest:3,planted:[]}});
+  G.act(R,host.me,{kill:ids[2]});R.P.waited=true;R.P.ends=Date.now()-1;
+  await Promise.all(cs.map(c=>c.until(c=>c.P.phase==='end'&&c.P.ozet&&c.priv.payin)));
+  assert.strictEqual(alinan[alinan.length-1].tur,'bitis');assert.strictEqual(R.log.length,0);
+  const kurban=R.P.players.find(p=>p.id===ids[2]).name;
+  assert.deepStrictEqual(host.priv.payin.oldurdu,[kurban]);
+  // kopup dönen aynı oyuncu payin'i yeniden alır
+  await host.close();const back=client('g0','A',{room},b2);await back.until(c=>c.priv&&c.priv.payin);
+  assert.deepStrictEqual(back.priv.payin.oldurdu,[kurban]);
+  for(const c of [back,...cs.slice(1)])await c.close();
+  }finally{await new Promise(r=>s2.close(r))} // başarısızlıkta da kapansın, test süreci asılı kalmasın
 });
