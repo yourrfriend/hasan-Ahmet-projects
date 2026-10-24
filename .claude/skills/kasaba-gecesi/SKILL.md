@@ -32,7 +32,7 @@ Oda ve oyun mantığı Node sunucusunda yaşar; ev sahibi dahil herkes WebSocket
 - Faz akışı: `night → talk → vote → night…`, `checkWin` olursa `end`. Süreler `P.settings` (en az 15 sn); sabah/akşam animasyonu için `talk` +7 sn, `night` +6 sn eklenir. Herkes oy verince oylama beklemeden biter.
 - Bağlantı durumu: `state.P.online` bağlı üyelerin açık kimlikleri (sunucu ekler, `game.js` bilmez); istemci kopuk oyuncunun karakterine "📡 KOPUK" etiketi koyar. Gece süresi dolduğunda kopuk yaşayan oyuncu varsa `tick(R, offline)` bir kez en çok 30 sn bekler (`P.waiting`, `P.waited`); hamlesi olup olmadığına bakılmaz (bakılsa rolü ele verirdi). Testlerde geceyi hemen bitirmek için `P.waited=true` ver.
 - Dokunma: gece karartma katmanı ve ambiyans `pointer-events:none`; ev halkası `ringPos` ile görünür alana sığdırılır (kısa ekranda basılır). Oylamada karakter de hedeftir; karakter bir evin önündeyse dokunma eve gider (`houseAt`).
-- İstemcide `isHost = P.hostId === myId`. Sunucu adresi: `?s=` parametresi, sonra `KG_SERVER` sabiti, yoksa sayfanın kendi origin'i + `/ws`.
+- İstemcide `isHost = P.hostId === myId`. Sunucu adresi: `?s=` parametresi (**yalnız** localhost'ta ya da sayfanın kendi host'u için — `sunucuIzinli`; gizli anahtar yabancı adrese gitmesin), sonra `KG_SERVER` sabiti, yoksa sayfanın kendi origin'i + `/ws`.
 
 ## Dokunulmaz kurallar
 

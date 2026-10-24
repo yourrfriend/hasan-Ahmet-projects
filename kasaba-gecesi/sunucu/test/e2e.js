@@ -28,6 +28,13 @@ const step=t=>console.log('•',t);
     await host.waitForSelector('.lobbybar code');
     const link=await host.textContent('.lobbybar code');assert.match(link,/\?oda=[a-z0-9]{6}$/);
 
+    step('?s= yabancı sunucuyu yalnız yerelde seçer (gizli anahtar linkteki adrese gitmez)');
+    const izin=await host.evaluate(()=>{const canli={hostname:'kasaba.ornek.com',host:'kasaba.ornek.com',protocol:'https:'};return[
+      sunucuIzinli('evil.example',canli),sunucuIzinli('wss://evil.example/ws',canli),sunucuIzinli('https://kasaba.ornek.com',canli),
+      sunucuIzinli('evil.example',{hostname:'localhost',host:'localhost:8787',protocol:'http:'}),sunucuIzinli('',canli),sunucuIzinli('evil.example',location)]});
+    assert.deepStrictEqual(izin,[false,false,true,true,false,true]);
+    assert.ok(/^u[0-9a-z]{16,}$/.test(await host.evaluate(()=>uid)),'kimlik anahtarı uzun ve rastgele olmalı');
+
     step('3 oyuncu davet linkiyle katılır');
     const ctxs={},pages={};
     for(const n of ['Ali','Ayse','Can']){ctxs[n]=await newCtx();pages[n]=await open(ctxs[n],n,link);await pages[n].fill('#nameInput',n);await pages[n].click('text=Lobiye gir')}
@@ -104,8 +111,9 @@ const step=t=>console.log('•',t);
 
     step('ev sahibi sekmesini kapatır; gece sonu onu bekler, sonra oyun sürer');
     await hostCtx.close();
-    roomOf().game.P.ends=Date.now()-1;
     const watcher=pages.Ali;
+    await watcher.waitForFunction(id=>!(P.online||[]).includes(id),ids.Ev,{timeout:5000}); // sunucu kapanan soketi görmüş olsun
+    roomOf().game.P.ends=Date.now()-1;
     await watcher.waitForFunction(id=>P.phase==='night'&&P.waiting&&P.waiting.includes(id)&&document.body.textContent.includes('bekleniyor'),ids.Ev,{timeout:5000});
     if(gec){const at=await gec.evaluate(()=>{const t=P.players.find(x=>x.id!==myId&&x.id!==anim.hedef);const r=scene.houses[t.id].g.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}});await gec.mouse.click(at.x,at.y)}
     roomOf().game.P.ends=Date.now()-1;

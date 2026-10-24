@@ -200,7 +200,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 <div id="app"><div class="panel"><p class="muted">Yükleniyor…</p></div></div>
 <script>
 // Script daha başlamadan çökerse "Yükleniyor…" yerine hatayı göster (sürüm damgasıyla).
-window.KG_VER='2026-10-26c';
+window.KG_VER='2026-10-26d';
 window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ff6b6b"><p><b>Sayfa açılamadı.</b> Sürüm '+KG_VER+'</p><p class="small" style="word-break:break-all">'+String(e.message||e.error||e)+(e.filename?' @'+e.lineno:'')+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}});
 setTimeout(function(){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ffb347"><p><b>Sayfa yüklenemedi.</b> Sürüm '+KG_VER+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}},8000);
 </script>
@@ -227,16 +227,23 @@ let lastKey=null,sel={},skew=0,connSince=Date.now();
 let ui={menu:false,notes:false,custom:false,roleCard:false,rules:false};
 function now(){return Date.now()-skew}
 const app=document.getElementById('app');
-const uid=ls('kg_uid')||('u'+Math.random().toString(36).slice(2,10));ls('kg_uid',uid);
-function inviteLink(){return location.origin+location.pathname+'?oda='+roomCode+(qs.get('s')?'&s='+encodeURIComponent(qs.get('s')):'')}
+const uid=ls('kg_uid')||('u'+(crypto.randomUUID?crypto.randomUUID().replace(/-/g,'').slice(0,24):Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,10)));ls('kg_uid',uid);
+function inviteLink(){const s=qs.get('s');return location.origin+location.pathname+'?oda='+roomCode+(s&&sunucuIzinli(s,location)?'&s='+encodeURIComponent(s):'')}
 function lobbyState(){return{phase:'lobby',chat:[],dead:[],players:[],lobby:[]}}
-// GitHub Pages gibi başka bir yerden açılacaksa sunucu adresi buraya (ör. 'wss://oyun.ornek.com') ya da linke ?s=wss://… eklenir.
+// GitHub Pages gibi başka bir yerden açılacaksa sunucu adresi buraya (ör. 'wss://oyun.ornek.com').
 const KG_SERVER='';
+// ?s= ile sunucu seçmek yalnız yerel geliştirmede (localhost) ya da sayfanın kendi sunucusu için geçerlidir: join'de giden
+// gizli anahtar (kg_uid) linke yazılan yabancı bir adrese gitmesin (kimlik çalınır). Saf fonksiyon: e2e test eder.
+function sunucuIzinli(s,loc){
+  if(!s)return false;let host;try{host=new URL((/^\w+:\/\//.test(s.trim())?s.trim():'wss://'+s.trim()).replace(/^http/,'ws')).host}catch(e){return false}
+  const yerel=/^(localhost|127\.0\.0\.1|\[::1\])$/.test(loc.hostname)||loc.protocol==='file:';
+  return yerel||host===loc.host;
+}
 
 // ---------- Sunucu bağlantısı (WebSocket) ----------
 // Oda ve oyun sunucuda yaşar; ev sahibi dahil herkes aynı şekilde bağlanır.
 function wsUrl(){
-  const s=qs.get('s')||KG_SERVER;
+  const s=(sunucuIzinli(qs.get('s'),location)?qs.get('s'):'')||KG_SERVER;
   if(s){let u=s.trim().replace(/^http/,'ws').replace(/\/+$/,'');if(!/^wss?:\/\//.test(u))u='wss://'+u;if(!/\/ws$/.test(u))u+='/ws';return u}
   return (location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws';
 }
