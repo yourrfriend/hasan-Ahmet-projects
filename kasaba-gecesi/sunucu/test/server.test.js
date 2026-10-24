@@ -199,3 +199,17 @@ test('sunucu olay günlüğünü her flush\'ta kayit\'a verir; log bellekte biri
   for(const c of [back,...cs.slice(1)])await c.close();
   }finally{await new Promise(r=>s2.close(r))} // başarısızlıkta da kapansın, test süreci asılı kalmasın
 });
+
+test('inceleme: oyun sürerken oda silinince günlük iptal ile biter',async()=>{
+  const alinan=[];const sahte={kuyrukla:(room,ol)=>{alinan.push(...ol)},kapat(){}};
+  const s2=createServer({quiet:true,tickMs:50,kayit:sahte});await new Promise(r=>s2.server.listen(0,'127.0.0.1',r));
+  const b2='127.0.0.1:'+s2.server.address().port;
+  const host=client('q0','A',{host:true},b2);await host.until(c=>c.P&&c.P.room);const room=host.P.room;
+  const cs=[host,...['q1','q2','q3'].map(u=>client(u,u,{room},b2))];await host.until(c=>c.P.lobby.length===4);
+  try{
+    host.send({t:'start'});await Promise.all(cs.map(c=>c.until(c=>c.P.phase==='night')));
+    host.send({t:'close'});await cs[1].until(c=>c.errs.some(e=>e.code==='closed'));
+    const turler=alinan.map(e=>e.tur);assert.strictEqual(turler[turler.length-1],'iptal','oda kapanınca son olay iptal olmalı: '+turler.join(','));
+    for(const c of cs)await c.close();
+  }finally{await new Promise(r=>s2.close(r))}
+});

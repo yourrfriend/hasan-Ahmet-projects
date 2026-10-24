@@ -259,3 +259,22 @@ test('payin oyun bitmeden null; hırsız ve deli özette doğru görünür',()=>
   G.act(R,'u0',{kill:'u2'});G.act(R,'u1',{ab:'u2'});G.advance(R);
   assert.ok(!R.log.some(e=>e.tur==='gece_hamle'&&e.veri.kim==='u1'),'deli hamlesi etkin değildir');
 });
+
+test('inceleme: çoklu saldırıda kurtaranlar/yelek tekrarlanmaz; tutulan tekil',()=>{
+  // hain ve seri katil aynı kişiye, doktor onu korur → kurtardi bir kez
+  let R=fixed(['hain','serikatil','doktor','masum','masum']);
+  G.act(R,'u0',{kill:'u3'});G.act(R,'u1',{ab:'u3'});G.act(R,'u2',{ab:'u3'});G.advance(R);
+  assert.deepStrictEqual(G.privFor(R,'u2').payin,null);
+  let gs=R.log.find(e=>e.tur==='gece_sonuc');assert.deepStrictEqual(gs.veri.kurtaranlar,[{kim:'u2',hedef:'u3'}]);
+  // yelek: iki saldırı, bir yelek
+  R=fixed(['hain','serikatil','hayatta','masum','masum']);
+  G.act(R,'u0',{kill:'u2'});G.act(R,'u1',{ab:'u2'});G.act(R,'u2',{ab:'self'});G.advance(R);
+  gs=R.log.find(e=>e.tur==='gece_sonuc');assert.deepStrictEqual(gs.veri.yelek,['u2']);
+  // iki polis aynı hedefi tutar → tutulan tekil; polis polisi tutarsa tutulan polis bir kez
+  R=fixed(['polis','polis','masum','masum','hain']);
+  G.act(R,'u0',{ab:'u2'});G.act(R,'u1',{ab:'u2'});G.advance(R);
+  gs=R.log.find(e=>e.tur==='gece_sonuc');assert.deepStrictEqual(gs.veri.tutulan,['u2']);
+  R=fixed(['polis','polis','masum','masum','hain']);
+  G.act(R,'u0',{ab:'u1'});G.act(R,'u1',{ab:'u2'});G.advance(R);
+  gs=R.log.find(e=>e.tur==='gece_sonuc');assert.deepStrictEqual(gs.veri.tutulan,['u1']);
+});

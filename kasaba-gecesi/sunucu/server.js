@@ -99,7 +99,9 @@ function createServer(opts={}){
   // kısa sürede gelen değişiklikleri tek pakette yolla
   function schedule(room){if(!room.flushT)room.flushT=setTimeout(()=>flush(room),40)}
   function deleteRoom(room,why){
-    clearTimeout(room.flushT);bosalt(room);rooms.delete(room.code);
+    clearTimeout(room.flushT);
+    if(G.inGame(room.game))G.endToLobby(room.game); // süren oyun iptal sayılır: günlük 'iptal' ile biter (kayıt tarafı buna güvenir)
+    bosalt(room);rooms.delete(room.code);
     for(const m of room.members.values())for(const ws of m.socks){send(ws,{t:'err',m:why,code:'closed'});ws.room=null;try{ws.close(4000,'oda kapandı')}catch(e){}}
     log('oda silindi',room.code,why);
   }

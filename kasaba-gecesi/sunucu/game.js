@@ -141,7 +141,7 @@ function resolveNight(R){
   const tgt=(id,f)=>{const t=A(id)[f];return(t&&alive(t)&&t!==id)?t:null};
   const M={deaths:[],saved:[],snitch:[],lightning:[],exploded:[],haunted:[],news:[]};
   // günlük: yalnız etkin hamleler (deli ve geçersiz hedefler yazılmaz; hainde öldürme seçildiyse yetenek zaten düşmüştür)
-  const L={tutulan:[],tutanlar:[],tuzak:[],yelek:[],kurtaranlar:[],bombalar:[],mum:[],caldi:null,provokasyon:null,killers:{},killerAd:{}};
+  const L={tutulan:new Set(),tutanlar:[],tuzak:[],yelek:new Set(),kurtaranlar:[],bombalar:[],mum:[],caldi:null,provokasyon:null,killers:{},killerAd:{}}; // aynı kişi birden çok saldırı/polisle tekrar yazılmasın diye Set
   for(const id of al){const k=eff(id);if(!k)continue;const a=A(id);
     if(g.roles[id].team==='imp'&&tgt(id,'kill'))logEv(R,'gece_hamle',{kim:id,tur:'kill',hedef:tgt(id,'kill'),tahmin:null});
     if(k==='hayatta'&&a.ab==='self')logEv(R,'gece_hamle',{kim:id,tur:'self',hedef:null,tahmin:null});
@@ -163,14 +163,14 @@ function resolveNight(R){
     if(next.size===heldTrapper.size&&[...next].every(t=>heldTrapper.has(t)))break;
     heldTrapper=next}
   placeTraps();
-  for(const t of trappers){if(heldTrapper.has(t)){blocked.add(t);L.tutulan.push(t);nt(t,'Polis seni evde tuttu, tuzak kuramadın.')}else went[t]=tgt(t,'ab')}
+  for(const t of trappers){if(heldTrapper.has(t)){blocked.add(t);L.tutulan.add(t);nt(t,'Polis seni evde tuttu, tuzak kuramadın.')}else went[t]=tgt(t,'ab')}
   // polis seri katili tutamaz
   for(const c of cops){const t=tgt(c,'ab');
-    if(heldCop.has(c)){blocked.add(c);L.tutulan.push(c);nt(c,'Polis seni evde tuttu, kimseyi tutamadın.');continue}
+    if(heldCop.has(c)){blocked.add(c);L.tutulan.add(c);nt(c,'Polis seni evde tuttu, kimseyi tutamadın.');continue}
     visits[t].push(c);went[c]=t;
     if(trappedAt(c,t)){blocked.add(c);L.tuzak.push({kim:c,ev:t,kuran:traps[t]});nt(c,'Tuzağa yakalandın, kimseyi tutamadın.');nt(traps[t],nm(c)+' tuzağına yakalandı.')}
     else if(eff(t)==='serikatil'){nt(c,nm(t)+' evde durmadı; onu tutamadın.')}
-    else{blocked.add(t);L.tutulan.push(t);L.tutanlar.push({kim:c,hedef:t});nt(c,nm(t)+' bu gece evden çıkamadı.');if(!heldCop.has(t)&&!heldTrapper.has(t))nt(t,'Polis seni evde tuttu, rolünü kullanamadın.')}}
+    else{blocked.add(t);L.tutulan.add(t);L.tutanlar.push({kim:c,hedef:t});nt(c,nm(t)+' bu gece evden çıkamadı.');if(!heldCop.has(t)&&!heldTrapper.has(t))nt(t,'Polis seni evde tuttu, rolünü kullanamadın.')}}
   // 3) ziyaretler ve tuzak yakalamaları (büyücü evinden çıkmaz; polis ve tuzakçının yetenek hedefi yukarıda, öldürme hedefi burada)
   for(const id of al){const k=eff(id);const r=g.roles[id];const targets=new Set();
     if(r.team==='imp'&&tgt(id,'kill'))targets.add(tgt(id,'kill'));
@@ -199,8 +199,8 @@ function resolveNight(R){
   g.haunt=null;
   const died=[],causes={};
   for(const at of attacks){if(!alive(at.v)||died.includes(at.v)){at.ids.forEach(i=>nt(i,nm(at.v)+' zaten ölmüştü.'));continue}
-    if(!at.sure&&heals.has(at.v)){nt(at.v,'Saldırıya uğradın ama Doktor seni kurtardı!');for(const id of al)if(eff(id)==='doktor'&&tgt(id,'ab')===at.v){L.kurtaranlar.push({kim:id,hedef:at.v});nt(id,nm(at.v)+' saldırıya uğradı, onu kurtardın!')}at.ids.forEach(i=>nt(i,nm(at.v)+' saldırınızdan kurtuldu.'));if(!M.saved.includes(at.v))M.saved.push(at.v);continue}
-    if(!at.sure&&vested.has(at.v)){L.yelek.push(at.v);nt(at.v,'Saldırıya uğradın, yelek seni kurtardı.');at.ids.forEach(i=>nt(i,nm(at.v)+' saldırınızdan kurtuldu.'));continue}
+    if(!at.sure&&heals.has(at.v)){nt(at.v,'Saldırıya uğradın ama Doktor seni kurtardı!');for(const id of al)if(eff(id)==='doktor'&&tgt(id,'ab')===at.v){if(!L.kurtaranlar.some(k=>k.kim===id&&k.hedef===at.v))L.kurtaranlar.push({kim:id,hedef:at.v});nt(id,nm(at.v)+' saldırıya uğradı, onu kurtardın!')}at.ids.forEach(i=>nt(i,nm(at.v)+' saldırınızdan kurtuldu.'));if(!M.saved.includes(at.v))M.saved.push(at.v);continue}
+    if(!at.sure&&vested.has(at.v)){L.yelek.add(at.v);nt(at.v,'Saldırıya uğradın, yelek seni kurtardı.');at.ids.forEach(i=>nt(i,nm(at.v)+' saldırınızdan kurtuldu.'));continue}
     died.push(at.v);causes[at.v]=at.cause;L.killers[at.v]=at.ids;L.killerAd[at.v]=at.by;at.ids.forEach(i=>nt(i,nm(at.v)+' öldürüldü.'));
     if(at.thief){const vr=g.roles[at.v];const nr=vr.mad?{key:'masum',team:'inn'}:{key:vr.key,team:vr.team};g.roles[at.thief].orig='hirsiz';g.roles[at.thief].key=nr.key;g.roles[at.thief].team=nr.team;g.roles[at.thief].uses={};nt(at.thief,nm(at.v)+' rolünü çaldın: artık '+roleLabel(nr)+' olarak oynuyorsun.');causes[at.v]='vanish';L.caldi={hirsiz:at.thief,kurban:at.v,yeni_rol:roleLabel(nr)}}
   }
@@ -226,7 +226,7 @@ function resolveNight(R){
   g.clean=null;
   sysChat(R,'— Gündüz '+P.day+' —');M.news.forEach(n=>sysChat(R,n));
   P.morning=M;
-  logEv(R,'gece_sonuc',{ziyaretler:visits,tutulan:L.tutulan,tutanlar:L.tutanlar,tuzak:L.tuzak,kurtarilan:M.saved,kurtaranlar:L.kurtaranlar,yelek:L.yelek,olenler,caldi:L.caldi,bombalar:L.bombalar,
+  logEv(R,'gece_sonuc',{ziyaretler:visits,tutulan:[...L.tutulan],tutanlar:L.tutanlar,tuzak:L.tuzak,kurtarilan:M.saved,kurtaranlar:L.kurtaranlar,yelek:[...L.yelek],olenler,caldi:L.caldi,bombalar:L.bombalar,
     yildirim:M.lightning,ispiyon:M.snitch.map(x=>({kim:x.by,hedef:x.t,rol:x.role})),provokasyon:L.provokasyon,mum:L.mum,haberler:M.news});
   if(checkWin(R))return;setPhase(R,'talk');
 }
