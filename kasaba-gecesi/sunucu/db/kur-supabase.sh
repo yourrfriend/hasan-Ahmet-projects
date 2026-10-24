@@ -75,7 +75,9 @@ bilgi "İmajlar çekiliyor (ilk seferde birkaç dakika)"
 sh run.sh pull >/dev/null 2>&1 || uyari "pull sırasında uyarı; mevcut imajlarla deneniyor"
 bilgi "Yığın başlatılıyor"
 sh run.sh start >/dev/null 2>&1 || true   # --wait sağlıksız servis varsa 1 döner; aşağıda kendimiz bakıyoruz
-saglikli(){ for _ in $(seq 1 60); do curl -fsS -m 3 http://127.0.0.1:8000/auth/v1/health >/dev/null 2>&1 && return 0; sleep 2; done; return 1; }
+# ağ geçidi apikey başlığı olmadan her şeye 401 verir; sağlık anahtarla sorulur
+PUB_KEY="$(grep '^SUPABASE_PUBLISHABLE_KEY=' .env | cut -d= -f2-)"
+saglikli(){ for _ in $(seq 1 60); do curl -fsS -m 3 -H "apikey: $PUB_KEY" http://127.0.0.1:8000/auth/v1/health >/dev/null 2>&1 && return 0; sleep 2; done; return 1; }
 saglikli || { docker compose ps; hata "Auth 120 sn içinde yanıt vermedi (http://127.0.0.1:8000/auth/v1/health)."; }
 KOTU="$(docker compose ps --format '{{.Name}} {{.Status}}' | grep -E 'unhealthy|Exited|Restarting' || true)"
 [ -z "$KOTU" ] || { echo "$KOTU" >&2; hata "Sağlıksız konteyner var."; }
