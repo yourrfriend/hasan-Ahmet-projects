@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 # Kasaba Gecesi için ayrı, kendi sunucuda Supabase kurulumu (Supabase'in resmi docker/ paketi).
 #
-#   sudo ./kur-supabase.sh [--dizin /opt/supabase-kasaba] [--alan kasaba-api.munupixi.com] [--site https://kasaba.munupixi.com]
+#   sudo ./kur-supabase.sh [--dizin /home/supabase-kasaba] [--alan kasaba-api.munupixi.com] [--site https://kasaba.munupixi.com]
 #
+# Dizin /home altında: ionos'ta Docker snap paketidir ve snap'in compose istemcisi /opt ya da /var/lib altını okuyamaz.
 # Tekrar çalıştırılabilir: paket varsa yeniden indirmez, ayarları yeniden yazar, yığını (konteynerleri yeniden
 # yaratmadan) ayağa kaldırır. Portlar yalnız 127.0.0.1'de dinler; dışarıya kapı caddy.sh ile açılır.
 # Gizli anahtarları Supabase'in setup.sh'si üretir ve .env'de (mod 600) durur; bu betik ekrana basmaz.
 # Studio'ya erişim: ssh -L 8000:127.0.0.1:8000 SUNUCU → http://localhost:8000 (kullanıcı/şifre: sh run.sh secrets).
 set -euo pipefail
 
-DIZIN=/opt/supabase-kasaba
+DIZIN=/home/supabase-kasaba
 ALAN=kasaba-api.munupixi.com
 SITE=https://kasaba.munupixi.com
 EK_YONLENDIRME=https://kasaba-test.munupixi.com
