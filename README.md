@@ -61,8 +61,21 @@ sudo db/uygula.sh              # şema göçleri (db/goc/*.sql); --test ile RLS 
 - Dizin `/root` altında olmak zorunda: ionos'ta Docker snap paketidir ve snap'in compose istemcisi `/opt`'u hiç, `/home` altında da `.env` gibi gizli dosyaları okuyamaz.
 - Gizli anahtarlar `/root/supabase-kasaba/.env` içinde (mod 600): `cd /root/supabase-kasaba && sh run.sh secrets`. Ağ geçidi `apikey` başlığı olmadan her yola 401 verir.
 - Studio (yönetim paneli) dışarı açık değildir: `ssh -L 8000:127.0.0.1:8000 ionos` sonra `http://localhost:8000` (kullanıcı/şifre `run.sh secrets`).
-- Yedek: her gün 04:10 `/var/backups/supabase-kasaba/kasaba-TARIH.dump` (14 gün). Elle: `sudo supabase-kasaba-yedek`. Geri yükleme: `docker exec -i supabase-db pg_restore -U postgres -d postgres --clean --if-exists < DOSYA`.
-- Taşıma: yeni sunucuda `kur-supabase.sh` (yeni anahtarlar üretir) → `.env`'deki `POSTGRES_PASSWORD`, `JWT_SECRET`, `ANON_KEY`, `SERVICE_ROLE_KEY`, `SUPABASE_*_KEY`, `JWT_KEYS`, `JWT_JWKS` değerlerini eski sunucudan kopyala → `sh run.sh recreate` → son yedeği geri yükle → `caddy.sh` → aynı tünel token'ıyla `cloudflared`. DNS değişmez.
-- Sürüm güncelleme: `cd /root/supabase-kasaba && sh update.sh` (önce yedek al).
+- Yedek: her gün 04:10 `/var/backups/supabase-kasaba/kasaba-TARIH.dump` (14 gün; yalnız `public`, `private` ve `auth` şemaları). Elle: `sudo supabase-kasaba-yedek`.
+- **Geri yükleme** (sıra tatbikatla doğrulandı; `pg_restore` Supabase'in "default privileges" satırlarında birkaç hata basar, zararsızdır — yetkileri sonraki adım tazeler):
+  ```sh
+  f=/var/backups/supabase-kasaba/kasaba-TARIH.dump
+  docker exec -i supabase-db pg_restore -U postgres -d postgres --clean --if-exists -n public -n private < $f   # oyun verisi
+  sudo db/uygula.sh --yeniden && sudo db/uygula.sh --test                                                      # yetki/politika tazeleme + kanıt (8/8)
+  # yalnız TAZE yığında (kullanıcılar; auth şeması GoTrue tarafından zaten kurulmuştur):
+  docker exec -i supabase-db pg_restore -U postgres -d postgres --no-owner -n auth --data-only --disable-triggers < $f
+  ```
+  `postgres` süper kullanıcı olmadığı için "RI_ConstraintTrigger … is a system trigger" hataları çıkar; veri yine yüklenir (tatbikatta `auth.users` satır sayısı doğrulandı). Sonunda `select count(*) from auth.users` ile karşılaştır.
+  Yedeği başka bir veritabanında incelemek için: `create database deneme; create schema auth; create schema private;` sonra aynı komutlar `-d deneme` ile.
+- **Taşıma** (iki yol):
+  1. Soğuk (önerilen): eski sunucuda `cd /root/supabase-kasaba && sh run.sh stop`, klasörün tamamını (`.env` ve `volumes/db/data` dahil) yeni sunucuya `/root/supabase-kasaba` olarak kopyala, `sh run.sh start`, `caddy.sh`, aynı tünel token'ıyla `cloudflared`. Anahtarlar ve kullanıcılar aynen gelir.
+  2. Taze kurulum + yedek: yeni sunucuda `kur-supabase.sh` (yeni şifre ve anahtarlar üretir; **`POSTGRES_PASSWORD`'ü kopyalama**, veritabanı o şifreyle kurulur) → `.env`'de yalnız `JWT_SECRET`, `JWT_KEYS`, `JWT_JWKS`, `ANON_KEY`, `SERVICE_ROLE_KEY`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY` değerlerini eski sunucudan al (oyuncuların token'ları ve oyun sunucusundaki anahtarlar geçerli kalsın) → `sh run.sh recreate` → yukarıdaki geri yükleme (auth dahil) → `caddy.sh` → `cloudflared`. DNS değişmez.
+- Kip değişikliği: `kur.sh --kip …` ile tünel/https kipi değişince Supabase parçası kendiliğinden yenilenmez; `sudo db/caddy.sh`'yi yeniden çalıştır (`kur.sh` bunu uyarır).
+- Sürüm güncelleme: yedek al → `cd /root/supabase-kasaba && sh update.sh` → `sudo db/kur-supabase.sh` (port ve `.env` ayarları yeniden uygulanır) → `sudo db/uygula.sh --test`.
 
 Yerelde denemek için: `cd kasaba-gecesi/sunucu && npm install && npm start`, ardından `http://localhost:8787`. Testler: `npm test` (oyun mantığı ve sunucu), `npm run e2e` (gerçek tarayıcı sekmeleriyle uçtan uca; Playwright ve Chromium gerekir).

@@ -210,6 +210,10 @@ for f in "$AYAR_KOK"/*.env; do [ -e "$f" ] || continue; a="$(basename "$f" .env)
   sablon="$APP_KOK/$a/sunucu/Caddyfile";[ -f "$sablon" ] || sablon="$KAYNAK/Caddyfile"
   sed "s/^ALAN {/$site/; s/127.0.0.1:8787/127.0.0.1:$a_port/" "$sablon" > "$CADDY_KOK/games/$a.caddy"
 done
+# Supabase parçası (db/caddy.sh yazar) kurulum parçası değildir; kip değiştiyse eski kipte kalır, kullanıcıya söylenir
+if [ -f "$CADDY_KOK/games/supabase.caddy" ] && ! head -1 "$CADDY_KOK/games/supabase.caddy" | grep -q "(kip $KIP)"; then
+  uyari "Supabase parçası başka kipte yazılmış; sudo $KAYNAK/db/caddy.sh ile yenile."
+fi
 caddy validate --config "$ANA" --adapter caddyfile >"$GECICI/caddy.log" 2>&1 || { cat "$GECICI/caddy.log" >&2; hata "Caddy ayarı geçersiz: $ANA"; }
 systemctl enable --quiet caddy
 systemctl reload caddy 2>/dev/null || systemctl restart caddy
