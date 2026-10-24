@@ -498,7 +498,7 @@ const ROL_HAREKET={
   hirsiz:{ms:900,ciz:[['maske',0,-20],['soru',26,-30]],ses:'swish'},
   temizlikci:{ms:960,ciz:[['supurge',14,-4]]},
   suclayici:{ms:900,ciz:[['parmak',14,-8]]},
-  doktor:{ms:1000,ciz:[['igne',14,-6]],ev:[['arti',26,-100]],ses:'ding'},
+  doktor:{ms:1000,ciz:[['igne',14,-6]],ev:[['arti',62,-96]],ses:'ding'},
   polis:{ms:1000,ciz:[['kelepce',16,-4],['dur',0,-40]],iz:'kelepce'},
   gozcu:{ms:1000,ciz:[['durbun',0,-16]]},
   izci:{ms:1000,ciz:[['buyutec',10,-14]],ev:[['ayakizi',-20,40]]},
@@ -568,7 +568,7 @@ function renderScene(){
   const eveningOut=eseq&&P.evening&&P.evening.out?P.evening.out:null;
   const varildi=!!(night&&myTarget&&anim.walkT0&&Date.now()-anim.walkT0>=(anim.walkMs||0));
   const entered=!!(varildi&&myPosKind()==='enter'&&Date.now()-anim.walkT0>=(anim.walkMs||0)+(anim.hareketMs||900));
-  if(varildi&&!anim.hareketT0&&alive){const key=myPosKind()==='enter'?'kill':myRoleKey();const h=S_.houses[myTarget];if(h)rolHareketi(key,h,nightSpot(h,myPosKind()))}
+  if(varildi&&!anim.hareketT0&&alive){const key=myPosKind()==='enter'?'kill':myRoleKey();const h=S_.houses[myTarget];if(h&&!(key==='buyucu'&&!local.act.guess))rolHareketi(key,h,nightSpot(h,myPosKind()))}
   if(night&&alive&&!lobbyMode)izCiz(S_);
   for(const p of players){
     const h=S_.houses[p.id],b=S_.beans[p.id];if(!h||!b)continue;
