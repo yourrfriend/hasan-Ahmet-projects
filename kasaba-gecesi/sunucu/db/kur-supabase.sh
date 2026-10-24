@@ -90,7 +90,7 @@ if [ -f "$BURASI/yedek.sh" ] && [ -f "$BURASI/supabase-kasaba-yedek.service" ]; 
 fi
 
 echo
-bilgi "Hazır: $DIZIN (Supabase $(cat .supabase-version 2>/dev/null || echo '?'))"
+bilgi "Hazır: $DIZIN (Supabase $(sed -n "s/^ref=//p" .supabase-version 2>/dev/null || echo "?"))"
 echo "   Dinlenen portlar:"; ss -tln | awk '{print $4}' | grep -E ':(8000|5432|6543)$' | sed 's/^/     /'
 echo "   Dış kapı:        sudo $BURASI/caddy.sh   (https://$ALAN/auth/v1/health)"
 echo "   Studio:          ssh -L 8000:127.0.0.1:8000 SUNUCU → http://localhost:8000  (kullanıcı/şifre: cd $DIZIN && sh run.sh secrets)"

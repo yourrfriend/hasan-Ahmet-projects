@@ -48,4 +48,21 @@ sudo ./kur.sh kasaba-v1 kasaba-v1.munupixi.com --surum v1              # eski s�
 - Odalar bellekte tutulur; servis yeniden başlarsa açık odalar kapanır. 2 saat kullanılmayan oda kendiliğinden silinir.
 - Sayfayı GitHub Pages gibi başka bir yerden açacaksan sunucu adresini `index.html` içindeki `KG_SERVER` sabitine yaz ya da linke `?s=wss://oyun.ornek.com` ekle.
 
+### Geçmiş ve kullanıcı kaydı: Supabase (kendi sunucunda)
+
+Oyun geçmişi, kasabalar ve oyuncu hesapları için oyunun yanında ayrı bir Supabase kurulumu çalışır (resmi Docker paketi). Tasarım: `docs/superpowers/specs/2026-10-24-kasaba-gecesi-gecmis-design.md`. Betikler `kasaba-gecesi/sunucu/db/` altında, hepsi sunucuda root ile ve tekrar çalıştırılabilir:
+
+```sh
+sudo db/kur-supabase.sh        # paketi /root/supabase-kasaba altına kurar (Supabase'in setup.sh'si anahtarları üretir), yalnız 127.0.0.1'de dinler, yedek zamanlayıcısını kurar
+sudo db/caddy.sh               # dış kapı: kasaba-api.munupixi.com → yalnız /auth, /rest, /realtime, /storage (Studio ve pg-meta dışarıdan 404)
+sudo db/uygula.sh              # şema göçleri (db/goc/*.sql); --test ile RLS senaryoları
+```
+
+- Dizin `/root` altında olmak zorunda: ionos'ta Docker snap paketidir ve snap'in compose istemcisi `/opt`'u hiç, `/home` altında da `.env` gibi gizli dosyaları okuyamaz.
+- Gizli anahtarlar `/root/supabase-kasaba/.env` içinde (mod 600): `cd /root/supabase-kasaba && sh run.sh secrets`. Ağ geçidi `apikey` başlığı olmadan her yola 401 verir.
+- Studio (yönetim paneli) dışarı açık değildir: `ssh -L 8000:127.0.0.1:8000 ionos` sonra `http://localhost:8000` (kullanıcı/şifre `run.sh secrets`).
+- Yedek: her gün 04:10 `/var/backups/supabase-kasaba/kasaba-TARIH.dump` (14 gün). Elle: `sudo supabase-kasaba-yedek`. Geri yükleme: `docker exec -i supabase-db pg_restore -U postgres -d postgres --clean --if-exists < DOSYA`.
+- Taşıma: yeni sunucuda `kur-supabase.sh` (yeni anahtarlar üretir) → `.env`'deki `POSTGRES_PASSWORD`, `JWT_SECRET`, `ANON_KEY`, `SERVICE_ROLE_KEY`, `SUPABASE_*_KEY`, `JWT_KEYS`, `JWT_JWKS` değerlerini eski sunucudan kopyala → `sh run.sh recreate` → son yedeği geri yükle → `caddy.sh` → aynı tünel token'ıyla `cloudflared`. DNS değişmez.
+- Sürüm güncelleme: `cd /root/supabase-kasaba && sh update.sh` (önce yedek al).
+
 Yerelde denemek için: `cd kasaba-gecesi/sunucu && npm install && npm start`, ardından `http://localhost:8787`. Testler: `npm test` (oyun mantığı ve sunucu), `npm run e2e` (gerçek tarayıcı sekmeleriyle uçtan uca; Playwright ve Chromium gerekir).

@@ -18,6 +18,7 @@ Oda ve oyun mantığı Node sunucusunda yaşar; ev sahibi dahil herkes WebSocket
 | `kasaba-gecesi/sunucu/kayit.js` | Olay günlüğünün gittiği yuva: `olustur(opts) → {kuyrukla(room,olaylar), kapat(), sayac}`. Şimdilik sayar ve atar; geçmiş aşamasında Supabase'e yazacak (tasarım: `docs/superpowers/specs/2026-10-24-kasaba-gecesi-gecmis-design.md`). |
 | `kasaba-gecesi/sunucu/test/` | `game.test.js`, `server.test.js` (`npm test`), `e2e.js` (`npm run e2e`). |
 | `kasaba-gecesi/sunucu/kur.sh`, `Caddyfile` | VPS kurulumu, çok oyunlu/çok sürümlü: `kur.sh AD ALAN [--surum REF]` → `/opt/games/AD`, `/etc/games/AD.env` (PORT, ALAN, SURUM, COMMIT), systemd şablonu `game@AD`, Caddy parçası `/etc/caddy/games/AD.caddy` (`Caddyfile` bunun şablonu). |
+| `kasaba-gecesi/sunucu/db/` | Supabase (geçmiş/kimlik): `kur-supabase.sh` (paket, `/root/supabase-kasaba`, yalnız yerel portlar), `caddy.sh` (dış kapı `kasaba-api.munupixi.com`, yalnız API yolları), `goc/*.sql` + `uygula.sh` (şema, RLS, görünümler, `hesap_birlestir`; `--test` RLS senaryoları), `yedek.sh` + systemd timer. Tasarım `docs/superpowers/specs/…gecmis-design.md`. |
 | `kasaba-gecesi/sunucu/PLAN.md` | Sunucuya taşıma planı ve durumu. |
 
 ## Mimari ve veri akışı
@@ -89,6 +90,7 @@ Playwright betiğinde süreleri beklemek yerine sunucuyu aynı süreçte `create
 - `pkill -f "node server.js"` kendi kabuğunu da öldürür (komut satırında aynı metin geçer). `pkill -f "[n]ode server.js"` kullan.
 - Odalar bellekte: servis yeniden başlarsa açık oyunlar kaybolur. Kalıcılık istenirse bu ayrı bir iş (PLAN.md "Sonrası").
 - `kur.sh` systemd ister; konteynerde gerçek kurulum yapılamaz. Değiştirirsen `bash -n` çalıştır ve betiği sahte ortamda dene: `KG_APP_KOK`, `KG_AYAR_KOK`, `KG_CADDY_KOK`, `KG_SYSTEMD_KOK` ile yolları geçici klasöre çevir, PATH'e `systemctl` (game@AD'yi `node server.js` ile başlatan) ve `apt-get` taklitleri koy, `caddy` ikilisini GitHub sürümünden indir. Kurulum, `--surum`, aynı alan adı, geri alma, `--liste`, `--kaldir` senaryolarını dene.
+- Supabase ionos'ta `/root/supabase-kasaba` altında (Docker snap'i `/opt`'u ve `/home` altındaki dotfile'ları okuyamaz). Ağ geçidi `apikey` başlığı olmadan 401 verir; Studio dışarı kapalıdır (`ssh -L 8000:127.0.0.1:8000`). Şema değişikliği = yeni numaralı `db/goc/NNN_*.sql` + `uygula.sh`; RLS kuralı değişince `test.sql`'e senaryo ekle. `psql` için: `docker exec -i supabase-db psql -U postgres -d postgres`.
 - `kur.sh` `set -euo pipefail` ile çalışır: olmayan dosyayı okuyan bir boru (`cat x | sed`) ya da `[ … ] && …` ile biten bir döngü betiği sessizce bitirir. Koşulları `if` ile yaz.
 - Sunucu `PORT`, `HOST` ve `KG_SURUM` ortam değişkenlerini okur; `/saglik` sürümü döner. Başka bir oyun da aynı kurala uyarsa (`sunucu/server.js`, `/saglik`) aynı `kur.sh` düzenine girer.
 
