@@ -76,12 +76,12 @@ test('kayıt: misafir ev sahibi → o maç için hiçbir istek yok; iptal → so
 });
 
 test('kayıt: 5xx yeniden denenir ve sıra korunur; 4xx düşer ve kuyruk ilerler; açılışta eski devam oyunları iptal; kapat durdurur',async()=>{
-  const t=await taklitRest();t.T.oyunlar.push({id:'eski',sonuc:'devam',baslama:'2000-01-01T00:00:00.000Z'},{id:'yeni',sonuc:'devam',baslama:new Date().toISOString()});
+  const t=await taklitRest();t.T.oyunlar.push({id:'eski',kurulum:'t',sonuc:'devam',baslama:'2000-01-01T00:00:00.000Z'},{id:'yeni',kurulum:'t',sonuc:'devam',baslama:new Date().toISOString()},{id:'baska',kurulum:'canli',sonuc:'devam',baslama:'2000-01-01T00:00:00.000Z'});
   let sayilan=0;t.hataAyarla(x=>{if(x.tablo==='olaylar'&&x.yontem==='POST'&&sayilan++<2)return 503;if(x.tablo==='olaylar'&&x.govde&&x.govde.some(o=>o.sira===4))return 400;return null});
   const k=Kayit.olustur({url:t.url,serviceKey:'srv',kurulum:'t',quiet:true,deneme:[30,30,30]});
   try{
     await kadar(()=>t.istekler.some(x=>x.tablo==='oyunlar'&&x.yontem==='PATCH'),5000);
-    assert.strictEqual(t.T.oyunlar[0].sonuc,'iptal','3 saatten eski devam iptal');assert.strictEqual(t.T.oyunlar[1].sonuc,'devam','yeni devam kalır');
+    assert.strictEqual(t.T.oyunlar[0].sonuc,'iptal','3 saatten eski devam iptal');assert.strictEqual(t.T.oyunlar[1].sonuc,'devam','yeni devam kalır');assert.strictEqual(t.T.oyunlar[2].sonuc,'devam','başka kurulumun oyununa dokunulmaz');
     const r=oda({p0:UUID[0]});k.kuyrukla(r,[baslangic()]);k.kuyrukla(r,[olay(2,'a',{}),olay(3,'b',{})]);k.kuyrukla(r,[olay(4,'c',{})]);k.kuyrukla(r,[olay(5,'d',{})]);
     await kadar(()=>t.T.olaylar.some(o=>o.sira===5),8000);
     assert.deepStrictEqual(t.T.olaylar.map(o=>o.sira),[1,2,3,5],'2-3 yeniden denendikten sonra sırada; 4 (400) düştü; 5 geçti');
@@ -94,4 +94,26 @@ test('kayıt: kuyruk 10 000 olayı aşınca en eski düşer',async()=>{
   const k=Kayit.olustur({url:'http://127.0.0.1:1',serviceKey:'srv',kurulum:'t',quiet:true,deneme:[60000],kuyrukSinir:50});
   try{const r=oda({p0:UUID[0]});k.kuyrukla(r,[baslangic()]);for(let i=2;i<=60;i++)k.kuyrukla(r,[olay(i,'x',{})]);
     assert.ok(k.sayac.kuyruk<=50,'kuyruk sınırı: '+k.sayac.kuyruk);assert.ok(k.sayac.dusen>=10)}finally{k.kapat()}
+});
+
+test('inceleme: başlangıç 4xx ile düşerse maç atlanır (sonraki olaylar için istek yok); 4xx tek olayı düşürür, demetin kalanı yazılır; 401 yeniden denenir',async()=>{
+  const t=await taklitRest();let durum={};t.hataAyarla(x=>durum[x.yontem+' '+x.tablo+' '+(x.govde&&x.govde[0]?x.govde[0].sira:'')]||durum[x.yontem+' '+x.tablo]||null);
+  const k=Kayit.olustur({url:t.url,serviceKey:'srv',kurulum:'t',quiet:true,deneme:[30,30,30]});
+  try{
+    await kadar(()=>t.istekler.length>=1);
+    // (a) başlangıçta oyunlar POST 409 → maç atlanır; sonraki olaylar hiç istek üretmez
+    durum={'POST oyunlar':409};const r=oda({p0:UUID[0]});k.kuyrukla(r,[baslangic()]);await kadar(()=>k.sayac.dusen>=1);
+    const n=t.istekler.length;k.kuyrukla(r,[olay(2,'gece_sonuc',{olenler:[]}),bitis()]);await bekle(400);
+    assert.strictEqual(t.istekler.length,n,'atlanan maç için istek yok');assert.strictEqual(k.sayac.atlanan,1);
+    // (b) aynı demette: sira 2 → 400 (düşer), sira 3 yazılır
+    durum={'POST olaylar 2':400};const OY='66666666-2222-4333-8444-555555555555';const r2=oda({p0:UUID[1]});
+    k.kuyrukla(r2,[baslangic(OY),olay(2,'a',{},1,'night',OY),olay(3,'b',{},1,'night',OY)]);await kadar(()=>t.T.olaylar.some(o=>o.oyun_id===OY&&o.sira===3));
+    assert.deepStrictEqual(t.T.olaylar.filter(o=>o.oyun_id===OY).map(o=>o.sira),[1,3]);assert.strictEqual(k.sayac.dusen,2);
+    // (c) 401: kalıcı değil, yeniden denenir ve sonunda yazılır
+    let sayi=0;t.hataAyarla(x=>x.yontem==='POST'&&x.tablo==='olaylar'&&x.govde[0].sira===4&&sayi++<2?401:null);
+    k.kuyrukla(r2,[olay(4,'c',{},1,'night',OY)]);await kadar(()=>t.T.olaylar.some(o=>o.oyun_id===OY&&o.sira===4),5000);
+    assert.strictEqual(k.sayac.dusen,2,'401 düşürmez');assert.ok(sayi>=2);
+    // (d) baslama maçın gerçek başlangıcı (gameId = ms), bitis olay zamanı
+    const oy=t.T.oyunlar.find(o=>o.id===OY);assert.strictEqual(oy.baslama,new Date(123).toISOString());
+  }finally{k.kapat();await t.kapat()}
 });
