@@ -206,7 +206,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
         res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-cache'});res.end(req.method==='HEAD'?undefined:buf.toString('utf8').split('__V__').join(SURUM_V));
       });return;
     }
-    if(url==='/saglik'){const k=kayit.sayac||{};res.writeHead(200,{'Content-Type':'application/json'});return res.end(JSON.stringify({ok:true,rooms:rooms.size,surum:process.env.KG_SURUM||null,kayit:{kuyruk:k.kuyruk||0,yazilan:k.yazilan||0,hata:k.hata||0,dusen:k.dusen||0},eposta:{...epostaSayac},birlestirme:{...birlestirmeSayac},kod:{...tavan.sayac,...kodSayac}}))} // kayıt, e-posta, birleştirme ve kod sayaçları: yalnız sayılar
+    if(url==='/saglik'){const k=kayit.sayac||{};res.writeHead(200,{'Content-Type':'application/json'});return res.end(JSON.stringify({ok:true,rooms:rooms.size,surum:process.env.KG_SURUM||null,kayit:{kuyruk:k.kuyruk||0,yazilan:k.yazilan||0,hata:k.hata||0,dusen:k.dusen||0},eposta:{...epostaSayac},birlestirme:{...birlestirmeSayac},kod:{...tavan.sayac,...kodSayac},rolGecmisi:{okunan:k.gecmisOkunan||0,hata:k.gecmisHata||0}}))} // kayıt, e-posta, birleştirme, kod ve rol geçmişi sayaçları: yalnız sayılar
     res.writeHead(404,{'Content-Type':'text/plain; charset=utf-8'});res.end('Bulunamadı');
   });
 
@@ -309,6 +309,10 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
     if(!mem){mem={name:'',color:null,hat:'none',socks:new Set(),uye:null};room.members.set(uid,mem)}
     mem.uye=k?k.sub:mem.uye||null; // kayıtlı oyuncunun kalıcı kimliği (profil yazımı için); yayınlanmaz
     applyLook(room,uid,mem,m);
+    // rol geçmişi tohumu (geri bildirim paketi §5.4): kayıtlı oyuncu, oda belleğinde kaydı yoksa, arka planda; yalnız hâlâ boşsa yazılır (maç başladıysa oda belleği kazanır)
+    if(mem.uye&&typeof kayit.sonRoller==='function'&&!room.game.rolGecmisi[uid]){
+      kayit.sonRoller(mem.uye).then(h=>{if(h&&h.length&&rooms.get(room.code)===room&&!room.game.rolGecmisi[uid])room.game.rolGecmisi[uid]=h}).catch(()=>{});
+    }
     mem.socks.add(ws);
     if(uid===room.hostId){room.hostGoneSince=null;if(m.settings&&room.game.P.phase==='lobby')room.game.settings=G.cleanSettings(m.settings)}
     room.lastActive=Date.now();
