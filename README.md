@@ -116,4 +116,14 @@ sudo db/uygula.sh              # şema göçleri (db/goc/*.sql); --test ile RLS 
 - Kip değişikliği: `kur.sh --kip …` ile tünel/https kipi değişince Supabase parçası kendiliğinden yenilenmez; `sudo db/caddy.sh`'yi yeniden çalıştır (`kur.sh` bunu uyarır).
 - Sürüm güncelleme: yedek al → `cd /root/supabase-kasaba && sh update.sh` → `sudo db/kur-supabase.sh` (port ve `.env` ayarları yeniden uygulanır) → `sudo db/uygula.sh --test`.
 
+### Geçmiş sayfaları: hikâye, kasaba, giriş sayfası
+
+Kayıt açıkken kayıtlı oyuncu geçmişini tarayıcıda görür (statik sayfalar `kasaba-gecesi/sayfa/`, sunucu `GET /oyun/<uuid>` ve `/kasaba/<uuid>` ile sunar; aynı origin olduğundan oyun sayfasının anonim Supabase oturumu paylaşılır, ayrıca giriş yok):
+
+- **`/oyun/<id>`** — maç özeti (kasaba, tarih, kazanan), oyuncular (rol etiketi, akıbet) ve **gece gece hikâye**: `sayfa/hikaye.js` olay günlüğünden (`olaylar`, yalnız bitmiş oyun) gün gün blok üretir — gece hamleleri ("Ece (Hain) Can'ın evine girdi"), gece sonucu (ölüm, kurtarma, tuzak, tutma, çalma, yıldırım, patlama, hortlak), gündüz (rol iddiaları ve gerçeği, oy toplamları, asılan), bitiş. Ölçüm olayları hikâyede yok; tek tek oylar hiçbir yerde yok.
+- **`/kasaba/<id>`** — kasaba adı (sahip düzenler), üyeler, **tablo** (`kasaba_tablo`: maç, zafer, en çok rol; yüzde ve "en çok kaybeden" yok, örneklem her satırda), **senin karşılaştırmaların** (`sayfa/karsilastirma.js`: üye başına birlikte N maç, aynı tarafta M zafer, karşı tarafta sen X – o Y; 3 maçtan azsa "henüz az maç"), **son maçlar** (→ `/oyun/<id>`).
+- **Giriş sayfası** — kayıtlı oyuncuya "Geçmişin": kişisel kart (`oyuncu_ozet`: oyun, kazanma, en çok rol), son 10 oynadığı bitmiş maç (→ `/oyun/<id>`), kasabaları (→ `/kasaba/<id>`). Sorgular kimlikten sonra arka planda, 3 sn zaman aşımı; veri gelmezse sayfa aynen çalışır, oyun kurma beklemez.
+- **Oyun sonu ekranı** — kayıt açıkken "📖 Hikâyeyi gör" (`/oyun/<oyunId>`, yeni sekme). Kayıt kuyrukta gecikmişse sayfa "henüz yazılmadı, yenile" der.
+- Sayfalar yalnız anon anahtar + kullanıcı oturumuyla okur (RLS ve görünümler); tek yazma kasaba adı. Kayıt kapalı kurulumda ya da oturumsuz cihazda sayfalar "Kayıt kapalı / bu cihazda kimlik yok" der. Yerel testler: `test/hikaye.test.js`, `test/karsilastirma.test.js`, sunucu yolları `server.test.js`, e2e (Supabase yokken sayfalar ve sahte Supabase ile giriş bloğu).
+
 Yerelde denemek için: `cd kasaba-gecesi/sunucu && npm install && npm start`, ardından `http://localhost:8787`. Testler: `npm test` (oyun mantığı ve sunucu), `npm run e2e` (gerçek tarayıcı sekmeleriyle uçtan uca; Playwright ve Chromium gerekir).

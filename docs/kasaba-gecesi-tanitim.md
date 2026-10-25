@@ -98,9 +98,12 @@ ayarlandı: tek hain bile ilk gecelerde yeterince tehlikelidir; iki hain küçü
   gerçek olaylardan), **rövanş** (hazır sayacı, aynı odada yeni maç), **Bu Akşam** skoru (oyuncu başına kazanılan/oynanan).
   Tartışmada **⚡ hızlı ifadeler** (tek dokunuşla "Rolüm: …", "… hakkında şüphem var" vb.; sınırlı, sunucu kurar) ve gazetede
   "iddia ve gerçeklik" kartı; üst barda **📘 rol rehberi** (oyunu durdurmayan çekmece: roller, ipuçları, dağılım kuralları).
-- Yapımda: **oyuncu geçmişi** — herkes kayıt olmadan tanınır, oyunlar ve roller saklanır, "kasaba" adlı grup sayfası,
-  gece gece anlatılan oyun hikâyesi, en çok kazanan/kaybeden tabloları; istenirse Google ile bağlama.
-  Ayrıca evlerin yeni çizimi (bej duvar, koyu çatı, baca, tabela).
+- **Oyuncu geçmişi** (canlıda): herkes kayıt olmadan tanınır, maçlar ve roller saklanır; oyun sonunda "📖 Hikâyeyi gör" ile
+  maçın **gece gece hikâyesi** (kim kimin evine girdi, kim kurtarıldı, kim ne iddia etti ve doğru muydu, oy toplamları);
+  **kasaba sayfası** (ev sahibinin grubu: tablo — maç, zafer, en çok rol; arkadaş karşılaştırmaları; son maçlar) ve giriş
+  sayfasında "Geçmişin" (kişisel kart, son oyunlar, kasabalar). Yüzde ve "en çok kaybeden" listesi bilerek yok; tek tek oylar
+  hiç kaydedilmez.
+- Yapımda: hesabı ikinci cihaza taşımak için **e-posta ile bağlama** (sihirli link); evlerin yeni çizimi (bej duvar, koyu çatı, baca, tabela).
 
 ## Değişmeyecek kararlar
 
