@@ -228,7 +228,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 <div id="app"><div class="panel"><p class="muted">Yükleniyor…</p></div></div>
 <script>
 // Script daha başlamadan çökerse "Yükleniyor…" yerine hatayı göster (sürüm damgasıyla).
-window.KG_VER='2026-10-30a';
+window.KG_VER='2026-10-30b';
 window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ff6b6b"><p><b>Sayfa açılamadı.</b> Sürüm '+KG_VER+'</p><p class="small" style="word-break:break-all">'+String(e.message||e.error||e)+(e.filename?' @'+e.lineno:'')+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}});
 setTimeout(function(){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ffb347"><p><b>Sayfa yüklenemedi.</b> Sürüm '+KG_VER+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}},8000);
 </script>
@@ -309,7 +309,7 @@ async function gecmisYukle(){
     // görebildiğim son 30 bitmiş maç (oyuncusu ya da kasaba üyesi olduğum) → içlerinden oynadıklarım, en çok 10
     const [oz,oy,uy]=await Promise.all([
       sb.from('oyuncu_ozet').select('oyun,kazanma,en_cok_rol').eq('kurulum',ayar.kurulum||''),
-      sb.from('oyunlar').select('id,kasaba_id,bitis,kazanan_takim,kazanan_metin,oyuncu_sayisi').eq('sonuc','bitti').order('bitis',{ascending:false}).limit(30),
+      sb.from('oyunlar').select('id,kasaba_id,bitis,kazanan_takim,kazanan_metin,oyuncu_sayisi').eq('kurulum',ayar.kurulum||'').eq('sonuc','bitti').order('bitis',{ascending:false}).limit(30),
       sb.from('kasaba_uyeleri').select('kasaba_id').eq('uye',ben)]);
     const oyunlar=oy.data||[],kasabaIds=[...new Set([...(uy.data||[]).map(u=>u.kasaba_id),...oyunlar.map(o=>o.kasaba_id)].filter(Boolean))];
     const [kat,ks]=await Promise.all([

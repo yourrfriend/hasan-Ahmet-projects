@@ -38,6 +38,14 @@ test('hikâye: iptal ve özel olaylar (tuzak, tutma, hırsız, yıldırım, patl
   assert.match(m,/Oyuncu1'in tuzağı Oyuncu0'ı Oyuncu3'ün kapısında yakaladı/);assert.match(m,/Polis Oyuncu2, Oyuncu4'ü evde tuttu/);assert.match(m,/Oyun iptal edildi \(Gün 1, tartışma\)/);
   R=fixed(['hirsiz','hain','doktor','masum','masum','masum','masum']);G.act(R,'u0',{ab:'u2'});G.advance(R);
   assert.match(duz(hikaye(R.gameLog,oyuncular(R),G.ROLES)),/Oyuncu0 Oyuncu2'nin rolünü çaldı; artık Doktor/);
+  // bitmiş oyunda Hırsız'ın çalma gecesi hâlâ Hırsız olarak anlatılır (rol_key oyun sonu anahtarıdır: Doktor); sonraki gece yeni rolüyle
+  G.advance(R);for(const id of ['u0','u3','u4','u5','u6'])G.vote(R,id,'u1');G.vote(R,'u1','skip'); // hain asılır → masumlar (Hırsız artık Doktor)
+  assert.strictEqual(R.P.phase,'end');const oyH=oyuncular(R);assert.strictEqual(oyH[0].rol_key,'doktor');assert.strictEqual(oyH[0].calinan_rol,'hirsiz');
+  m=duz(hikaye(R.gameLog,oyH,G.ROLES));
+  assert.match(m,/Oyuncu0 \(Hırsız\) Oyuncu2'nin evine girdi/,m);assert.ok(!/\(Doktor\) Oyuncu2/.test(m),'çalma gecesi Doktor hamlesi gibi yazılmamalı: '+m);
+  R=fixed(['hirsiz','hain','doktor','masum','masum','masum','masum']);G.act(R,'u0',{ab:'u2'});G.advance(R);G.advance(R);for(const id of ['u0','u1','u3','u4','u5','u6'])G.vote(R,id,'skip');
+  G.act(R,'u0',{ab:'u3'});G.act(R,'u1',{kill:'u3'});G.advance(R);G.advance(R);for(const id of ['u0','u3','u4','u5','u6'])G.vote(R,id,'u1');G.vote(R,'u1','skip');assert.strictEqual(R.P.phase,'end'); // u3 kurtarıldı, o da oy verir
+  m=duz(hikaye(R.gameLog,oyuncular(R),G.ROLES));assert.match(m,/Gece 2\n[\s\S]*Oyuncu0 \(Doktor\) Oyuncu3'ü korudu/,'çalmadan sonraki gece yeni rol: '+m);
   R=fixed(['buyucu','hain','doktor','masum','masum','masum']);G.act(R,'u0',{ab:'u2',guess:'doktor'});G.advance(R);
   assert.match(duz(hikaye(R.gameLog,oyuncular(R),G.ROLES)),/Büyücü Oyuncu2'nin rolünü doğru tahmin etti; yıldırım düştü/);
   R=fixed(['hain','hayatta','masum','masum','masum']);G.act(R,'u0',{kill:'u1'});G.act(R,'u1',{ab:'self'});G.advance(R);

@@ -25,9 +25,11 @@
   // oyuncular
   const p2=el('div','panel');p2.append(el('h2',null,'Oyuncular'));const w=el('div','tablo');const t=el('table');const th=el('tr');['Oyuncu','Rol','Akıbet'].forEach(h=>th.append(el('th',null,h)));t.append(th);
   const SEKIL={stab:'öldürüldü',bomb:'patladı',bolt:'yıldırım çarptı',ghost:'hortlak aldı',vanish:'kayboldu',asildi:'asıldı'};
-  [...(oyuncular||[])].sort((a,b)=>(b.sonunda_sag?1:0)-(a.sonunda_sag?1:0)).forEach(p=>{const tr=el('tr',p.sonunda_sag?'':'olu');
+  // akıbet alanları yalnız bitişte yazılır: süren/iptal oyunda null → nötr (kimse ölü gösterilmez, sıralama yok)
+  const bitti=oyun.sonuc==='bitti';const sag=p=>bitti?!!p.sonunda_sag:null;
+  [...(oyuncular||[])].sort((a,b)=>bitti?(b.sonunda_sag?1:0)-(a.sonunda_sag?1:0):0).forEach(p=>{const tr=el('tr',sag(p)===false?'olu':'');
     const rol=el('td');const tag=el('span','tag '+(p.takim||''),p.rol_key?rolAdi(p):'?');rol.append(tag);
-    tr.append(el('td',null,(p.sonunda_sag?'🙂 ':'💀 ')+(p.ad||'?')+(p.uye===session.user.id?' (sen)':'')),rol,el('td','small',p.sonunda_sag?'sağ':(p.olum_gunu?'Gün '+p.olum_gunu+': ':'')+(SEKIL[p.olum_sekli]||p.olum_sekli||'')));t.append(tr)});
+    tr.append(el('td',null,(sag(p)==null?'👤 ':sag(p)?'🙂 ':'💀 ')+(p.ad||'?')+(p.uye===session.user.id?' (sen)':'')),rol,el('td','small',sag(p)==null?'—':sag(p)?'sağ':(p.olum_gunu?'Gün '+p.olum_gunu+': ':'')+(SEKIL[p.olum_sekli]||p.olum_sekli||'')));t.append(tr)});
   w.append(t);p2.append(w);icerik.append(p2);
   // hikâye
   const p3=el('div','panel');p3.append(el('h2',null,'Gece gece hikâye'));

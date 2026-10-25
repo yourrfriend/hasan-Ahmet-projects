@@ -18,12 +18,15 @@ function hikaye(olaylar,oyuncular,ROLES){
   const oy=new Map();for(const p of oyuncular||[])oy.set(p.pub_id,p);
   const nm=id=>{const p=oy.get(id);return p&&p.ad?p.ad:'?'};
   const rolEtiket=(key,takim)=>{if(!key)return '';const r=ROLES[key];const ad=r?r.n:key;return ad+((takim==='imp'&&r&&r.team!=='imp')?' (Hain)':'')};
-  const kimRol=id=>{const p=oy.get(id);if(!p||!p.rol_key)return '';return ' ('+rolEtiket(p.rol_key,p.takim)+')'};
+  // anlık rol: rol_key oyun sonu anahtarıdır; Hırsız çalana kadar Hırsız'dır (calinan_rol), çalınca oyun sonu rolüne geçer
+  const simdi=new Map();for(const p of oy.values())if(p.calinan_rol&&p.rol_key)simdi.set(p.pub_id,{key:p.calinan_rol,takim:'neu'});
+  const rolSimdi=id=>{const s=simdi.get(id);if(s)return s;const p=oy.get(id)||{};return {key:p.rol_key,takim:p.takim}};
+  const kimRol=id=>{const r=rolSimdi(id);if(!r.key)return '';return ' ('+rolEtiket(r.key,r.takim)+')'};
   const bloklar=[];const al=(baslik)=>{let b=bloklar[bloklar.length-1];if(!b||b.baslik!==baslik){b={baslik,satirlar:[]};bloklar.push(b)}return b};
   const sirali=[...(olaylar||[])].sort((a,b)=>(a.sira||0)-(b.sira||0));
   for(const e of sirali){
     const v=e.veri||{};const gun=e.gun||0;
-    if(e.tur==='gece_hamle'){const b=al('🌙 Gece '+gun);const kim=nm(v.kim),etiket=kimRol(v.kim);const rol=(oy.get(v.kim)||{}).rol_key;
+    if(e.tur==='gece_hamle'){const b=al('🌙 Gece '+gun);const kim=nm(v.kim),etiket=kimRol(v.kim);const rol=rolSimdi(v.kim).key;
       if(v.tur==='kill')b.satirlar.push(kim+etiket+' '+ek(nm(v.hedef),'in')+' evine girdi');
       else if(v.tur==='self')b.satirlar.push(kim+etiket+' yelek giydi');
       else if(v.tur==='det')b.satirlar.push(kim+etiket+' dinamitleri patlattı');
@@ -35,7 +38,7 @@ function hikaye(olaylar,oyuncular,ROLES){
       const tz={};for(const t of v.tuzak||[]){const key=t.kuran+'>'+t.ev;(tz[key]=tz[key]||{kuran:t.kuran,ev:t.ev,kim:[]}).kim.push(t.kim)}
       for(const t of Object.values(tz))b.satirlar.push('🪤 '+ek(nm(t.kuran),'in')+' tuzağı '+t.kim.map(x=>ek(nm(x),'i')).join(', ')+' '+ek(nm(t.ev),'in')+' kapısında yakaladı');
       for(const t of v.tutanlar||[])b.satirlar.push('👮 Polis '+nm(t.kim)+', '+ek(nm(t.hedef),'i')+' evde tuttu');
-      if(v.caldi)b.satirlar.push('🎭 '+nm(v.caldi.hirsiz)+' '+ek(nm(v.caldi.kurban),'in')+' rolünü çaldı; artık '+v.caldi.yeni_rol);
+      if(v.caldi){b.satirlar.push('🎭 '+nm(v.caldi.hirsiz)+' '+ek(nm(v.caldi.kurban),'in')+' rolünü çaldı; artık '+v.caldi.yeni_rol);simdi.delete(v.caldi.hirsiz)}
       for(const s of v.ispiyon||[])b.satirlar.push('📣 '+nm(s.kim)+' sabah '+ek(nm(s.hedef),'in')+' rolünü açıkladı: '+s.rol);
       const patlayan=(v.olenler||[]).filter(o=>o.sekil==='bomb');if(patlayan.length)b.satirlar.push('🧨 Dinamitler patladı; '+patlayan.map(o=>nm(o.kim)).join(', ')+' evleriyle uçtu');
       for(const o of v.olenler||[]){

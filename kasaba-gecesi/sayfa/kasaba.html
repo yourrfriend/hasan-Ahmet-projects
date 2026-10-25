@@ -19,7 +19,7 @@
   const [{data:uyeler},{data:tablo},{data:oyunlar}]=await Promise.all([
     sb.from('kasaba_uyeleri').select('uye,rol,katilma').eq('kasaba_id',kasaba.id),
     sb.from('kasaba_tablo').select('uye,ad,oyun,kazanma,en_cok_rol').eq('kasaba_id',kasaba.id).eq('kurulum',ayar.kurulum||''),
-    sb.from('oyunlar').select('id,baslama,bitis,sonuc,kazanan_takim,kazanan_metin,oyuncu_sayisi').eq('kasaba_id',kasaba.id).eq('sonuc','bitti').order('bitis',{ascending:false}).limit(50)]);
+    sb.from('oyunlar').select('id,baslama,bitis,sonuc,kazanan_takim,kazanan_metin,oyuncu_sayisi').eq('kasaba_id',kasaba.id).eq('kurulum',ayar.kurulum||'').eq('sonuc','bitti').order('bitis',{ascending:false}).limit(50)]);
   const uyeIds=(uyeler||[]).map(u=>u.uye);const {data:profiller}=uyeIds.length?await sb.from('profiller').select('uye,ad,renk').in('uye',uyeIds):{data:[]};
   const adlar=new Map((profiller||[]).map(p=>[p.uye,p.ad]));
   // üyeler
