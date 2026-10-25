@@ -520,3 +520,18 @@ test('gazete: iddia kartı — doğru/yanlış/çoklu iddia; Deli atlanır; Hır
 test('rol rehberi: her rolün kısa ipucu metni var (10–120 karakter)',()=>{
   for(const [k,r] of Object.entries(G.ROLES))assert.ok(typeof r.ipucu==='string'&&r.ipucu.length>=10&&r.ipucu.length<=120,'ipucu yok/uzun: '+k);
 });
+
+test('inceleme: A→B→A iddia sırası son iddiayla biter; yanlış iddialar doğrulardan önce; $ içeren ad metni bozmaz',()=>{
+  let t=1000;G.setClock(()=>t);const soyle=(R,id,rol)=>{t+=9000;assert.strictEqual(G.hizli(R,id,{k:'rol',rol,d:R.P.day,n:id+rol+R.P.day+t}).ok,true)};
+  try{
+    let R=fixed(['hain','doktor','masum','masum','masum','masum']);
+    G.advance(R);soyle(R,'u1','doktor');soyle(R,'u1','masum');soyle(R,'u1','doktor');soyle(R,'u2','polis');
+    G.advance(R);asil(R,'u0',['u1','u2','u3','u4','u5']);assert.strictEqual(R.P.phase,'end');
+    const m=R.P.gazete.filter(k=>k.tur==='iddia').map(k=>k.metin);
+    assert.match(m.join('\n'),/Oyuncu1 önce Masum, sonra Doktor olduğunu söyledi; doğruydu\./,'sıra son iddiayla bitmeli: '+m.join(' | '));
+    assert.match(m[0],/Oyuncu2 Polis olduğunu söyledi; o sırada rolü Masum idi/,'yanlış iddia önce gelir');
+    R=fixed(['hain','masum','masum','masum']);R.P.players.find(p=>p.id==='u0').name="$`$'";G.advance(R);
+    assert.strictEqual(G.hizli(R,'u1',{k:'suphe',hedef:'u0',d:1,n:'z1'}).ok,true);assert.strictEqual(R.P.chat[R.P.chat.length-1].t,"🤨 $`$' hakkında şüphem var.");
+    assert.ok(!/koruyabilirsin/.test(G.ROLES.doktor.ipucu),'doktor kendini koruyamaz (istemcide yol yok); ipucu bunu söylemesin');
+  }finally{G.setClock()}
+});

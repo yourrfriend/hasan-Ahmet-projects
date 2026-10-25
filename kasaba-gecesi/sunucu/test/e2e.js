@@ -82,7 +82,9 @@ const step=t=>console.log('•',t);
     { const rp=pages.Ali;await rp.click('button.rehber-dugme');await rp.waitForSelector('.rehber');
       const r=await rp.evaluate(()=>{const e=document.querySelector('.rehber');const t=e.textContent;return{w:e.getBoundingClientRect().width/innerWidth,roller:Object.values(ROLES).filter(x=>t.includes(x.n)).length,dagilim:/Dağılım/.test(t),ben:!!e.querySelector('.ben'),gizli:t.includes('Hain arkadaşların')||t.includes((priv.notes||[]).join(''))&&(priv.notes||[]).length>0}});
       assert.ok(r.w<0.6,'çekmece sahnenin yarısından azını kaplar');assert.strictEqual(r.roller,Object.keys(await rp.evaluate(()=>ROLES)).length,'tüm roller listelenir');assert.ok(r.dagilim);assert.strictEqual(r.ben,false);assert.strictEqual(r.gizli,false);
-      await rp.click('.rehber .kapat');assert.strictEqual(await rp.$('.rehber'),null); }
+      await rp.evaluate(()=>{document.querySelector('.rehber').scrollTop=180});await rp.waitForTimeout(3200);assert.ok(await rp.evaluate(()=>document.querySelector('.rehber').scrollTop)>100,'rehber kaydırması render ile sıfırlanmamalı');
+      await rp.click('.rehber .kapat');assert.strictEqual(await rp.$('.rehber'),null);
+      const kes=await rp.evaluate(()=>{const a=document.querySelector('.timerbox').getBoundingClientRect(),b=document.querySelector('.rehber-dugme').getBoundingClientRect();return !(a.right<=b.left||b.right<=a.left||a.bottom<=b.top||b.bottom<=a.top)});assert.strictEqual(kes,false,'📘 zamanlayıcıyı örtmemeli'); }
     let acted=0;const actors=[];
     for(const p of all()){
       // gerçek tıklama, ekrandaki konuma: evin üstünü örten bir katman varsa (gece karartması, ipucu) burada yakalanır
@@ -156,9 +158,9 @@ const step=t=>console.log('•',t);
       await sp.fill('#chatInput','merhaba kasaba');await sp.click('.chat button');
       for(const p of Object.values(pages))await p.waitForFunction(()=>(P.chat||[]).some(m=>m.t==='merhaba kasaba'));
       // hızlı ifade: ⚡ → Rolüm → Doktor → herkeste sohbette; hemen ikinci dokunuş → "Biraz bekle" uyarısı
-      await sp.click('button.hizli');await sp.click('.hizli button.secenek[data-k="rol"]');await sp.click('.hizli .rol[data-rol="doktor"]');
+      await sp.click('button.hizli');await sp.click('.hizli-panel button.secenek[data-k="rol"]');await sp.click('.hizli-panel .rol[data-rol="doktor"]');
       for(const p of Object.values(pages))await p.waitForFunction(()=>(P.chat||[]).some(m=>m.kisa==='rol'&&m.t==='🗣️ Rolüm: Doktor'),null,{timeout:5000});
-      await sp.click('button.hizli');await sp.click('.hizli button.secenek[data-k="koru"]');
+      await sp.click('button.hizli');await sp.click('.hizli-panel button.secenek[data-k="koru"]');
       await sp.waitForFunction(()=>/Biraz bekle/.test((document.querySelector('.hizli-uyari')||{}).textContent||''),null,{timeout:4000});
       assert.match(await sp.textContent('button.hizli'),/⚡ \d/,'bekleme sayacı düğmede');
 

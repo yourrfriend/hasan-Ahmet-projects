@@ -110,7 +110,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 .rolebar{top:10px;left:10px;display:flex;gap:3px;background:rgba(255,255,255,.55);padding:4px;border-radius:9px;max-width:60vw}
 .rolebar .r{width:clamp(20px,3vw,32px);height:clamp(20px,3vw,32px);flex:none;border-radius:6px;background:var(--paper);display:grid;place-items:center;font-size:clamp(11px,1.7vw,18px);font-weight:900;color:#7a6a55;position:relative;box-shadow:0 1px 0 rgba(0,0,0,.12)}
 .rolebar .r i{position:absolute;right:2px;top:2px;width:6px;height:6px;border-radius:50%}
-.timerbox{top:10px;right:56px;background:rgba(255,255,255,.78);border-radius:10px;padding:2px 12px;display:flex;align-items:center;gap:8px;font-weight:900;white-space:nowrap;box-shadow:0 2px 0 rgba(0,0,0,.12)}
+.timerbox{top:10px;right:106px;background:rgba(255,255,255,.78);border-radius:10px;padding:2px 12px;display:flex;align-items:center;gap:8px;font-weight:900;white-space:nowrap;box-shadow:0 2px 0 rgba(0,0,0,.12)}
 .timerbox .timer{font-family:var(--display);font-size:clamp(17px,2.6vw,28px);font-variant-numeric:tabular-nums}
 .timerbox small{font-size:clamp(9px,1.1vw,12px);font-weight:700;color:#7a6a55}
 .gear{top:10px;right:10px;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.78);display:grid;place-items:center;font-size:19px;box-shadow:0 2px 0 rgba(0,0,0,.12);cursor:pointer;border:0;min-height:0;padding:0}
@@ -136,17 +136,17 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 .chat .log div.hizli{background:rgba(255,215,102,.38)}
 .chat .in button.hizli{order:-1;flex:0 0 auto;width:auto;min-width:44px;padding:4px 8px;background:#ffd766;color:#3a2f1c;border:0;border-radius:10px;font-weight:800}
 .hizli-uyari{background:rgba(226,59,59,.85);color:#fff;font-size:clamp(10px,1.3vw,12px);padding:3px 9px;border-radius:8px;font-weight:700}
-.hizli{left:10px;bottom:52px;width:min(320px,52vw);background:rgba(255,255,255,.97);border-radius:14px;padding:8px;display:grid;gap:6px;box-shadow:0 10px 30px rgba(0,0,0,.35);z-index:7;max-height:60vh;overflow:auto}
-.hizli .ust{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--ink)}.hizli .kapat{padding:2px 8px;min-height:0;background:transparent;color:var(--ink);border:1px solid #d9c9a6;border-radius:8px}
-.hizli button.secenek{text-align:left;background:#f6efe0;color:var(--ink);border:0;border-radius:10px;padding:7px 10px;font-size:clamp(11px,1.4vw,13px);font-weight:700}
-.hizli .roller{display:grid;grid-template-columns:repeat(2,1fr);gap:4px}.hizli .roller button{background:#f6efe0;color:var(--ink);border:1px solid transparent;border-radius:8px;padding:5px 6px;font-size:clamp(10px,1.2vw,12px);font-weight:700;text-align:left;min-height:0}
+.hizli-panel{left:10px;bottom:52px;width:min(320px,52vw);background:rgba(255,255,255,.97);border-radius:14px;padding:8px;display:grid;gap:6px;box-shadow:0 10px 30px rgba(0,0,0,.35);z-index:7;max-height:60vh;overflow:auto}
+.hizli-panel .ust{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--ink)}.hizli-panel .kapat{padding:2px 8px;min-height:0;background:transparent;color:var(--ink);border:1px solid #d9c9a6;border-radius:8px}
+.hizli-panel button.secenek{text-align:left;background:#f6efe0;color:var(--ink);border:0;border-radius:10px;padding:7px 10px;font-size:clamp(11px,1.4vw,13px);font-weight:700}
+.hizli-panel .roller{display:grid;grid-template-columns:repeat(2,1fr);gap:4px}.hizli-panel .roller button{background:#f6efe0;color:var(--ink);border:1px solid transparent;border-radius:8px;padding:5px 6px;font-size:clamp(10px,1.2vw,12px);font-weight:700;text-align:left;min-height:0}
 .rehber-dugme{right:60px;top:10px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.9);border:0;font-size:20px;box-shadow:0 2px 0 rgba(0,0,0,.12);padding:0;min-height:0;z-index:4}
 .rehber{right:0;top:0;bottom:0;width:min(380px,52vw);background:rgba(255,255,255,.97);overflow:auto;padding:10px 12px 14px;z-index:8;box-shadow:-8px 0 30px rgba(0,0,0,.3);font-size:clamp(11px,1.3vw,13px);scrollbar-width:thin}
 .rehber .ust{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}.rehber .kapat{padding:2px 9px;min-height:0;background:transparent;color:var(--ink);border:1px solid #d9c9a6;border-radius:8px}
 .rehber h3{font-family:var(--display);font-size:13px;margin:10px 0 4px;letter-spacing:.04em;text-transform:uppercase;opacity:.75}
 .rehber .rol{background:#f6efe0;border-left:4px solid #999;border-radius:8px;padding:5px 8px;margin:4px 0}.rehber .rol.inn{border-color:#2fb55a}.rehber .rol.imp{border-color:#e23b3b}.rehber .rol.neu{border-color:#8e4bff}
 .rehber .rol .d{margin-top:2px}.rehber .rol .ip{margin-top:2px;opacity:.8;font-style:italic;font-size:.92em}
-.hizli .roller button.inn{border-color:#2fb55a}.hizli .roller button.imp{border-color:#e23b3b}.hizli .roller button.neu{border-color:#8e4bff}
+.hizli-panel .roller button.inn{border-color:#2fb55a}.hizli-panel .roller button.imp{border-color:#e23b3b}.hizli-panel .roller button.neu{border-color:#8e4bff}
 .chat input{flex:1;border:0;border-radius:10px;padding:8px 12px;font-size:clamp(12px,1.4vw,14px);background:rgba(255,255,255,.92);color:var(--ink);min-height:0}
 .chat .in button{border:0;border-radius:10px;background:var(--orange);color:#fff;font-weight:800;padding:0 14px;min-height:0}
 .mine{right:10px;bottom:10px;display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.88);border-radius:12px;padding:6px 10px;font-size:clamp(10px,1.3vw,13px);box-shadow:0 2px 0 rgba(0,0,0,.12);max-width:44vw;cursor:pointer;border:0;min-height:0;color:var(--ink);text-align:left}
@@ -222,7 +222,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 <div id="app"><div class="panel"><p class="muted">Yükleniyor…</p></div></div>
 <script>
 // Script daha başlamadan çökerse "Yükleniyor…" yerine hatayı göster (sürüm damgasıyla).
-window.KG_VER='2026-10-29b';
+window.KG_VER='2026-10-29c';
 window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ff6b6b"><p><b>Sayfa açılamadı.</b> Sürüm '+KG_VER+'</p><p class="small" style="word-break:break-all">'+String(e.message||e.error||e)+(e.filename?' @'+e.lineno:'')+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}});
 setTimeout(function(){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ffb347"><p><b>Sayfa yüklenemedi.</b> Sürüm '+KG_VER+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}},8000);
 </script>
@@ -798,8 +798,10 @@ startAmbience();
 // ---------- Arayüz ----------
 function render(){
   const keep={};['chatInput','nameInput','joinCode','nameEdit','sure_night','sure_talk','sure_vote'].forEach(id=>{const e=document.getElementById(id);if(e)keep[id]={v:e.value,f:document.activeElement===e}});
+  const kaydir={};['.rehber','.hizli-panel'].forEach(sel=>{const e=document.querySelector(sel);if(e)kaydir[sel]=e.scrollTop}); // yeniden çizimde kaydırma konumu kalsın (2,5 sn'lik render döngüsü)
   renderInner();
   Object.entries(keep).forEach(([id,k])=>{const e=document.getElementById(id);if(e){e.value=k.v;if(k.f)e.focus()}});
+  Object.entries(kaydir).forEach(([sel,st])=>{const e=document.querySelector(sel);if(e&&st)e.scrollTop=st});
 }
 function renderInner(){
   const full=P.phase!=='landing';document.body.classList.toggle('landing',!full);
@@ -939,7 +941,7 @@ function renderGameUI(stage){
 // Metni ve sınırları sunucu kurar; burada yalnız menü ve yerel bekleme göstergesi.
 function hizliGonder(k,ek){const n=Date.now().toString(36)+Math.random().toString(36).slice(2,6);send({t:'hizli',k,...ek,d:P.day,n});hizliSon=Date.now();ui.hizli=false;ui.hizliAlt=null;render()}
 function hizliPanel(){
-  const c=el('div','ov hizli');const ust=el('div','ust');ust.append(el('b',null,ui.hizliAlt==='rol'?'Rolüm:':ui.hizliAlt==='suphe'?'Kimden şüpheleniyorsun?':'Hızlı söyle'));
+  const c=el('div','ov hizli-panel');const ust=el('div','ust');ust.append(el('b',null,ui.hizliAlt==='rol'?'Rolüm:':ui.hizliAlt==='suphe'?'Kimden şüpheleniyorsun?':'Hızlı söyle'));
   const kapat=el('button','kapat','✕');kapat.onclick=()=>{ui.hizli=false;ui.hizliAlt=null;render()};ust.append(kapat);c.append(ust);
   if(ui.hizliAlt==='rol'){const g=el('div','roller');Object.keys(ROLES).forEach(k=>{const b=el('button','rol '+ROLES[k].team,ROLES[k].ico+' '+ROLES[k].n);b.dataset.rol=k;b.onclick=()=>hizliGonder('rol',{rol:k});g.append(b)});c.append(g)}
   else if(ui.hizliAlt==='suphe'){const g=el('div','roller');P.players.filter(p=>p.alive&&p.id!==myId).forEach(p=>{const b=el('button','oyuncu',p.name);b.dataset.id=p.id;b.style.borderColor=p.color;b.onclick=()=>hizliGonder('suphe',{hedef:p.id});g.append(b)});c.append(g)}

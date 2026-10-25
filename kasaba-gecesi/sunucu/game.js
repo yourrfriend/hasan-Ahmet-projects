@@ -12,7 +12,7 @@
 // act: 'other' = bir ev seçer, 'self' = kendine, yok = yetenek yok. pos: gece gittiği evde nerede durur.
 const ROLES={
   masum:{n:'Masum',team:'inn',ico:'🏠',desc:'Özel bir yeteneğin yok. Gündüz tartış, oylamayla hainleri bul.',ipucu:"Gece bir şey yapmazsın; gündüz kimin ne söylediğini karşılaştır, çelişkileri yakala."},
-  doktor:{n:'Doktor',team:'inn',ico:'💉',desc:'Gece birini seç. O gece saldırıya uğrarsa kurtulur.',act:'other',pos:'door',ipucu:"Kendini de koruyabilirsin. Kimi koruduğunu açıklamak haini sana yöneltebilir."},
+  doktor:{n:'Doktor',team:'inn',ico:'💉',desc:'Gece birini seç. O gece saldırıya uğrarsa kurtulur.',act:'other',pos:'door',ipucu:"Kendini koruyamazsın; sabah ölümleri koruduğun evle eşleştir. Kimi koruduğunu açıklamak haini sana yöneltebilir."},
   deli:{n:'Deli',team:'inn',ico:'🌀',desc:'Masum bir rol olduğunu sanırsın ama yaptıkların hiçbir şey değiştirmez.',ipucu:"Bunu bilmezsin: bilgilerin uydurma olabilir. Kimse %100 emin konuşmasın."},
   polis:{n:'Polis',team:'inn',ico:'👮',desc:'Seçtiğin kişi o gece evden çıkamaz; rolünü kullanamaz. Seri Katil\'i ve Bombacı\'yı tutamazsın.',act:'other',dual:true,pos:'door',ipucu:"Tuttuğun kişi o gece yetenek kullanamaz; şüpheliyi tutmak ölümü de önleyebilir."},
   gozcu:{n:'Gözcü',team:'inn',ico:'🔭',desc:'Seçtiğin evi gözetlersin; o gece kaç kişinin geldiğini öğrenirsin.',act:'other',dual:true,pos:'bush',ipucu:"Gelen sayısı rol söylemez; bir ziyaretçi Doktor da olabilir, hain de."},
@@ -380,12 +380,12 @@ function gazeteFor(R){
   const iddialar=new Map();
   for(const e of R.gameLog)if(e.tur==='iddia'){const v=e.veri;if(v.algilanan_rol&&v.rol_iddia===v.algilanan_rol)continue;(iddialar.get(v.kim)||iddialar.set(v.kim,[]).get(v.kim)).push({gun:e.gun,rol:v.rol_iddia,gercek:roleLabel({key:v.gercek_rol,team:v.gercek_takim})})}
   for(const [kim,liste] of iddialar){
-    const son=liste[liste.length-1];const farkli=[...new Set(liste.map(x=>x.rol))];
+    const son=liste[liste.length-1];const farkli=[...new Set(liste.map(x=>x.rol).reverse())].reverse(); // son iddia listenin sonunda
     const gercek=son.gercek===ROLES[son.rol].n?null:son.gercek;
     const metin=farkli.length>1
       ?'🗣️ '+nm(kim)+' önce '+farkli.slice(0,-1).map(r=>ROLES[r].n).join(', ')+', sonra '+ROLES[farkli[farkli.length-1]].n+' olduğunu söyledi; '+(gercek?'o sırada rolü '+gercek+' idi.':'doğruydu.')
       :'🗣️ Gün '+son.gun+': '+nm(kim)+' '+ROLES[son.rol].n+' olduğunu söyledi; '+(gercek?'o sırada rolü '+gercek+' idi.':'doğruydu.');
-    ekle('iddia',2,son.gun,[kim],metin);
+    ekle('iddia',gercek?2:2.5,son.gun,[kim],metin); // yanlış çıkan iddialar doğrulardan önce
   }
   // bitiş kartı: oyunu bitiren son olay (gündüz asılma ya da gece ölümleri)
   let bitis=null;const son=[sonGece,sonGun].filter(Boolean).sort((a,b)=>b.sira-a.sira)[0];
@@ -443,7 +443,7 @@ function hizli(R,id,m){
   if(h.son&&kalanMs>0)return {ok:false,kod:'bekle',kalan:Math.ceil(kalanMs/1000)};
   if(h.n>=HIZLI_GUN)return {ok:false,kod:'gun'};
   h.n++;h.son=simdi;if(n){h.anahtarlar.push(n);if(h.anahtarlar.length>HIZLI_ANAHTAR)h.anahtarlar.shift()}
-  const t=HIZLI_TUR[m.k].replace('{rol}',rol?ROLES[rol].n:'').replace('{ad}',hedef?nameOf(R,hedef):'');
+  const adT=hedef?nameOf(R,hedef):'',rolT=rol?ROLES[rol].n:'';const t=HIZLI_TUR[m.k].replace('{rol}',()=>rolT).replace('{ad}',()=>adT); // fonksiyon: ad içindeki $ kalıpları yorumlanmasın
   pushChat(R,{id,t,d:P.day,ts:simdi,kisa:m.k}); // kisa: hızlı ifade türü (yalnız hafif stil)
   if(m.k==='rol'){const r=g.roles[id];logEv(R,'iddia',{kim:id,rol_iddia:rol,gercek_rol:r.key,gercek_takim:r.team,algilanan_rol:r.mad||null})}
   else olay(R,'hizli',{kim:id,k:m.k});
