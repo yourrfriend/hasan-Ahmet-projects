@@ -230,7 +230,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 <div id="app"><div class="panel"><p class="muted">Yükleniyor…</p></div></div>
 <script>
 // Script daha başlamadan çökerse "Yükleniyor…" yerine hatayı göster (sürüm damgasıyla).
-window.KG_VER='2026-10-31c';
+window.KG_VER='2026-10-31d';
 window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ff6b6b"><p><b>Sayfa açılamadı.</b> Sürüm '+KG_VER+'</p><p class="small" style="word-break:break-all">'+String(e.message||e.error||e)+(e.filename?' @'+e.lineno:'')+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}});
 setTimeout(function(){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ffb347"><p><b>Sayfa yüklenemedi.</b> Sürüm '+KG_VER+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}},8000);
 </script>
@@ -335,7 +335,7 @@ async function turnstileBelirtec(action){
   await turnstileYukle();const el=document.querySelector('.hesap-turnstile');
   if(!window.turnstile||!el)throw Object.assign(new Error('turnstile_yuk'),{code:'turnstile_yuk'});
   return new Promise((res,rej)=>{const hata=(neden)=>Object.assign(new Error('turnstile'),{code:'turnstile',neden});
-    const t=setTimeout(()=>rej(hata('ag')),30000);const bitir=f=>v=>{clearTimeout(t);f(v)};
+    const t=setTimeout(()=>rej(hata('ag')),120000);const bitir=f=>v=>{clearTimeout(t);f(v)}; // Managed kutu çıkarsa oyuncuya tıklama süresi
     turnstileSifirla();
     try{turnstileWidget=turnstile.render(el,{sitekey:ayar.turnstile,action,appearance:'interaction-only',execution:'execute',callback:bitir(res),'error-callback':()=>bitir(rej)(hata('hata')),'expired-callback':()=>{}});turnstile.execute(turnstileWidget)}
     catch(e){bitir(rej)(hata('hata'))}})}
