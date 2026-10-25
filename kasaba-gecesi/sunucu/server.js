@@ -40,11 +40,24 @@ function createServer(opts={}){
   const ipOdalar=ip=>[...rooms.values()].filter(r=>r.ip===ip).length;
   // Supabase ayarı (env ya da opts.ayar): url/anonKey istemciye /ayar.json ile gider; serviceKey ve jwtSecret yalnız sunucuda
   const ayar=opts.ayar||{url:process.env.SUPABASE_URL||null,anonKey:process.env.SUPABASE_ANON_KEY||null,serviceKey:process.env.SUPABASE_SERVICE_KEY||null,jwtSecret:process.env.SUPABASE_JWT_SECRET||null,jwks:process.env.SUPABASE_JWT_JWKS||null,kurulum:process.env.KG_KURULUM||null};
-  // Token doğrulama anahtarları: HS256 için jwtSecret; ES256/RS256 için JWKS — env'den (JSON ya da base64) ya da başlangıçta
-  // bir kez Supabase'in açık JWKS uç noktasından (açık anahtarlar; gizli değil). Gelmezse kayıtlı kimlik çalışmaz, herkes misafir.
+  // Token doğrulama anahtarları: HS256 için jwtSecret; ES256/RS256 için JWKS — env'den (JSON ya da base64) ya da Supabase'in açık
+  // JWKS uç noktasından (açık anahtarlar; gizli değil). Çekim başarısızsa artan aralıkla yeniden denenir (sunucu Supabase'den önce
+  // açılabilir); bilinmeyen kid gelince (anahtar dönmüş) en çok dakikada bir yeniden çekilir. Anahtar yokken herkes misafirdir.
   const dogrulama={secret:ayar.jwtSecret||null,jwks:Kimlik.jwksCoz(typeof ayar.jwks==='string'?ayar.jwks:ayar.jwks?JSON.stringify(ayar.jwks):null)};
-  async function jwksGetir(){if(dogrulama.jwks||!ayar.url||opts.jwksAlma===false)return;try{const r=await fetch(ayar.url.replace(/\/+$/,'')+'/auth/v1/.well-known/jwks.json',{signal:AbortSignal.timeout(5000)});const j=await r.json();if(j&&Array.isArray(j.keys)&&j.keys.length){dogrulama.jwks=j;log('jwks alındı',j.keys.length+' anahtar')}else log('jwks boş')}catch(e){log('jwks alınamadı',e.message)}}
-  jwksGetir();
+  const jwksGetirici=opts.jwksGetirici||(async()=>{const r=await fetch(ayar.url.replace(/\/+$/,'')+'/auth/v1/.well-known/jwks.json',{headers:ayar.anonKey?{apikey:ayar.anonKey}:{},signal:AbortSignal.timeout(5000)});return r.json()});
+  const jwksDenemeMs=opts.jwksDenemeMs||[10000,30000,60000,300000],jwksYenilemeMs=opts.jwksYenilemeMs??60000;
+  let jwksSonCekim=0,jwksSuren=null,jwksZamanlayici=null;
+  async function jwksGetir(deneme=0){
+    if(!ayar.url||opts.jwksAlma===false)return;
+    if(jwksSuren)return jwksSuren;
+    jwksSuren=(async()=>{try{jwksSonCekim=Date.now();const j=await jwksGetirici();if(j&&Array.isArray(j.keys)&&j.keys.length){dogrulama.jwks=j;log('jwks alındı',j.keys.length+' anahtar');return}log('jwks boş')}catch(e){log('jwks alınamadı',e.message)}
+      if(!dogrulama.jwks){const ms=jwksDenemeMs[Math.min(deneme,jwksDenemeMs.length-1)];jwksZamanlayici=setTimeout(()=>jwksGetir(deneme+1),ms)}})().finally(()=>{jwksSuren=null});
+    return jwksSuren;
+  }
+  if(!dogrulama.jwks)jwksGetir();
+  // token'ın kid'i elimizdeki JWKS'te yoksa (anahtar döndü) yeniden çek; dakikada en çok bir kez
+  function kidBilinmiyor(token){const p=String(token).split('.');if(p.length!==3)return false;let h;try{h=JSON.parse(Buffer.from(p[0],'base64url').toString('utf8'))}catch(e){return false}
+    if(!h||!['ES256','RS256'].includes(h.alg)||!h.kid)return false;return !(dogrulama.jwks&&dogrulama.jwks.keys.some(k=>k.kid===h.kid))}
   const ayarAcik=()=>({url:ayar.url||null,anonKey:ayar.anonKey||null,kurulum:ayar.kurulum||null,kayit:!!(ayar.url&&ayar.serviceKey)});
   const kayit=opts.kayit||Kayit.olustur({url:ayar.url,serviceKey:ayar.serviceKey,quiet:!!opts.quiet}); // olay günlüğünün gittiği yer (testler bellekte biriktiren bir sahte verir)
   // odanın biriken olaylarını kayıt yuvasına ver (R.log boşalır; R.gameLog oyunda kalır)
@@ -154,7 +167,9 @@ function createServer(opts={}){
   function onJoin(ws,m){
     // kimlik: geçerli imzalı Supabase token'ı varsa sub (uuid) → 'sb:<uuid>' (kayıtlı); yoksa istemcinin gizli anahtarı (misafir).
     // Süresi dolmuş ama imzası doğru token da kimlik verir (koltuk kaybolmasın; tasarım §5.2). uuid yayınlara girmez: pubId hash'tir.
-    const k=(dogrulama.secret||dogrulama.jwks)&&typeof m.token==='string'?Kimlik.dogrula(m.token,dogrulama):null;
+    let k=(dogrulama.secret||dogrulama.jwks)&&typeof m.token==='string'?Kimlik.dogrula(m.token,dogrulama):null;
+    if(!k&&typeof m.token==='string'&&!m._jwksDenendi&&ayar.url&&opts.jwksAlma!==false&&kidBilinmiyor(m.token)&&Date.now()-jwksSonCekim>=jwksYenilemeMs){
+      m._jwksDenendi=true;jwksGetir().then(()=>{if(ws.readyState===1)onJoin(ws,m)});return} // yeniden çekip aynı join'i tekrar dene
     const key=k?'sb:'+k.sub:cleanUid(m.uid);if(!key)return send(ws,{t:'err',m:'Geçersiz oyuncu kimliği.',code:'bad'});
     const uid=pubId(key);
     let code=cleanCode(m.room);let room=code&&rooms.get(code);
@@ -264,7 +279,7 @@ function createServer(opts={}){
     }
   },opts.tickMs||500);
 
-  function close(cb){clearInterval(pingIv);clearInterval(tickIv);for(const r of [...rooms.values()]){clearTimeout(r.flushT);bosalt(r)}kayit.kapat();for(const ws of wss.clients)ws.terminate();wss.close();server.close(cb)}
+  function close(cb){clearInterval(pingIv);clearInterval(tickIv);clearTimeout(jwksZamanlayici);for(const r of [...rooms.values()]){clearTimeout(r.flushT);bosalt(r)}kayit.kapat();for(const ws of wss.clients)ws.terminate();wss.close();server.close(cb)}
   return {server,wss,rooms,close};
 }
 

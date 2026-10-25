@@ -174,6 +174,7 @@ ENV_ESKI="$GECICI/env.eski";[ -f "$AYAR_KOK/$AD.env" ] && cp "$AYAR_KOK/$AD.env"
 # kur.sh'nin kendi satırları yeniden yazılır; elle eklenen satırlar (SUPABASE_URL/ANON_KEY/SERVICE_KEY/JWT_SECRET, MAX_* vb.) aynen korunur
 printf 'PORT=%s\nALAN=%s\nSURUM=%s\nCOMMIT=%s\nKG_SURUM=%s\nKG_KURULUM=%s\n' "$PORT" "$ALAN" "$SURUM" "$COMMIT" "$SURUM@$COMMIT" "$AD" > "$AYAR_KOK/$AD.env"
 if [ -f "$ENV_ESKI" ]; then grep -Ev '^(PORT|ALAN|SURUM|COMMIT|KG_SURUM|KG_KURULUM)=' "$ENV_ESKI" >> "$AYAR_KOK/$AD.env" || true; fi
+chmod 700 "$AYAR_KOK" 2>/dev/null || true; chmod 600 "$AYAR_KOK/$AD.env" # SUPABASE_SERVICE_KEY taşıyabilir; systemd root olarak okur
 
 saglikli(){ for _ in $(seq 1 30); do curl -fsS "http://127.0.0.1:$PORT/saglik" >/dev/null 2>&1 && return 0; sleep 0.5; done; return 1; }
 systemctl daemon-reload
@@ -185,7 +186,7 @@ if ! saglikli; then
   if [ -d "$ESKI" ]; then
     uyari "Yeni sürüm yanıt vermedi; eski sürüm geri yükleniyor."
     rm -rf "$HEDEF";mv "$ESKI" "$HEDEF"
-    if [ -f "$ENV_ESKI" ]; then cp "$ENV_ESKI" "$AYAR_KOK/$AD.env";PORT="$(ayar_oku "$AD" PORT)";fi # eski sürüm eski portunda; sağlık da orada bakılır
+    if [ -f "$ENV_ESKI" ]; then cp "$ENV_ESKI" "$AYAR_KOK/$AD.env";chmod 600 "$AYAR_KOK/$AD.env";PORT="$(ayar_oku "$AD" PORT)";fi # eski sürüm eski portunda; sağlık da orada bakılır
     systemctl restart "game@$AD"
     saglikli && hata "Yeni sürüm ($SURUM@$COMMIT) çalışmadı; eski sürüm geri yüklendi ve çalışıyor. Günlük: journalctl -u game@$AD -n 50"
   fi
@@ -196,7 +197,7 @@ rm -rf "$ESKI"
 # ---------- Caddy: ana dosya yalnız games/*.caddy içe aktarır, her kurulum kendi parçasını yazar ----------
 if [ "$KIP" = tunel ]; then bilgi "Caddy (tünel): $ALAN → 127.0.0.1:$TUNEL_PORT → 127.0.0.1:$PORT"
 else bilgi "Caddy: $ALAN → 127.0.0.1:$PORT";fi
-printf 'KIP=%s\nTUNEL_PORT=%s\n' "$KIP" "$TUNEL_PORT" > "$AYAR_KOK/$SUNUCU_AYAR.env"
+printf 'KIP=%s\nTUNEL_PORT=%s\n' "$KIP" "$TUNEL_PORT" > "$AYAR_KOK/$SUNUCU_AYAR.env";chmod 600 "$AYAR_KOK/$SUNUCU_AYAR.env"
 ANA="$CADDY_KOK/Caddyfile";IMPORT="import $CADDY_KOK/games/*.caddy"
 mkdir -p "$CADDY_KOK/games"
 if [ ! -s "$ANA" ] || grep -q '^# Kasaba Gecesi — Caddy ayarı' "$ANA" || grep -q 'root \* /usr/share/caddy' "$ANA"; then

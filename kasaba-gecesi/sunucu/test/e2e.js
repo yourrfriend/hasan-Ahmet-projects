@@ -32,6 +32,7 @@ const step=t=>console.log('•',t);
       await p3.click('text=Yeni oda kur');await p3.fill('#nameInput','K');await p3.click('text=Lobiye gir');
       await p3.waitForFunction(()=>/oda=[a-z0-9]{12}/.test((document.querySelector('.lobbybar code')||{}).textContent||''),null,{timeout:6000});
       assert.ok(Date.now()-t0<9000,'ulaşılmaz Supabase oyunu bekletmemeli');assert.strictEqual(await p3.evaluate(()=>kayitli),false);
+      assert.match(await p3.textContent('.kimlik-notu-lobi'),/Misafir/,'sunucu kayıtlı saymadıysa lobide misafir notu');
       await c3.close();await new Promise(r=>s3.close(r)); }
 
     step('ev sahibi oda kurar');
@@ -39,7 +40,7 @@ const step=t=>console.log('•',t);
     await host.click('text=Yeni oda kur');await host.fill('#nameInput','Ev');await host.click('text=Lobiye gir');
     await host.waitForSelector('.lobbybar code');
     const link=await host.textContent('.lobbybar code');assert.match(link,/\?oda=[a-z0-9]{12}$/);
-    assert.strictEqual(await host.evaluate(()=>kayitli),false);assert.strictEqual(await host.$('.kimlik-notu'),null,'kayıt kapalı kurulumda kimlik notu yok');
+    assert.strictEqual(await host.evaluate(()=>kayitli),false);assert.strictEqual(await host.$('.kimlik-notu'),null,'kayıt kapalı kurulumda kimlik notu yok');assert.strictEqual(await host.$('.kimlik-notu-lobi'),null);
 
     step('?s= yabancı sunucuyu yalnız yerelde seçer (gizli anahtar linkteki adrese gitmez)');
     const izin=await host.evaluate(()=>{const canli={hostname:'kasaba.ornek.com',host:'kasaba.ornek.com',protocol:'https:'};return[

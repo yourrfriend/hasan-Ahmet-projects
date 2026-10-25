@@ -434,3 +434,21 @@ test('join{token}: ES256 token sunucuya verilen JWKS ile doğrulanır (self-host
   try{const a=client('es0','A',{host:true,token:tok},b2);await a.until(c=>c.P&&c.P.room);assert.strictEqual(a.kayitli,true);assert.strictEqual(a.me,pubIdOf('sb:'+SUB));await a.close()}
   finally{await new Promise(r=>s2.close(r))}
 });
+
+test('JWKS: ilk çekim başarısızsa yeniden dener; bilinmeyen kid gelince (anahtar dönünce) yeniden çeker',async()=>{
+  const ec=crypto.generateKeyPairSync('ec',{namedCurve:'P-256'}),ec2=crypto.generateKeyPairSync('ec',{namedCurve:'P-256'});
+  const jwk=(k,kid)=>({...k.publicKey.export({format:'jwk'}),kid,alg:'ES256',use:'sig'});const SUB='44444444-5555-4666-8777-888888888888';
+  const b64=o=>Buffer.from(JSON.stringify(o)).toString('base64url');
+  const tok=(kid,priv)=>{const d=b64({alg:'ES256',typ:'JWT',kid})+'.'+b64({sub:SUB,exp:Math.floor(Date.now()/1000)+60});return d+'.'+crypto.sign('sha256',Buffer.from(d),{key:priv,dsaEncoding:'ieee-p1363'}).toString('base64url')};
+  let kaynak=[()=>{throw new Error('bağlantı yok')},()=>({keys:[jwk(ec,'k1')]}),()=>({keys:[jwk(ec,'k1'),jwk(ec2,'k2')]})];let cagri=0;
+  const s2=createServer({quiet:true,tickMs:50,ayar:{url:'https://x',anonKey:'a',serviceKey:'s',kurulum:'t'},jwksGetirici:async()=>{cagri++;return kaynak.shift()()},jwksDenemeMs:[60,60,60],jwksYenilemeMs:0});
+  await new Promise(r=>s2.server.listen(0,'127.0.0.1',r));const b2='127.0.0.1:'+s2.server.address().port;
+  try{
+    await new Promise(r=>setTimeout(r,250)); // ilk deneme düşer, ikinci 60 ms sonra başarır
+    assert.strictEqual(cagri,2,'başarısız çekim yeniden denenir');
+    const a=client('jw0','A',{host:true,token:tok('k1',ec.privateKey)},b2);await a.until(c=>c.P&&c.P.room);assert.strictEqual(a.kayitli,true);await a.close();
+    // anahtar döndü: k2 ile imzalı token → bilinmeyen kid → yeniden çek → aynı join'de doğrulanır (yenileme beklemesiz, test ayarı)
+    const b=client('jw1','B',{host:true,token:tok('k2',ec2.privateKey)},b2);await b.until(c=>c.P&&c.P.room);
+    assert.strictEqual(cagri,3,'bilinmeyen kid yeniden çekim tetikler');assert.strictEqual(b.kayitli,true,'döndürülen anahtarla imzalı token kabul edilir');await b.close();
+  }finally{await new Promise(r=>s2.close(r))}
+});
