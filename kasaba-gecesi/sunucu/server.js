@@ -115,7 +115,8 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
     res.writeHead(200,{'Content-Type':tip,'Cache-Control':cc,ETag:etag});res.end(req.method==='HEAD'?undefined:buf);
   }
   // Kod istekleri ve anonim kimlik (Plan 7): mail üreten tek herkese açık giriş burası. Turnstile + tavanlar; GoTrue'ya yalnız yerel adresten.
-  const tavan=Kod.tavanlar({saat:ayar.kodSaatlik,gun:ayar.kodGunluk});const kodSayac={gonderildi:0,turnstile_red:0};
+  // kodTavan: testler için pencere/sınır geçersiz kılma
+  const tavan=Kod.tavanlar({saat:ayar.kodSaatlik,gun:ayar.kodGunluk,...(opts.kodTavan||{})});const kodSayac={gonderildi:0,turnstile_red:0};
   const icFetch=opts.icFetch||((u,o)=>fetch(u,o)),turnstileFetch=opts.turnstileFetch||((u,o)=>fetch(u,o));
   const tavanTemizle=setInterval(()=>tavan.temizle(),600000);if(tavanTemizle.unref)tavanTemizle.unref();
   if(ayar.url&&ayar.serviceKey&&ayar.kancaSirri&&!ayar.icUrl)log('UYARI: SUPABASE_IC_URL yok; /eposta/kod ve /hesap/anonim 503 döner');
@@ -173,8 +174,8 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
     const url=(req.url||'/').split('?')[0],surumlu=/[?&]v=/.test(req.url||'');
     if(req.method==='POST'&&url==='/eposta/kanca'){kancaUcu(req,res).catch(e=>{log("kanca hata",e&&e.message);res.writeHead(500);res.end()});return}
     if(req.method==='POST'&&url==='/hesap/birlestir'){birlestirUcu(req,res).catch(()=>{res.writeHead(500);res.end()});return}
-    if(req.method==='POST'&&url==='/eposta/kod'){kodUcu(req,res).catch(()=>{res.writeHead(500);res.end()});return}
-    if(req.method==='POST'&&url==='/hesap/anonim'){anonimUcu(req,res).catch(()=>{res.writeHead(500);res.end()});return}
+    if(req.method==='POST'&&url==='/eposta/kod'){kodUcu(req,res).catch(e=>{log("kod hata",e&&e.message);res.writeHead(500);res.end()});return}
+    if(req.method==='POST'&&url==='/hesap/anonim'){anonimUcu(req,res).catch(e=>{log("anonim hata",e&&e.message);res.writeHead(500);res.end()});return}
     if(req.method!=='GET'&&req.method!=='HEAD'){res.writeHead(405);return res.end()}
     if(url==='/'||url==='/index.html'){
       fs.readFile(INDEX,(err,buf)=>{

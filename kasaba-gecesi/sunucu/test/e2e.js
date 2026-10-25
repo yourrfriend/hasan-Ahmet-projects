@@ -26,8 +26,19 @@ const step=t=>console.log('•',t);
     step('kimlik: Supabase ayarsızken misafir, not yok; ulaşılmaz Supabase ile 2 sn içinde misafir ve "Misafir" notu');
     { const ayar=await (await fetch(base+'ayar.json')).json();assert.deepStrictEqual(ayar,{url:null,anonKey:null,kurulum:null,kayit:false,eposta:false,turnstile:null});
       const KANCA_SIR='v1,whsec_'+Buffer.from('e2e-kanca').toString('base64');const birlesmeler=[]; // Plan 6: /hesap/birlestir sunucuda gerçek, Supabase çağrıları sahte
-      const s3=createServer({quiet:true,tickMs:100,jwksAlma:false,ayar:{url:'http://127.0.0.1:1',anonKey:'anon',serviceKey:'srv',jwtSecret:'x',kurulum:'e2e',kancaSirri:KANCA_SIR},
-        hesapFetch:async(url,o)=>{birlesmeler.push({url,yontem:o.method,govde:o.body?JSON.parse(o.body):null});return {status:200,ok:true,json:async()=>({}),text:async()=>''}}});
+      // Plan 7: anonim oturum ve kod istekleri sunucudan; sunucunun GoTrue (icFetch) ve Turnstile (turnstileFetch) çağrıları sahte
+      const icIstekler=[],tsIstekler=[];let icSignupDurum=200,icGecikmeMs=0;let oturumVer=()=>null; // oturumVer: anonim signup yanıtı (aşağıda oturum tanımlanınca atanır)
+      const icFetch=async(url,o)=>{const u=new URL(url);const g=o&&o.body?JSON.parse(o.body):null;icIstekler.push({yol:u.pathname,yontem:o.method,govde:g,auth:o.headers&&o.headers.Authorization});
+        const json=(b,st=200)=>({status:st,ok:st<300,json:async()=>b,text:async()=>JSON.stringify(b)});
+        if(u.pathname==='/auth/v1/signup')return icSignupDurum===200?json(oturumVer()):json({error:'kapali'},icSignupDurum);
+        if(u.pathname==='/auth/v1/user'){if(icGecikmeMs)await new Promise(r=>setTimeout(r,icGecikmeMs));return json({id:'x',new_email:g&&g.email})}
+        if(u.pathname==='/auth/v1/otp')return json({});
+        return json({},404)};
+      const gorulenBelirtec=new Set();
+      const turnstileFetch=async(url,o)=>{const b=new URLSearchParams(String(o.body));const t=b.get('response');tsIstekler.push(t);const m=/^sahte-(kod_\w+)-/.exec(t||'');
+        const cevap=gorulenBelirtec.has(t)||!m?{success:false,'error-codes':['timeout-or-duplicate']}:{success:true,action:m[1],hostname:'127.0.0.1'};gorulenBelirtec.add(t);return {status:200,ok:true,json:async()=>cevap}};
+      const s3=createServer({quiet:true,tickMs:100,jwksAlma:false,ayar:{url:'http://127.0.0.1:1',anonKey:'anon',serviceKey:'srv',jwtSecret:'x',kurulum:'e2e',kancaSirri:KANCA_SIR,turnstileSite:'site-sahte',turnstileSecret:'sir',turnstileHostnames:['127.0.0.1'],icUrl:'http://ic.test',kodGunluk:50,kodSaatlik:50},kodTavan:{ipOn:20,ipSaat:40}, // e2e: tüm bağlamlar aynı IP; IP tavanı devreye girmesin (adres tavanı sınanır)
+        icFetch,turnstileFetch,hesapFetch:async(url,o)=>{birlesmeler.push({url,yontem:o.method,govde:o.body?JSON.parse(o.body):null});return {status:200,ok:true,json:async()=>({}),text:async()=>''}}});
       await new Promise(r=>s3.server.listen(0,'127.0.0.1',r));const base3='http://127.0.0.1:'+s3.server.address().port+'/';
       const c3=await newCtx();const p3=await open(c3,'Kimlik',base3);const t0=Date.now();
       await p3.waitForSelector('.kimlik-notu',{timeout:5000});assert.match(await p3.textContent('.kimlik-notu'),/Misafir/);
@@ -46,6 +57,7 @@ const step=t=>console.log('•',t);
         const oturumBagli={...oturum,access_token:jwtBagli,refresh_token:'r2',user:{...oturum.user,email:EPOSTA,is_anonymous:false}};
         const oturum2={...oturum,access_token:jwt2,refresh_token:'r3',user:{...oturum.user,id:ben2,email:EPOSTA,is_anonymous:false}};
         let epostaBayragi=false,userGecikmeMs=0;const authIstekler=[]; // Plan 6 incelemesi: logout scope=local, doğrulama sonrası rastgele şifre // Plan 6 senaryoları /ayar.json'da eposta:true ister; userGecikmeMs: PUT /auth/v1/user yavaş Supabase taklidi
+        oturumVer=()=>oturum;let signupRota=0;let apiJsDurum=200;
         const g1='aaaaaaaa-0000-4000-8000-000000000001',g2='aaaaaaaa-0000-4000-8000-000000000002',g3='aaaaaaaa-0000-4000-8000-000000000003',k1='bbbbbbbb-0000-4000-8000-000000000001';
         const g4='aaaaaaaa-0000-4000-8000-000000000004',g9='aaaaaaaa-0000-4000-8000-000000000009';
         const tablo={
@@ -68,10 +80,12 @@ const step=t=>console.log('•',t);
         const suz=(satir,sp)=>{let r=satir;for(const [k,v] of sp){const m=/^(eq|in)\.(.*)$/.exec(v);if(!m)continue;const vals=m[1]==='in'?m[2].replace(/^\(|\)$/g,'').split(','):[m[2]];r=r.filter(x=>vals.includes(String(x[k])))}return r};
         const istekler=[];
         const c5=await newCtx();
-        const c5Rota={desen:u=>/\/(auth|rest)\/v1\//.test(u.pathname)||u.pathname==='/ayar.json',isle:async route=>{
+        const c5Rota={desen:u=>/\/(auth|rest)\/v1\//.test(u.pathname)||u.pathname==='/ayar.json'||u.hostname==='challenges.cloudflare.com',isle:async route=>{
+          if(new URL(route.request().url()).hostname==='challenges.cloudflare.com'){if(apiJsDurum!==200)return route.fulfill({status:apiJsDurum,body:''});
+            return route.fulfill({status:200,contentType:'application/javascript',body:"window.turnstile={_n:0,_o:{},render(el,o){const id='w'+(++this._n);this._o[id]=o;el.setAttribute('data-widget',id);return id},execute(id){const o=this._o[id];setTimeout(()=>o.callback('sahte-'+o.action+'-'+Date.now()+'-'+(++this._n)),10)},reset(){},remove(){}}"})}
           const u=new URL(route.request().url());const json=(b,st)=>route.fulfill({status:st||200,contentType:'application/json',body:JSON.stringify(b)});
-          if(u.pathname==='/ayar.json')return json({url:o3,anonKey:'anon',kurulum:'e2e',kayit:true,eposta:epostaBayragi});
-          if(u.pathname.startsWith('/auth/v1/')){const m=route.request().method();let g=null;try{g=JSON.parse(route.request().postData()||'null')}catch(e){}
+          if(u.pathname==='/ayar.json')return json({url:o3,anonKey:'anon',kurulum:'e2e',kayit:true,eposta:epostaBayragi,turnstile:'site-sahte'});
+          if(u.pathname.startsWith('/auth/v1/')){const m=route.request().method();let g=null;try{g=JSON.parse(route.request().postData()||'null')}catch(e){}if(u.pathname==='/auth/v1/signup')signupRota++;
             if(u.pathname==='/auth/v1/user'&&m==='PUT'){authIstekler.push({yol:'user',govde:g});const bearer=(route.request().headers()['authorization']||'').replace(/^Bearer /,'');const kullanici=bearer===jwt2?oturum2.user:bearer===jwtBagli?oturumBagli.user:oturum.user;
               if(g&&g.password)return json({...kullanici});if(userGecikmeMs)await new Promise(r=>setTimeout(r,userGecikmeMs));return json({...kullanici,new_email:g&&g.email})}
             if(u.pathname==='/auth/v1/otp')return json({});
@@ -112,17 +126,21 @@ const step=t=>console.log('•',t);
         epostaBayragi=true;
         const c6=await newCtx();await c6.route(c5Rota.desen,c5Rota.isle);const p6=await open(c6,'Hesap',base3);
         await p6.waitForSelector('button.hesap-bagla',{timeout:8000});
+        assert.strictEqual(signupRota,0,'anonim oturum GoTrue\'ya doğrudan değil, sunucudan (/hesap/anonim) alınır');assert.ok(icIstekler.some(i=>i.yol==='/auth/v1/signup'&&JSON.stringify(i.govde)==='{}'),'sunucu yerel GoTrue signup {} çağırdı');
+        assert.strictEqual(await p6.evaluate(()=>hesap.uuid),ben,'oturum setSession ile kuruldu');
         assert.match(await p6.textContent('.hesap-durum'),/Kimliğin bu tarayıcıda/);assert.ok(!/Google/.test(await p6.textContent('body')),'Google notu kalktı');assert.ok(await p6.$('button.hesap-gir'));
         await p6.goto(base3+'?bagla=1');await p6.waitForSelector('#hesapEposta',{timeout:8000});assert.ok(!/bagla=1/.test(p6.url()),'parametre temizlenir');
         await p6.click('button.hesap-vazgec');assert.strictEqual(await p6.$('#hesapEposta'),null);
+        const kodBekle=async(p,ad)=>{await p.waitForFunction(()=>document.querySelector('#hesapKod')||document.querySelector('.hesap-hata'),null,{timeout:8000});const h=await p.$('.hesap-hata');if(h)throw new Error(ad+': kod adımı yerine hata: '+await h.textContent())};
         await p6.click('button.hesap-bagla');await p6.fill('#hesapEposta','ben@ornek.com');await p6.click('button.hesap-gonder');
-        await p6.waitForSelector('#hesapKod',{timeout:8000});assert.match(await p6.textContent('button.hesap-yeniden'),/\(\d+\)/,'yeniden gönder sayaçlı');assert.strictEqual(await p6.$eval('button.hesap-yeniden',b=>b.disabled),true);
+        await kodBekle(p6,'bağla');assert.match(await p6.textContent('button.hesap-yeniden'),/\(\d+\)/,'yeniden gönder sayaçlı');assert.strictEqual(await p6.$eval('button.hesap-yeniden',b=>b.disabled),true);
+        { const u=icIstekler.filter(i=>i.yol==='/auth/v1/user');assert.strictEqual(u.length,1,'bağla: sunucu PUT /auth/v1/user');assert.strictEqual(u[0].auth,'Bearer '+jwt);assert.deepStrictEqual(u[0].govde,{email:'ben@ornek.com'});assert.match(tsIstekler[tsIstekler.length-1],/^sahte-kod_bagla-/,'Turnstile belirteci action ile') }
         await p6.fill('#hesapKod','999999');await p6.click('button.hesap-dogrula');await p6.waitForSelector('.hesap-hata',{timeout:8000});assert.match(await p6.textContent('.hesap-hata'),/Kod yanlış/);
         await p6.fill('#hesapKod','123456');await p6.click('button.hesap-dogrula');
         await p6.waitForFunction(()=>/Hesabın: ben@ornek\.com/.test((document.querySelector('.hesap-durum')||{}).textContent||''),null,{timeout:8000});
         assert.ok(await p6.$('button.hesap-cikis'));assert.strictEqual(await p6.$('button.hesap-bagla'),null);assert.strictEqual(await p6.$('#hesapEposta'),null);
         assert.strictEqual(await p6.evaluate(()=>JSON.parse(localStorage.getItem('kg_token'))),jwtBagli,'kg_token bağlı oturuma geçer');
-        { const sif=authIstekler.filter(a=>a.yol==='user'&&a.govde&&a.govde.password);assert.strictEqual(sif.length,1,'doğrulama sonrası hesaba rastgele şifre atanır (önceden açılmış hesabın şifresi geçersiz olsun)');assert.ok(sif[0].govde.password.length>=32); }
+        assert.strictEqual(authIstekler.filter(a=>a.yol==='user').length,0,'istemci GoTrue /user ucunu doğrudan çağırmaz (şifre döndürme kalktı, bağlama sunucudan)');
         // hatırlatma yardımcısı: yalnız e-postasız kayıtlıda; son ekran bu yardımcıyı kullanır
         assert.deepStrictEqual(await p6.evaluate(()=>[hatirlatGoster({eposta:true},true,null),hatirlatGoster({eposta:true},true,'a@b.c'),hatirlatGoster({eposta:false},true,null),hatirlatGoster(null,false,null),hatirlatGoster({eposta:true},false,null)]),[true,false,false,false,false]);
         assert.ok(await p6.evaluate(()=>renderEndUI.toString().includes('hatirlatGoster(')&&renderEndUI.toString().includes('hesap-hatirlat')),'son ekran hatırlatması yardımcıya bağlı');
@@ -131,22 +149,33 @@ const step=t=>console.log('•',t);
         step('e-posta: ikinci cihaz — kod ile gir, 2 oyunu ekle → /hesap/birlestir; Hayır → çağrı yok; yavaş Supabase → zaman aşımı metni');
         const c7=await newCtx();await c7.route(c5Rota.desen,c5Rota.isle);const p7=await open(c7,'İkinci',base3);
         await p7.waitForSelector('button.hesap-gir',{timeout:8000});await p7.click('button.hesap-gir');await p7.fill('#hesapEposta','ben@ornek.com');await p7.click('button.hesap-gonder');
-        await p7.waitForSelector('#hesapKod',{timeout:8000});await p7.fill('#hesapKod','123456');await p7.click('button.hesap-dogrula');
+        await kodBekle(p7,'gir');await p7.fill('#hesapKod','123456');await p7.click('button.hesap-dogrula');
         await p7.waitForSelector('.hesap-birlestir',{timeout:8000});assert.match(await p7.textContent('.hesap-birlestir'),/2 oyunu/);
         await p7.click('.hesap-birlestir button.ekle');
         await p7.waitForFunction(()=>/Hesabın: ben@ornek\.com/.test((document.querySelector('.hesap-durum')||{}).textContent||'')&&!document.querySelector('.hesap-birlestir'),null,{timeout:10000});
-        assert.strictEqual(birlesmeler.length,2,'RPC + admin silme');assert.strictEqual(authIstekler.filter(a=>a.yol==='user'&&a.govde&&a.govde.password).length,2,'girişte de rastgele şifre atanır');assert.strictEqual(birlesmeler[0].url,'http://127.0.0.1:1/rest/v1/rpc/hesap_birlestir');assert.deepStrictEqual(birlesmeler[0].govde,{eski:ben,yeni:ben2});assert.strictEqual(birlesmeler[1].yontem,'DELETE');
+        assert.strictEqual(birlesmeler.length,2,'RPC + admin silme');{ const o=icIstekler.filter(i=>i.yol==='/auth/v1/otp');assert.ok(o.length>=1,'gir: sunucu POST /auth/v1/otp');assert.deepStrictEqual(o[o.length-1].govde,{email:'ben@ornek.com',create_user:false}) }assert.strictEqual(birlesmeler[0].url,'http://127.0.0.1:1/rest/v1/rpc/hesap_birlestir');assert.deepStrictEqual(birlesmeler[0].govde,{eski:ben,yeni:ben2});assert.strictEqual(birlesmeler[1].yontem,'DELETE');
         await c7.close();
         const c8=await newCtx();await c8.route(c5Rota.desen,c5Rota.isle);const p8=await open(c8,'İkinci-hayır',base3);
         await p8.waitForSelector('button.hesap-gir',{timeout:8000});await p8.click('button.hesap-gir');await p8.fill('#hesapEposta','ben@ornek.com');await p8.click('button.hesap-gonder');
-        await p8.waitForSelector('#hesapKod',{timeout:8000});await p8.fill('#hesapKod','123456');await p8.click('button.hesap-dogrula');await p8.waitForSelector('.hesap-birlestir',{timeout:8000});
+        await kodBekle(p8,'gir-hayır');await p8.fill('#hesapKod','123456');await p8.click('button.hesap-dogrula');await p8.waitForSelector('.hesap-birlestir',{timeout:8000});
         await p8.click('.hesap-birlestir button.hayir');await p8.waitForFunction(()=>/Hesabın: ben@ornek\.com/.test((document.querySelector('.hesap-durum')||{}).textContent||''),null,{timeout:10000});
         assert.strictEqual(birlesmeler.length,2,'Hayır → birleştirme çağrısı yok');
         await c8.close();
-        userGecikmeMs=11000;const c9=await newCtx();await c9.route(c5Rota.desen,c5Rota.isle);const p9=await open(c9,'Yavaş',base3);
-        await p9.waitForSelector('button.hesap-bagla',{timeout:8000});await p9.click('button.hesap-bagla');await p9.fill('#hesapEposta','ben@ornek.com');const t9=Date.now();await p9.click('button.hesap-gonder');
+        icGecikmeMs=11000;const c9=await newCtx();await c9.route(c5Rota.desen,c5Rota.isle);const p9=await open(c9,'Yavaş',base3);
+        await p9.waitForSelector('button.hesap-bagla',{timeout:8000});await p9.click('button.hesap-bagla');await p9.fill('#hesapEposta','yavas@ornek.com');const t9=Date.now();await p9.click('button.hesap-gonder');
         await p9.waitForSelector('.hesap-hata',{timeout:11500});assert.match(await p9.textContent('.hesap-hata'),/gönderilemedi/);assert.ok(Date.now()-t9<11200,'10 sn zaman aşımı');
-        await c9.close();userGecikmeMs=0;epostaBayragi=false; }
+        await c9.close();icGecikmeMs=0;
+        step('e-posta (Plan 7): 4. kod isteği 429 metni; Turnstile betiği yüklenemezse metin; sunucu GoTrue\'ya ulaşamazsa misafir');
+        { const c10=await newCtx();await c10.route(c5Rota.desen,c5Rota.isle);const p10=await open(c10,'Tavan',base3);await p10.waitForSelector('button.hesap-bagla',{timeout:8000});
+          for(let i=0;i<3;i++){await p10.click(i?'button.hesap-vazgec':'button.hesap-gir');if(i)await p10.click('button.hesap-gir');await p10.fill('#hesapEposta','tavan@ornek.com');await p10.click('button.hesap-gonder');await kodBekle(p10,'tavan '+i)}
+          await p10.click('button.hesap-vazgec');await p10.click('button.hesap-gir');await p10.fill('#hesapEposta','tavan@ornek.com');await p10.click('button.hesap-gonder');await p10.waitForSelector('.hesap-hata',{timeout:8000});assert.match(await p10.textContent('.hesap-hata'),/Çok sık istek/,'adres saatte 3');
+          await c10.close(); }
+        { apiJsDurum=404;const c11=await newCtx();await c11.route(c5Rota.desen,c5Rota.isle);const p11=await open(c11,'Betik',base3);await p11.waitForSelector('button.hesap-bagla',{timeout:8000});
+          await p11.click('button.hesap-bagla');await p11.fill('#hesapEposta','ben@ornek.com');await p11.click('button.hesap-gonder');await p11.waitForSelector('.hesap-hata',{timeout:8000});assert.match(await p11.textContent('.hesap-hata'),/yüklenemedi/);
+          assert.strictEqual(await p11.$eval('button.hesap-gonder',b=>b.disabled),false,'düğme tekrar basılabilir');apiJsDurum=200;await c11.close(); }
+        { icSignupDurum=503;const c12=await newCtx();await c12.route(c5Rota.desen,c5Rota.isle);const p12=await open(c12,'Misafir',base3);await p12.waitForSelector('.kimlik-notu',{timeout:8000});
+          assert.match(await p12.textContent('.kimlik-notu'),/Misafir/,'sunucu GoTrue\'ya ulaşamayınca misafir');assert.ok(await p12.$('text=Yeni oda kur'));icSignupDurum=200;await c12.close(); }
+        epostaBayragi=false; }
       await new Promise(r=>s3.close(r)); }
 
     step('geçmiş sayfaları: Supabase yokken hatasız açılır ve "kayıt kapalı" der');
