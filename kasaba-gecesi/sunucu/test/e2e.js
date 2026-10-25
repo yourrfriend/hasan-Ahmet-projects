@@ -25,7 +25,9 @@ const step=t=>console.log('•',t);
   try{
     step('kimlik: Supabase ayarsızken misafir, not yok; ulaşılmaz Supabase ile 2 sn içinde misafir ve "Misafir" notu');
     { const ayar=await (await fetch(base+'ayar.json')).json();assert.deepStrictEqual(ayar,{url:null,anonKey:null,kurulum:null,kayit:false,eposta:false});
-      const s3=createServer({quiet:true,tickMs:100,jwksAlma:false,ayar:{url:'http://127.0.0.1:1',anonKey:'anon',serviceKey:'srv',jwtSecret:'x',kurulum:'e2e'}});
+      const KANCA_SIR='v1,whsec_'+Buffer.from('e2e-kanca').toString('base64');const birlesmeler=[]; // Plan 6: /hesap/birlestir sunucuda gerçek, Supabase çağrıları sahte
+      const s3=createServer({quiet:true,tickMs:100,jwksAlma:false,ayar:{url:'http://127.0.0.1:1',anonKey:'anon',serviceKey:'srv',jwtSecret:'x',kurulum:'e2e',kancaSirri:KANCA_SIR},
+        hesapFetch:async(url,o)=>{birlesmeler.push({url,yontem:o.method,govde:o.body?JSON.parse(o.body):null});return {status:200,ok:true,json:async()=>({}),text:async()=>''}}});
       await new Promise(r=>s3.server.listen(0,'127.0.0.1',r));const base3='http://127.0.0.1:'+s3.server.address().port+'/';
       const c3=await newCtx();const p3=await open(c3,'Kimlik',base3);const t0=Date.now();
       await p3.waitForSelector('.kimlik-notu',{timeout:5000});assert.match(await p3.textContent('.kimlik-notu'),/Misafir/);
@@ -38,6 +40,12 @@ const step=t=>console.log('•',t);
       { const Kimlik=require('../kimlik.js');const ben='11111111-2222-4333-8444-555555555555';const o3=base3.replace(/\/$/,'');
         const jwt=Kimlik.imzala({sub:ben,exp:Math.floor(Date.now()/1000)+3600,role:'authenticated',aud:'authenticated',is_anonymous:true},'x');
         const oturum={access_token:jwt,token_type:'bearer',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,refresh_token:'r1',user:{id:ben,aud:'authenticated',role:'authenticated',is_anonymous:true,app_metadata:{provider:'anonymous'},user_metadata:{},created_at:new Date().toISOString()}};
+        const ben2='22222222-2222-4333-8444-555555555555';const EPOSTA='ben@ornek.com';
+        const jwtBagli=Kimlik.imzala({sub:ben,exp:Math.floor(Date.now()/1000)+3600,role:'authenticated',aud:'authenticated',is_anonymous:false,email:EPOSTA},'x');
+        const jwt2=Kimlik.imzala({sub:ben2,exp:Math.floor(Date.now()/1000)+3600,role:'authenticated',aud:'authenticated',is_anonymous:false,email:EPOSTA},'x');
+        const oturumBagli={...oturum,access_token:jwtBagli,refresh_token:'r2',user:{...oturum.user,email:EPOSTA,is_anonymous:false}};
+        const oturum2={...oturum,access_token:jwt2,refresh_token:'r3',user:{...oturum.user,id:ben2,email:EPOSTA,is_anonymous:false}};
+        let epostaBayragi=false,userGecikmeMs=0; // Plan 6 senaryoları /ayar.json'da eposta:true ister; userGecikmeMs: PUT /auth/v1/user yavaş Supabase taklidi
         const g1='aaaaaaaa-0000-4000-8000-000000000001',g2='aaaaaaaa-0000-4000-8000-000000000002',g3='aaaaaaaa-0000-4000-8000-000000000003',k1='bbbbbbbb-0000-4000-8000-000000000001';
         const g4='aaaaaaaa-0000-4000-8000-000000000004',g9='aaaaaaaa-0000-4000-8000-000000000009';
         const tablo={
@@ -60,13 +68,20 @@ const step=t=>console.log('•',t);
         const suz=(satir,sp)=>{let r=satir;for(const [k,v] of sp){const m=/^(eq|in)\.(.*)$/.exec(v);if(!m)continue;const vals=m[1]==='in'?m[2].replace(/^\(|\)$/g,'').split(','):[m[2]];r=r.filter(x=>vals.includes(String(x[k])))}return r};
         const istekler=[];
         const c5=await newCtx();
-        await c5.route(u=>/\/(auth|rest)\/v1\//.test(u.pathname)||u.pathname==='/ayar.json',async route=>{
+        const c5Rota={desen:u=>/\/(auth|rest)\/v1\//.test(u.pathname)||u.pathname==='/ayar.json',isle:async route=>{
           const u=new URL(route.request().url());const json=(b,st)=>route.fulfill({status:st||200,contentType:'application/json',body:JSON.stringify(b)});
-          if(u.pathname==='/ayar.json')return json({url:o3,anonKey:'anon',kurulum:'e2e',kayit:true});
-          if(u.pathname.startsWith('/auth/v1/'))return json(/signup|token/.test(u.pathname)?oturum:oturum.user);
+          if(u.pathname==='/ayar.json')return json({url:o3,anonKey:'anon',kurulum:'e2e',kayit:true,eposta:epostaBayragi});
+          if(u.pathname.startsWith('/auth/v1/')){const m=route.request().method();let g=null;try{g=JSON.parse(route.request().postData()||'null')}catch(e){}
+            if(u.pathname==='/auth/v1/user'&&m==='PUT'){if(userGecikmeMs)await new Promise(r=>setTimeout(r,userGecikmeMs));return json({...oturum.user,new_email:g&&g.email})}
+            if(u.pathname==='/auth/v1/otp')return json({});
+            if(u.pathname==='/auth/v1/verify'){if(!g||g.token!=='123456')return json({code:403,error_code:'otp_expired',msg:'Token has expired or is invalid'},403);return json(g.type==='email_change'?oturumBagli:oturum2)}
+            if(u.pathname==='/auth/v1/logout')return route.fulfill({status:204,body:''});
+            return json(/signup|token/.test(u.pathname)?oturum:oturum.user)}
+          if(route.request().method()==='HEAD')return route.fulfill({status:200,headers:{'content-range':'0-1/2','content-type':'application/json'},body:''}); // count=exact → N=2
           const t=u.pathname.split('/').pop();istekler.push(t+'?'+u.searchParams.toString());
           if(!tablo[t])return json({message:'yok: '+t},404);
-          return json(suz(tablo[t],u.searchParams))});
+          return json(suz(tablo[t],u.searchParams))}};
+        await c5.route(c5Rota.desen,c5Rota.isle);
         const p5=await open(c5,'Geçmiş',base3);
         await p5.waitForSelector('.gecmis',{timeout:8000});
         const g=await p5.evaluate(()=>{const e=document.querySelector('.gecmis');return{t:e.textContent,maclar:[...e.querySelectorAll('a.mac')].map(a=>({href:a.getAttribute('href'),t:a.textContent})),kasabalar:[...e.querySelectorAll('a.kasaba')].map(a=>({href:a.getAttribute('href'),t:a.textContent}))}});
@@ -91,13 +106,54 @@ const step=t=>console.log('•',t);
         const ks=await p5.evaluate(()=>({t:document.querySelector('main').textContent,maclar:[...document.querySelectorAll('a[href^="/oyun/"]')].map(a=>a.getAttribute('href'))}));
         assert.match(ks.t,/Barış'ın Kasabası/);assert.match(ks.t,/Ben \(sen\)/);assert.ok(!/%/.test(ks.t),'yüzde yok');assert.deepStrictEqual(ks.maclar,['/oyun/'+g3,'/oyun/'+g1],'son maçlar: kasabanın bitmiş maçları, yeniden eskiye');
         assert.ok(istekler.some(i=>/^oyunlar\?.*kasaba_id=eq\./.test(i)&&/kurulum=eq\.e2e/.test(i)),'kasaba son maçları kurulum süzgeciyle: '+istekler.join(' | '));
-        await c5.close(); }
+        await c5.close();
+        step('e-posta (Plan 6): e-postasız kayıtlı → iki düğme; ?bagla=1 formu açar; kod ile bağla (yanlış kod → hata); Hesabın + çıkış');
+        epostaBayragi=true;
+        const c6=await newCtx();await c6.route(c5Rota.desen,c5Rota.isle);const p6=await open(c6,'Hesap',base3);
+        await p6.waitForSelector('button.hesap-bagla',{timeout:8000});
+        assert.match(await p6.textContent('.hesap-durum'),/Kimliğin bu tarayıcıda/);assert.ok(!/Google/.test(await p6.textContent('body')),'Google notu kalktı');assert.ok(await p6.$('button.hesap-gir'));
+        await p6.goto(base3+'?bagla=1');await p6.waitForSelector('#hesapEposta',{timeout:8000});assert.ok(!/bagla=1/.test(p6.url()),'parametre temizlenir');
+        await p6.click('button.hesap-vazgec');assert.strictEqual(await p6.$('#hesapEposta'),null);
+        await p6.click('button.hesap-bagla');await p6.fill('#hesapEposta','ben@ornek.com');await p6.click('button.hesap-gonder');
+        await p6.waitForSelector('#hesapKod',{timeout:8000});assert.match(await p6.textContent('button.hesap-yeniden'),/\(\d+\)/,'yeniden gönder sayaçlı');assert.strictEqual(await p6.$eval('button.hesap-yeniden',b=>b.disabled),true);
+        await p6.fill('#hesapKod','999999');await p6.click('button.hesap-dogrula');await p6.waitForSelector('.hesap-hata',{timeout:8000});assert.match(await p6.textContent('.hesap-hata'),/Kod yanlış/);
+        await p6.fill('#hesapKod','123456');await p6.click('button.hesap-dogrula');
+        await p6.waitForFunction(()=>/Hesabın: ben@ornek\.com/.test((document.querySelector('.hesap-durum')||{}).textContent||''),null,{timeout:8000});
+        assert.ok(await p6.$('button.hesap-cikis'));assert.strictEqual(await p6.$('button.hesap-bagla'),null);assert.strictEqual(await p6.$('#hesapEposta'),null);
+        assert.strictEqual(await p6.evaluate(()=>JSON.parse(localStorage.getItem('kg_token'))),jwtBagli,'kg_token bağlı oturuma geçer');
+        // hatırlatma yardımcısı: yalnız e-postasız kayıtlıda; son ekran bu yardımcıyı kullanır
+        assert.deepStrictEqual(await p6.evaluate(()=>[hatirlatGoster({eposta:true},true,null),hatirlatGoster({eposta:true},true,'a@b.c'),hatirlatGoster({eposta:false},true,null),hatirlatGoster(null,false,null),hatirlatGoster({eposta:true},false,null)]),[true,false,false,false,false]);
+        assert.ok(await p6.evaluate(()=>renderEndUI.toString().includes('hatirlatGoster(')&&renderEndUI.toString().includes('hesap-hatirlat')),'son ekran hatırlatması yardımcıya bağlı');
+        await p6.click('button.hesap-cikis');await p6.waitForSelector('button.hesap-bagla',{timeout:8000});assert.notStrictEqual(await p6.evaluate(()=>JSON.parse(localStorage.getItem('kg_token'))),jwtBagli,'çıkışta bağlı token gider; yenilemede yeni anonim oturum');
+        await c6.close();
+        step('e-posta: ikinci cihaz — kod ile gir, 2 oyunu ekle → /hesap/birlestir; Hayır → çağrı yok; yavaş Supabase → zaman aşımı metni');
+        const c7=await newCtx();await c7.route(c5Rota.desen,c5Rota.isle);const p7=await open(c7,'İkinci',base3);
+        await p7.waitForSelector('button.hesap-gir',{timeout:8000});await p7.click('button.hesap-gir');await p7.fill('#hesapEposta','ben@ornek.com');await p7.click('button.hesap-gonder');
+        await p7.waitForSelector('#hesapKod',{timeout:8000});await p7.fill('#hesapKod','123456');await p7.click('button.hesap-dogrula');
+        await p7.waitForSelector('.hesap-birlestir',{timeout:8000});assert.match(await p7.textContent('.hesap-birlestir'),/2 oyunu/);
+        await p7.click('.hesap-birlestir button.ekle');
+        await p7.waitForFunction(()=>/Hesabın: ben@ornek\.com/.test((document.querySelector('.hesap-durum')||{}).textContent||'')&&!document.querySelector('.hesap-birlestir'),null,{timeout:10000});
+        assert.strictEqual(birlesmeler.length,2,'RPC + admin silme');assert.strictEqual(birlesmeler[0].url,'http://127.0.0.1:1/rest/v1/rpc/hesap_birlestir');assert.deepStrictEqual(birlesmeler[0].govde,{eski:ben,yeni:ben2});assert.strictEqual(birlesmeler[1].yontem,'DELETE');
+        await c7.close();
+        const c8=await newCtx();await c8.route(c5Rota.desen,c5Rota.isle);const p8=await open(c8,'İkinci-hayır',base3);
+        await p8.waitForSelector('button.hesap-gir',{timeout:8000});await p8.click('button.hesap-gir');await p8.fill('#hesapEposta','ben@ornek.com');await p8.click('button.hesap-gonder');
+        await p8.waitForSelector('#hesapKod',{timeout:8000});await p8.fill('#hesapKod','123456');await p8.click('button.hesap-dogrula');await p8.waitForSelector('.hesap-birlestir',{timeout:8000});
+        await p8.click('.hesap-birlestir button.hayir');await p8.waitForFunction(()=>/Hesabın: ben@ornek\.com/.test((document.querySelector('.hesap-durum')||{}).textContent||''),null,{timeout:10000});
+        assert.strictEqual(birlesmeler.length,2,'Hayır → birleştirme çağrısı yok');
+        await c8.close();
+        userGecikmeMs=11000;const c9=await newCtx();await c9.route(c5Rota.desen,c5Rota.isle);const p9=await open(c9,'Yavaş',base3);
+        await p9.waitForSelector('button.hesap-bagla',{timeout:8000});await p9.click('button.hesap-bagla');await p9.fill('#hesapEposta','ben@ornek.com');const t9=Date.now();await p9.click('button.hesap-gonder');
+        await p9.waitForSelector('.hesap-hata',{timeout:11500});assert.match(await p9.textContent('.hesap-hata'),/gönderilemedi/);assert.ok(Date.now()-t9<11200,'10 sn zaman aşımı');
+        await c9.close();userGecikmeMs=0;epostaBayragi=false; }
       await new Promise(r=>s3.close(r)); }
 
     step('geçmiş sayfaları: Supabase yokken hatasız açılır ve "kayıt kapalı" der');
     { const c4=await newCtx();const u='aaaaaaaa-0000-4000-8000-000000000009';
       for(const yol of ['/oyun/'+u,'/kasaba/'+u]){const p=await open(c4,'Sayfa'+yol,base.replace(/\/$/,'')+yol);await p.waitForSelector('.not',{timeout:8000});assert.match(await p.textContent('.not'),/Kayıt kapalı/,yol);assert.ok(await p.$('main'))}
       await c4.close(); }
+
+    step('kayıt kapalı: ?bagla=1 form açmaz, düğme yok');
+    { const c0=await newCtx();const p0=await open(c0,'Kapalı',base+'?bagla=1');await p0.waitForSelector('text=Yeni oda kur');assert.strictEqual(await p0.$('#hesapEposta'),null);assert.strictEqual(await p0.$('button.hesap-bagla'),null);await c0.close(); }
 
     step('ev sahibi oda kurar');
     const hostCtx=await newCtx();let host=await open(hostCtx,'Ev',base);

@@ -46,6 +46,8 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12px;background:var(--panel2)}
 .chip .dot{width:8px;height:8px;border-radius:50%}
 /* giriş sayfası geçmiş bloğu (Plan 5) */
+.hesap-form{display:grid;gap:8px;max-width:440px;margin-top:4px}.hesap-form h3{margin-top:4px}.hesap-form input{max-width:320px}.hesap-hata{color:#ff6b6b;font-size:13px}.hesap-birlestir{display:grid;gap:6px}.hesap-durum{margin:0}
+.endcard a.hesap-hatirlat{display:inline-block;justify-self:center;font-weight:700;color:#8a5a12;font-size:clamp(11px,1.4vw,13px)}
 .gecmis .kart{font-weight:700}.gecmis .maclar{display:grid;gap:6px}
 .gecmis a.mac{display:grid;gap:2px;padding:8px 10px;border-radius:10px;background:var(--panel2);color:var(--fg);text-decoration:none;font-size:14px}.gecmis a.mac:hover{outline:1px solid var(--accent)}
 .gecmis a.mac .ne{font-size:12px;color:var(--muted)}.gecmis a.mac .alt{display:flex;gap:10px;flex-wrap:wrap;align-items:baseline}.gecmis a.mac .kim{font-weight:800}.gecmis a.mac .kim.inn{color:var(--inn)}.gecmis a.mac .kim.imp{color:var(--imp)}.gecmis a.mac .kim.neu{color:var(--neu)}.gecmis a.mac .ben{font-size:13px;color:var(--muted)}
@@ -228,7 +230,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 <div id="app"><div class="panel"><p class="muted">Yükleniyor…</p></div></div>
 <script>
 // Script daha başlamadan çökerse "Yükleniyor…" yerine hatayı göster (sürüm damgasıyla).
-window.KG_VER='2026-10-30d';
+window.KG_VER='2026-10-31a';
 window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ff6b6b"><p><b>Sayfa açılamadı.</b> Sürüm '+KG_VER+'</p><p class="small" style="word-break:break-all">'+String(e.message||e.error||e)+(e.filename?' @'+e.lineno:'')+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}});
 setTimeout(function(){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ffb347"><p><b>Sayfa yüklenemedi.</b> Sürüm '+KG_VER+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}},8000);
 </script>
@@ -249,6 +251,7 @@ let isHost=false,myId=null,active=false,myName=ls('kg_name')||'',roomCode=null,w
 // Oturum en çok 2 sn beklenir; gelmezse bu sayfa yüklemesi boyunca misafir (kg_uid). Son token kg_token'da durur: Supabase'e
 // ulaşılamasa da (süresi dolmuş olsa da) aynı kimlikle bağlanılır. kayitli: sunucunun join yanıtı (you.kayitli).
 let ayar=null,kayitli=false,token=ls('kg_token')||null,sb=null,kimlikSoz=null;
+let hesap={uuid:null,eposta:null,anonim:true}; // Supabase oturumu (Plan 6): e-posta bağlıysa eposta dolu; kimlikHazirla doldurur, doğrulama günceller
 let gecmis=null; // giriş sayfası geçmiş bloğu (Plan 5): {ozet, oyunlar, kasabalar}; Supabase'ten arka planda gelir, 3 sn zaman aşımı, hata sessiz
 let chatLog=[]; // sohbet state ile değil, parça parça gelir ({t:'chat'}); P.chat buna bağlanır
 let myLook=ls('kg_look')||{color:COLORS[Math.floor(Math.random()*COLORS.length)],hat:HATS[Math.floor(Math.random()*HATS.length)][0]};
@@ -257,7 +260,7 @@ let priv={role:null,notes:[],mates:[],dchat:[],uses:{},vest:0,planted:[]}; // pl
 let lobby=[];let local={act:{},vote:null};
 let settings=ls('kg_settings')||{night:30,talk:120,vote:45};
 let lastKey=null,sel={},skew=0,connSince=Date.now();
-let ui={menu:false,notes:false,custom:false,roleCard:false,rules:false,hizli:false,hizliAlt:null,rehber:false};
+let ui={menu:false,notes:false,custom:false,roleCard:false,rules:false,hizli:false,hizliAlt:null,rehber:false,hesap:{tur:null,adim:'eposta',eposta:'',hata:'',bekleBitis:0,N:0,eski:null,yukleniyor:false,bilgi:''}}; // hesap: bağla/gir formu (yalnız giriş sayfası)
 let hizliSon=0,hizliUyari='',hizliUyariT=null; // ⚡ hızlı ifade: yerel bekleme göstergesi ve sunucunun err soft uyarısı (sunucu yetkili)
 function now(){return Date.now()-skew}
 const app=document.getElementById('app');
@@ -293,12 +296,83 @@ async function kimlikHazirla(){
   if(!ayar||!ayar.kayit||!ayar.url||!ayar.anonKey)return null;
   const oturum=(async()=>{await yukle('sayfa/supabase.js?v='+KG_VER);sb=window.supabase.createClient(ayar.url,ayar.anonKey,{auth:{persistSession:true,autoRefreshToken:true}});
     let {data:{session}}=await sb.auth.getSession();if(!session){const r=await sb.auth.signInAnonymously();session=r.data&&r.data.session}
+    if(session&&session.user)hesapGuncelle(session);
     sb.auth.onAuthStateChange((ev,s)=>{if(s&&s.access_token)ls('kg_token',s.access_token)}); // yenilenen token bir sonraki yüklemede kullanılır
     return session&&session.access_token||null})();
   oturum.catch(()=>{}); // yarış 2 sn'de biterse sonradan gelen hata konsola düşmesin
   let t;try{t=await Promise.race([oturum,new Promise(r=>setTimeout(()=>r(undefined),2000))])}catch(e){t=null}
   if(t){token=t;ls('kg_token',t)} // undefined/null: zaman aşımı ya da hata → eldeki eski token (varsa) ile devam
   return token;
+}
+// ---------- Hesap: e-posta ile bağlama ve ikinci cihaz (Plan 6; tasarım …eposta-kod-design.md §5.1, §5.6) ----------
+// Yalnız giriş sayfasında (odadayken kimlik değişmez). Kod GoTrue'dan gelir; mail sunucudaki kancayla gider. Düğmeler ayar.eposta ile görünür.
+function hesapGuncelle(session){hesap={uuid:session.user.id,eposta:session.user.email||null,anonim:session.user.is_anonymous!==false&&!session.user.email};token=session.access_token;ls('kg_token',token)}
+function hatirlatGoster(ayar,kayitli,hesapEposta){return !!(ayar&&ayar.eposta&&kayitli&&!hesapEposta)} // son ekran hatırlatması: e-postasız kayıtlı oyuncu
+const HESAP_SURE_MS=10000;
+function hesapHataMetni(e){const m=((e&&(e.code||e.error_code))||'')+' '+((e&&e.message)||'');
+  if(/email_exists|user_already_exists|already registered|already been registered/i.test(m))return "Bu e-posta başka bir hesaba bağlı; o hesapla girmek için 'Hesabınla gir'.";
+  if(/otp_expired|invalid|expired/i.test(m))return 'Kod yanlış ya da süresi dolmuş.';
+  if(/rate_limit|rate limit|429|too many/i.test(m))return 'Çok sık istek; 1 dk bekle.';
+  if(/signup_disabled|user_not_found|otp_disabled|not allowed|not found/i.test(m))return 'Bu e-posta kayıtlı değil; önce ilk cihazında bağla.';
+  return 'Şu an gönderilemedi, tekrar dene.'}
+function hesapSure(p){return Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error('zaman_asimi')),HESAP_SURE_MS))])}
+function hesapAc(tur){ui.hesap={tur,adim:'eposta',eposta:'',hata:'',bekleBitis:0,N:0,eski:null,yukleniyor:false,bilgi:''};render()}
+function hesapKapat(){ui.hesap.tur=null;ui.hesap.hata='';render()}
+async function hesapKodGonder(){
+  const h=ui.hesap;const e=(document.getElementById('hesapEposta')||{}).value||h.eposta;h.eposta=String(e||'').trim().toLowerCase();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(h.eposta)){h.hata='E-posta adresini kontrol et.';render();return}
+  if(!sb||h.yukleniyor)return;h.yukleniyor=true;h.hata='';render();
+  try{
+    if(h.tur==='bagla'){const {error}=await hesapSure(sb.auth.updateUser({email:h.eposta}));if(error)throw error}
+    else{ // gir: önce bu cihazın anonim geçmişi (N) ve eski token; sonra kod iste (kayıtlı olmayan adrese hesap açılmaz)
+      h.eski=ls('kg_token')||token;let N=0;try{const r=await hesapSure(sb.from('oyun_oyunculari_acik').select('oyun_id',{count:'exact',head:true}).eq('uye',hesap.uuid));N=r.count||0}catch(x){N=0}h.N=N;
+      const {error}=await hesapSure(sb.auth.signInWithOtp({email:h.eposta,options:{shouldCreateUser:false}}));if(error)throw error}
+    h.adim='kod';h.bekleBitis=Date.now()+60000;
+  }catch(err){h.hata=hesapHataMetni(err)}
+  h.yukleniyor=false;render();
+}
+async function hesapDogrula(){
+  const h=ui.hesap;const kod=String((document.getElementById('hesapKod')||{}).value||'').replace(/\D/g,'');
+  if(kod.length!==6){h.hata='6 haneli kodu yaz.';render();return}
+  if(!sb||h.yukleniyor)return;h.yukleniyor=true;h.hata='';render();
+  try{
+    const {data,error}=await hesapSure(sb.auth.verifyOtp({email:h.eposta,token:kod,type:h.tur==='bagla'?'email_change':'email'}));if(error)throw error;
+    if(data&&data.session)hesapGuncelle(data.session);
+    if(h.tur==='gir'){if(h.N>0){h.adim='birlestir';h.yukleniyor=false;render();return}h.yukleniyor=false;return hesapBirlestir(true)}
+    h.tur=null;
+  }catch(err){h.hata=hesapHataMetni(err)}
+  h.yukleniyor=false;render();
+}
+// İkinci cihaz: Ekle → sunucu iki taze token'la RPC'yi çağırır; Hayır → hiçbir çağrı yok. Sonra sayfa yenilenir (yeni kimlikle giriş bloğu).
+async function hesapBirlestir(ekle){
+  const h=ui.hesap;if(!ekle){h.tur=null;location.reload();return}
+  h.yukleniyor=true;h.adim='birlestir';h.bilgi='Geçmiş taşınıyor…';render();
+  try{const r=await hesapSure(fetch('/hesap/birlestir',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({eski:h.eski,yeni:token})}));
+    if(!r.ok){const j=await r.json().catch(()=>({}));h.bilgi='Giriş yapıldı; bu cihazın eski geçmişi doğrulanamadığı için taşınamadı ('+(j.error||r.status)+').';render();setTimeout(()=>location.reload(),3000);return}
+  }catch(e){h.bilgi='Giriş yapıldı; geçmiş şu an taşınamadı.';render();setTimeout(()=>location.reload(),3000);return}
+  location.reload();
+}
+async function hesapCikis(){try{if(sb)await hesapSure(sb.auth.signOut())}catch(e){}try{localStorage.removeItem('kg_token')}catch(e){}location.reload()}
+function hesapBlok(pn){
+  const h=ui.hesap;
+  if(hesap.eposta&&!(h.tur==='gir'&&h.adim==='birlestir')){const d=el('p','small muted kimlik-notu hesap-durum','Hesabın: '+hesap.eposta);const b=el('button','small hesap-cikis','Bu cihazdan çık');b.onclick=()=>hesapCikis();const r=el('div','row');r.append(d,b);pn.append(r);return}
+  if(!hesap.eposta)pn.append(el('p','small muted kimlik-notu hesap-durum','Kimliğin bu tarayıcıda; veriler silinirse geçmiş gider.'));
+  if(!h.tur){const r=el('div','row');const b1=el('button','hesap-bagla','📧 E-postanı bağla');b1.onclick=()=>hesapAc('bagla');const b2=el('button','hesap-gir','Hesabınla gir');b2.onclick=()=>hesapAc('gir');r.append(b1,b2);pn.append(r);return}
+  const f=el('div','hesap-form');f.append(el('h3',null,h.tur==='bagla'?'E-postanı bağla':'Hesabınla gir'));
+  if(h.adim==='eposta'){f.append(el('p','small muted',h.tur==='bagla'?'Adresine 6 haneli bir kod göndereceğiz; geçmişin, kasaban ve adın aynen kalır.':'Bağladığın e-postaya 6 haneli bir kod göndereceğiz.'));
+    const i=el('input');i.id='hesapEposta';i.type='email';i.autocomplete='email';i.placeholder='e-posta adresin';i.value=h.eposta;i.onkeydown=e=>{if(e.key==='Enter')hesapKodGonder()};f.append(i);
+    const r=el('div','row');const g=el('button','primary hesap-gonder',h.yukleniyor?'Gönderiliyor…':'Kod gönder');g.disabled=h.yukleniyor;g.onclick=()=>hesapKodGonder();const v=el('button','hesap-vazgec','Vazgeç');v.onclick=()=>hesapKapat();r.append(g,v);f.append(r)}
+  else if(h.adim==='kod'){f.append(el('p','small muted',h.eposta+' adresine kod gönderildi. Gelmediyse gereksiz klasörüne bak.'));
+    const i=el('input');i.id='hesapKod';i.inputMode='numeric';i.autocomplete='one-time-code';i.maxLength=6;i.placeholder='6 haneli kod';i.onkeydown=e=>{if(e.key==='Enter')hesapDogrula()};f.append(i);
+    const r=el('div','row');const d=el('button','primary hesap-dogrula',h.yukleniyor?'Doğrulanıyor…':'Doğrula');d.disabled=h.yukleniyor;d.onclick=()=>hesapDogrula();
+    const kalan=Math.max(0,Math.ceil((h.bekleBitis-Date.now())/1000));const y=el('button','hesap-yeniden',kalan>0?'Kodu yeniden gönder ('+kalan+')':'Kodu yeniden gönder');y.disabled=kalan>0||h.yukleniyor;y.onclick=()=>{h.adim='eposta';hesapKodGonder()};
+    const v=el('button','hesap-vazgec','Vazgeç');v.onclick=()=>hesapKapat();r.append(d,y,v);f.append(r)}
+  else if(h.adim==='birlestir'){const b=el('div','hesap-birlestir');
+    if(h.bilgi)b.append(el('p','small',h.bilgi));
+    else{b.append(el('p',null,'Bu cihazdaki '+h.N+' oyunu hesabına ekle?'),el('p','small muted','Eklemezsen bu oyunlar hesabında görünmez.'));const r=el('div','row');const e1=el('button','primary ekle','Ekle');e1.onclick=()=>hesapBirlestir(true);const e2=el('button','hayir','Hayır');e2.onclick=()=>hesapBirlestir(false);r.append(e1,e2);b.append(r)}
+    f.append(b)}
+  if(h.hata)f.append(el('p','hesap-hata',h.hata));
+  pn.append(f);
 }
 // Giriş sayfası geçmişi (tasarım §9): kişisel kart (oyuncu_ozet), son 10 oynadığım bitmiş maç, üyesi olduğum kasabalar.
 // Yalnız anon anahtar + oturum (RLS). Oyun kurma akışını beklemez: sonuç gelirse ve hâlâ giriş sayfasındaysak yeniden çizilir.
@@ -827,7 +901,7 @@ function startAmbience(){clearInterval(ambTimer);ambTimer=setInterval(()=>{if(Ma
 startAmbience();
 // ---------- Arayüz ----------
 function render(){
-  const keep={};['chatInput','nameInput','joinCode','nameEdit','sure_night','sure_talk','sure_vote'].forEach(id=>{const e=document.getElementById(id);if(e)keep[id]={v:e.value,f:document.activeElement===e}});
+  const keep={};['chatInput','nameInput','joinCode','nameEdit','sure_night','sure_talk','sure_vote','hesapEposta','hesapKod'].forEach(id=>{const e=document.getElementById(id);if(e)keep[id]={v:e.value,f:document.activeElement===e}});
   const kaydir={};['.rehber','.hizli-panel'].forEach(sel=>{const e=document.querySelector(sel);if(e)kaydir[sel]=e.scrollTop}); // yeniden çizimde kaydırma konumu kalsın (2,5 sn'lik render döngüsü)
   renderInner();
   Object.entries(keep).forEach(([id,k])=>{const e=document.getElementById(id);if(e){e.value=k.v;if(k.f)e.focus()}});
@@ -851,7 +925,10 @@ function renderLanding(){
   const r=el('div','row');const b=el('button','primary','Yeni oda kur');b.onclick=()=>hostRoom(false);r.append(b);
   if(ls('kg_room')){const b2=el('button',null,'Önceki odamı aç ('+ls('kg_room')+')');b2.onclick=()=>hostRoom(true);r.append(b2)}
   pn.append(r);
-  if(ayar&&ayar.kayit){const son=ls('kg_kayitli');const kay=son==null?!!token:son&&!!token;pn.append(el('p','small muted kimlik-notu',kay?'Kimliğin bu tarayıcıda; veriler silinirse geçmiş gider. Google ile bağlama yakında.':'Misafir: geçmişin saklanmaz.'))} // hesapsız kimliğin sınırı açıkça söylenir; sunucunun son cevabı (kg_kayitli) tahminin önüne geçer
+  if(ayar&&ayar.kayit){const son=ls('kg_kayitli');const kay=son==null?!!token:son&&!!token;
+    // hesapsız kimliğin sınırı açıkça söylenir; sunucunun son cevabı (kg_kayitli) tahminin önüne geçer. Kayıtlı ve kurulum e-posta açıksa bağla/gir düğmeleri (Plan 6)
+    if(kay&&ayar.eposta&&sb&&hesap.uuid)hesapBlok(pn);
+    else pn.append(el('p','small muted kimlik-notu',kay?'Kimliğin bu tarayıcıda; veriler silinirse geçmiş gider.':'Misafir: geçmişin saklanmaz.'))}
   pn.append(el('h3',null,'veya kodla katıl'));const jr=el('div','row');const ji=el('input');ji.id='joinCode';ji.placeholder='Oda kodu';ji.style.flex='1';const jb=el('button',null,'Katıl');
   jb.onclick=()=>{const c=ji.value.trim().toLowerCase();if(c)location.search='?oda='+c};ji.onkeydown=e=>{if(e.key==='Enter')jb.click()};jr.append(ji,jb);pn.append(jr);
   const w=el('div','wrap');w.append(top,pn);if(gecmis)w.append(gecmisPanel());w.append(rulesPanel());app.append(w);
@@ -1019,6 +1096,8 @@ function renderEndUI(stage){
   extras.forEach(t=>c.append(el('p','small',t)));
   // kayıt açık kurulumda maçın hikâye sayfası (yeni sekme); kayıt kuyrukta gecikmişse sayfa kendisi "yenile" der
   if(ayar&&ayar.kayit&&P.oyunId){const a=el('a','hikaye','📖 Hikâyeyi gör');a.href='/oyun/'+P.oyunId;a.target='_blank';a.rel='noopener';c.append(a)}
+  // e-postasız kayıtlı oyuncuya hatırlatma (Plan 6): giriş sayfasına gider (odadan çıkar), form açık gelir
+  if(hatirlatGoster(ayar,kayitli,hesap.eposta)){const a=el('a','hesap-hatirlat','💾 Geçmişini kaybetme: e-postanı bağla (giriş sayfasına gider)');a.href='/?bagla=1';c.append(a)}
   // Kasabada Bu Gece: sunucunun gerçek olaylardan ürettiği en çok 3 kart (P.gazete; yalnız bitmiş oyun)
   if(P.gazete&&P.gazete.length){const gz=el('div','gazete');gz.append(el('b',null,'🗞️ KASABADA BU GECE'));P.gazete.forEach(k=>gz.append(el('div','kart',k.metin)));c.append(gz)}
   // maç özeti: her oyuncu bir satır (ad + rol / akıbet); özet sunucudan gelir (P.ozet), Supabase gerekmez
@@ -1060,7 +1139,9 @@ document.addEventListener('focusout',()=>{if(resizeBekliyor){resizeBekliyor=fals
 // ---------- Başlat (tüm tanımlar yüklendikten sonra) ----------
 const qs=new URLSearchParams(location.search);
 kimlikSoz=kimlikHazirla().catch(()=>null).then(()=>{if(!active)render();gecmisYukle().catch(()=>{})}); // kimlik gelince giriş sayfasındaki not güncellenir; geçmiş arka planda
+if(qs.get('bagla')==='1'){ui.hesap.tur='bagla';try{history.replaceState(null,'',location.pathname)}catch(e){}} // form açık gelir; koşullar (kayıt, e-posta, oturum) renderLanding'de denetlenir
 if(qs.get('oda')){joinRoom(qs.get('oda').toLowerCase().replace(/[^a-z0-9]/g,''))}else{render()}
+setInterval(()=>{if(!active&&ui.hesap.tur&&ui.hesap.adim==='kod'){const y=document.querySelector('button.hesap-yeniden');if(!y)return;const kalan=Math.max(0,Math.ceil((ui.hesap.bekleBitis-Date.now())/1000));y.textContent=kalan>0?'Kodu yeniden gönder ('+kalan+')':'Kodu yeniden gönder';y.disabled=kalan>0||ui.hesap.yukleniyor}},1000); // sayaç: tam yeniden çizim yok (kod kutusu odağını korur)
 </script>
 </body>
 </html>
