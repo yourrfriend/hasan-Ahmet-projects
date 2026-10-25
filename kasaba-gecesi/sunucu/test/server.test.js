@@ -503,6 +503,20 @@ test('hızlı ifade: sohbete düşer, bekleme err soft, kopup dönen oyuncunun s
 });
 
 // ---------- Plan 5: sayfa yolları ----------
+const getH=(b,p,h)=>new Promise((res,rej)=>http.get('http://'+b+p,{headers:h||{}},r=>{let s='';r.on('data',d=>s+=d);r.on('end',()=>res({s:r.statusCode,b:s,h:r.headers}))}).on('error',rej));
+test('statik dosya önbelleği: sürümsüz /sayfa/* ve game.js no-cache + ETag (304); ?v= ile uzun önbellek; html sayfalarda __V__ sürümle dolar',async()=>{
+  const srv=createServer({quiet:true});await new Promise(r=>srv.server.listen(0,'127.0.0.1',r));const base='127.0.0.1:'+srv.server.address().port;
+  try{
+    for(const yol of ['/sayfa/ortak.css','/sayfa/hikaye.js','/sunucu/game.js']){
+      const a=await getH(base,yol);assert.strictEqual(a.s,200,yol);assert.match(a.h['cache-control']||'',/no-cache/,yol+' sürümsüz → no-cache');assert.ok(a.h.etag,yol+' ETag');
+      const b=await getH(base,yol,{'If-None-Match':a.h.etag});assert.strictEqual(b.s,304,yol+' If-None-Match → 304');assert.strictEqual(b.b,'');
+    }
+    const v=await getH(base,'/sayfa/ortak.css?v=abc');assert.strictEqual(v.s,200);assert.match(v.h['cache-control']||'',/max-age=31536000/,'sürümlü → uzun önbellek');
+    const u='aaaaaaaa-0000-4000-8000-000000000009';
+    for(const yol of ['/oyun/'+u,'/kasaba/'+u]){const o=await getH(base,yol);assert.ok(!o.b.includes('__V__'),yol+' __V__ kalmamalı');assert.match(o.b,/\/sayfa\/ortak\.js\?v=[A-Za-z0-9._-]+"/,yol+' betikler sürümlü');assert.match(o.b,/\/sayfa\/ortak\.css\?v=/)}
+    const i=await getH(base,'/');assert.match(i.b,/sayfa\/supabase\.js\?v='\+KG_VER/,'index.html supabase.js sürümlü yükler');
+  }finally{await new Promise(r=>srv.close(r))}
+});
 test('geçmiş sayfaları: /oyun/<uuid> ve /kasaba/<uuid> html döner; geçersiz kimlik 404; /sayfa/*.css sunulur',async()=>{
   const u='aaaaaaaa-0000-4000-8000-000000000001';
   const o=await get(base,'/oyun/'+u);assert.strictEqual(o.s,200);assert.match(o.h['content-type'],/text\/html/);assert.match(o.b,/KG_HIKAYE|hikaye/);

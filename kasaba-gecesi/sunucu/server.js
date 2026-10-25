@@ -69,8 +69,17 @@ function createServer(opts={}){
   const skorListesi=room=>[...room.skor].map(([id,s])=>({id,ad:s.ad,oynadi:s.oynadi,kazandi:s.kazandi})).sort((a,b)=>b.kazandi-a.kazandi||a.ad.localeCompare(b.ad,'tr'));
 
   // ---------- statik dosya ----------
+  // Önbellek: html ve sürümsüz betikler no-cache + ETag (Cloudflare kenarı eski kopyayı tutmasın; tarayıcı 304 alır);
+  // ?v=<sürüm> ile istenen /sayfa/* dosyaları bir yıl önbelleklenir. Sayfalar betikleri __V__ yerine yazılan kurulum sürümüyle ister.
+  const SURUM_V=(process.env.KG_SURUM||'').replace(/[^A-Za-z0-9._-]/g,'-')||('dev'+Date.now());
+  function statik(req,res,buf,tip,surumlu){
+    const etag='W/"'+crypto.createHash('sha1').update(buf).digest('base64url').slice(0,20)+'"';
+    const cc=surumlu?'public, max-age=31536000, immutable':'no-cache';
+    if(req.headers['if-none-match']===etag){res.writeHead(304,{ETag:etag,'Cache-Control':cc});return res.end()}
+    res.writeHead(200,{'Content-Type':tip,'Cache-Control':cc,ETag:etag});res.end(req.method==='HEAD'?undefined:buf);
+  }
   const server=http.createServer((req,res)=>{
-    const url=(req.url||'/').split('?')[0];
+    const url=(req.url||'/').split('?')[0],surumlu=/[?&]v=/.test(req.url||'');
     if(req.method!=='GET'&&req.method!=='HEAD'){res.writeHead(405);return res.end()}
     if(url==='/'||url==='/index.html'){
       fs.readFile(INDEX,(err,buf)=>{
@@ -81,7 +90,7 @@ function createServer(opts={}){
     if(url==='/sunucu/game.js'){
       fs.readFile(GAME_JS,(err,buf)=>{
         if(err){res.writeHead(500);return res.end('game.js okunamadı')}
-        res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-cache'});res.end(req.method==='HEAD'?undefined:buf);
+        statik(req,res,buf,'text/javascript; charset=utf-8',false);
       });return;
     }
     if(url==='/ayar.json'){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-cache'});return res.end(JSON.stringify(ayarAcik()))}
@@ -89,7 +98,7 @@ function createServer(opts={}){
       const css=url.endsWith('.css');
       fs.readFile(path.join(SAYFA,url.slice(7)),(err,buf)=>{
         if(err){res.writeHead(404);return res.end('yok')}
-        res.writeHead(200,{'Content-Type':(css?'text/css':'application/javascript')+'; charset=utf-8','Cache-Control':'public, max-age=86400'});res.end(req.method==='HEAD'?undefined:buf);
+        statik(req,res,buf,(css?'text/css':'application/javascript')+'; charset=utf-8',surumlu);
       });return;
     }
     // geçmiş sayfaları (Plan 5): /oyun/<uuid> ve /kasaba/<uuid> → statik html; veriyi sayfa Supabase'den kendi oturumuyla okur
@@ -97,7 +106,7 @@ function createServer(opts={}){
     if(sayfaYolu){
       fs.readFile(path.join(SAYFA,sayfaYolu[1]+'.html'),(err,buf)=>{
         if(err){res.writeHead(404);return res.end('yok')}
-        res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-cache'});res.end(req.method==='HEAD'?undefined:buf);
+        res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-cache'});res.end(req.method==='HEAD'?undefined:buf.toString('utf8').split('__V__').join(SURUM_V));
       });return;
     }
     if(url==='/saglik'){const k=kayit.sayac||{};res.writeHead(200,{'Content-Type':'application/json'});return res.end(JSON.stringify({ok:true,rooms:rooms.size,surum:process.env.KG_SURUM||null,kayit:{kuyruk:k.kuyruk||0,yazilan:k.yazilan||0,hata:k.hata||0,dusen:k.dusen||0}}))} // kayıt sayaçları: yalnız sayılar
