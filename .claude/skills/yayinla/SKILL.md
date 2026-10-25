@@ -57,6 +57,8 @@ Alan adı her zaman `AD.ALAN_KOK` (ör. `kasaba-test.munupixi.com`). Ad yalnız 
 1. Depo sunucuda yoksa (`uzak 'test -d DEPO/.git'` başarısız): `uzak 'git clone https://github.com/yourrfriend/hasan-Ahmet-projects.git DEPO'`.
 2. `kur.sh`'nin en yeni hali için sunucudaki klonu güncelle: `uzak 'cd DEPO && git fetch -q origin && git checkout -q CANLI_SURUM && git pull -q --ff-only'`.
    `kur.sh` o branch'te çok oyunlu değilse (içinde `--surum` geçmiyorsa) `sunucu` branch'ine geçerek dene ve bunu kullanıcıya söyle.
+   Kurulacak SÜRÜM `CANLI_SURUM`'dan yeni bir daldaysa (ör. test kurulumu) klonu **o dala** al: `kur.sh` kopyalanacak dosya
+   listesini bilir (ör. `kayit.js` yalnız `gecmis` ve sonrasında); eski `kur.sh` yeni sürümü eksik kurar ve geri alma tetiklenir.
 3. Kullanıcıya göster ve onay al, sonra çalıştır:
    `uzak 'cd DEPO/kasaba-gecesi/sunucu && sudo ./kur.sh AD AD.ALAN_KOK --surum SÜRÜM'`
    Birkaç dakika sürebilir (ilk kurulumda Node ve Caddy kurulur); zaman aşımını uzun tut.
