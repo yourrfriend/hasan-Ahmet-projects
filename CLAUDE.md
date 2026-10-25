@@ -23,7 +23,7 @@ Her iş kendi dalında; PR en sonda. Yeni özellik önce `kasaba-test.munupixi.c
 - kasaba-test'te gerçek deneme: Playwright ev sahibi + `bot.js ODA SAYI` (hain botlar gece öldürür, oylamada çekimser, rol iddiası yapar, bitince "hazır" basar); betikler oturum scratchpad'inde, gerekirse yeniden yazılır (hafıza: reference-arac-ortami).
 
 ## Sabit kararlar (kullanıcı)
-- Her hain gecede kendi başına öldürür; hain sayısı 4–8 kişide 1, 9–12'de 2; Bombacı ve Seri Katil Polis tarafından tutulamaz.
+- Her hain gecede kendi başına öldürür; hain sayısı 4–8 kişide 1, 9–12'de 2; Bombacı ve Seri Katil Polis tarafından tutulamaz. Provokatör'ün +2'si yalnız gerçek bir oyun üstüne eklenir (herkes çekimserse kimse asılmaz). 4–6 kişide Masum yok, 7+'da 1; tek hain %50 sürümlü; rol tekrarı %80 eğilimle azaltılır (kesin yasak değil).
 - Oylar oyun sonunda da yalnız toplam olarak görünür; tek tek oylar kaydedilmez.
 - Kimlik: anonim Supabase kullanıcısı = kayıtlı (giriş ekranı yok); hesap bağlama **e-posta + 6 haneli kod** ile (Google yok, sihirli link yok, **şifre yok**; şifreyle giriş ve kurtarma Caddy'de 403); ikinci cihazda geçmiş sorularak birleştirilir (`hesap_birlestir`; "Hayır" → hiçbir çağrı).
 - E-posta: sağlayıcı Resend; tüm gönderim tek `sendTransactionalEmail()` içinde (`sunucu/eposta.js`; GoTrue mail göndermez, "Send Email" kancasıyla `POST /eposta/kanca`'ya verir); oyun olayı için e-posta **üretilmez**, davetler link ile. Kanca tek kuruluma gider (`kur-supabase.sh --kanca`): geliştirmede kasaba-test, yayında kasaba. Kod istekleri ve anonim kimlik yalnız oyun sunucusundan (`/eposta/kod` Turnstile + tavanlar, `/hesap/anonim`); GoTrue'nun mail uçları ve `/signup` dış kapıda 403. **Turnstile betiği Cloudflare'den yüklenir: CDN'siz ilkesinin tek istisnası.**

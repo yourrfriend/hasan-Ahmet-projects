@@ -83,6 +83,28 @@ test('doktor saldırıyı engeller, oylama birini gönderir',()=>{
   assert.strictEqual(R.P.phase,'end');assert.strictEqual(R.P.winner.team,'inn');
 });
 
+test('kışkırtma tek başına astırmaz: herkes çekimserse kimse gönderilmez; bir gerçek oy varsa +2 sayılır',()=>{
+  // u1 provokatör gece u0'ı (hain) kışkırtır; sabah 5 kişi sağ
+  let R=fixed(['hain','provokator','doktor','masum','masum']);
+  G.act(R,'u0',{kill:'u4'});G.act(R,'u1',{ab:'u0'});G.act(R,'u2',{ab:'u4'});G.advance(R);
+  assert.strictEqual(R.P.phase,'talk');G.advance(R);assert.strictEqual(R.P.phase,'vote');assert.strictEqual(R.P.provoked,'u0','kışkırtılan rozeti');
+  for(const id of ['u0','u1','u2','u3','u4'])G.vote(R,id,'skip');
+  assert.strictEqual(R.P.phase,'night','oyun sürer');assert.ok(G.pl(R,'u0').alive,'yalnız kışkırtma oyuyla asılmaz');
+  assert.strictEqual(R.P.evening.out,null);assert.match(R.P.evening.summary,/çekimser 5/);assert.doesNotMatch(R.P.evening.summary,/Oyuncu0 2/,'sayılmayan +2 özete girmez');
+  const gs=R.gameLog.find(e=>e.tur==='gunduz_sonuc');assert.strictEqual(gs.veri.asilan,null);assert.deepStrictEqual(gs.veri.toplamlar,{});assert.strictEqual(gs.veri.provoke,'u0','günlükte kışkırtma yine yazılır');
+  // aynı kurgu, bir gerçek oy: u3 → u0; +2 ile 3 olur, asılır (tek hain → masumlar kazanır)
+  R=fixed(['hain','provokator','doktor','masum','masum']);
+  G.act(R,'u0',{kill:'u4'});G.act(R,'u1',{ab:'u0'});G.act(R,'u2',{ab:'u4'});G.advance(R);G.advance(R);
+  G.vote(R,'u3','u0');for(const id of ['u0','u1','u2','u4'])G.vote(R,id,'skip');
+  assert.strictEqual(R.P.phase,'end');assert.strictEqual(R.P.winner.team,'inn');
+  const gs2=R.gameLog.find(e=>e.tur==='gunduz_sonuc');assert.deepStrictEqual(gs2.veri.toplamlar,{u0:3},'1 gerçek oy + 2 kışkırtma');
+  // kışkırtılan başkası (u3), gerçek oy u0'a tek: u0 1 oyla asılmaz, u3'e kışkırtma sayılmaz → kimse gitmez
+  R=fixed(['hain','provokator','doktor','masum','masum']);
+  G.act(R,'u0',{kill:'u4'});G.act(R,'u1',{ab:'u3'});G.act(R,'u2',{ab:'u4'});G.advance(R);G.advance(R);
+  G.vote(R,'u2','u0');for(const id of ['u0','u1','u3','u4'])G.vote(R,id,'skip');
+  assert.strictEqual(R.P.phase,'night');assert.ok(G.pl(R,'u3').alive);assert.deepStrictEqual(R.gameLog.find(e=>e.tur==='gunduz_sonuc').veri.toplamlar,{u0:1});
+});
+
 const notesOf=(R,id)=>R.g.notes[id].join(' | ');
 test('hain polis öldürmeye gidince ziyareti sayılır ve tuzağa yakalanır',()=>{
   // u0 polis(hain) u2'yi öldürmeye gider; u1 gözcü u2'nin evine bakar → kendisiyle birlikte 2 kişi görmeli

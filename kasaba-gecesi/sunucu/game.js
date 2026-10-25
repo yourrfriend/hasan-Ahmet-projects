@@ -20,7 +20,7 @@ const ROLES={
   dedektif:{n:'Dedektif',team:'inn',ico:'🔍',desc:'Seçtiğin kişinin evini ararsın; olabileceği rolleri öğrenirsin.',act:'other',dual:true,pos:'window',ipucu:"Üç rolden yalnız biri doğru; listeyi açıklamak hedefi savunmasız bırakabilir."},
   tuzakci:{n:'Tuzakçı',team:'inn',ico:'🪤',desc:'Seçtiğin evin önüne tuzak kurarsın; o eve gelen herkes yakalanır ve rolünü kullanamaz.',act:'other',dual:true,pos:'door',ipucu:"Tuzağa yakalanan herkes o gece etkisiz; yakalanan masum da olabilir."},
   ispiyoncu:{n:'İspiyoncu',team:'inn',ico:'📣',desc:'Bir kez: seçtiğin kişinin rolünü sabah meydanda herkese açıklarsın.',act:'other',once:true,dual:true,pos:'window',ipucu:"Tek seferlik: sabah herkese açıklanır. Zamanlaması oyunu belirler."},
-  provokator:{n:'Provokatör',team:'inn',ico:'🔥',desc:'Bir kez: seçtiğin kişi ertesi günkü oylamaya 2 oyla başlar.',act:'other',once:true,dual:true,pos:'door',ipucu:"Tek seferlik: seçtiğin kişi ertesi oylamaya 2 oyla başlar; dikkatli hedef seç."},
+  provokator:{n:'Provokatör',team:'inn',ico:'🔥',desc:'Bir kez: seçtiğin kişiye ertesi oylamada 2 oy eklenir (en az bir gerçek oy alırsa).',act:'other',once:true,dual:true,pos:'door',ipucu:"Tek seferlik: seçtiğin kişi ertesi oylamada gerçek bir oy alırsa 2 oy daha eklenir; dikkatli hedef seç."},
   hain:{n:'Hain',team:'imp',ico:'🗡️',desc:'Her gece birinin evine girip onu öldürürsün. Hainler birbirini tanır ama gece birbirini göremez.',ipucu:"Her gece ayrı öldürürsün; arkadaşın kim bilirsin. Gündüz masum gibi akıl yürüt."},
   temizlikci:{n:'Temizlikçi',team:'imp',ico:'🧹',desc:'Gece ya öldürürsün ya temizlersin: seçtiğin kişi o gece ölürse rolü sabah gizli kalır.',act:'other',pos:'door',ipucu:"Temizlediğin kişi ölürse rolü sabah gizli kalır; o gece öldüremezsin."},
   suclayici:{n:'Suçlayıcı',team:'imp',ico:'🫵',desc:'Gece ya öldürürsün ya suçlarsın: seçtiğin kişi o gece ölür ya da ertesi gün asılırsa rolü Hain görünür.',act:'other',pos:'door',ipucu:"Suçladığın kişi ölür ya da asılırsa 'Hain' görünür; gündüz şüpheyi ona yönlendir."},
@@ -273,7 +273,7 @@ function resolveNight(R){
     if(bk==='izci'){let w;if(r.mad){const o=al.filter(x=>x!==t&&x!==id);w=Math.random()<.4?null:o[Math.floor(Math.random()*o.length)]}else w=went[t]||null;nt(id,w?nm(t)+' gece '+nm(w)+' evine gitti.':nm(t)+' gece evinden çıkmadı.')}
     if(bk==='dedektif'){const sk=r.mad?INVGROUPS[Math.floor(Math.random()*INVGROUPS.length)]:INVGROUPS.find(gp=>gp.includes(shownRole(R,t).key))||INVGROUPS[4];nt(id,nm(t)+' şunlardan biri: '+sk.map(x=>ROLES[x].n).join(' / '))}
     if(bk==='ispiyoncu'&&!r.uses.ispiyoncu&&!died.includes(id)){r.uses.ispiyoncu=true;const sr=r.mad?{key:MADPOOL[Math.floor(Math.random()*MADPOOL.length)],team:'inn'}:shownRole(R,t);M.snitch.push({by:id,t,role:roleLabel(sr)});nt(id,nm(t)+' rolünü sabah meydanda açıkladın.')}
-    if(bk==='provokator'&&!r.uses.provokator){r.uses.provokator=true;if(r.mad)r.fakeProvoked={t,day:P.day};else{g.provoke={t,day:P.day};L.provokasyon=t}nt(id,nm(t)+' yarınki oylamaya 2 oyla başlayacak.')}
+    if(bk==='provokator'&&!r.uses.provokator){r.uses.provokator=true;if(r.mad)r.fakeProvoked={t,day:P.day};else{g.provoke={t,day:P.day};L.provokasyon=t}nt(id,nm(t)+' yarın oy alırsa 2 oy daha eklenecek.')}
     if(k==='temizlikci'&&died.includes(t))g.clean=t;
     if(k==='suclayici')g.blame={t,day:P.day};
     if(k==='hortlak'){g.candle[id]=t;L.mum.push({kim:id,ev:t});nt(id,nm(t)+' kapısına mum koydun.')}
@@ -294,7 +294,8 @@ function resolveNight(R){
 function resolveVote(R){
   const P=R.P,g=R.g,tally={};const al=alivePlayers(R);const nm=id=>nameOf(R,id);
   let skip=0;for(const p of al){const t=g.votes[p.id];if(t==='skip'||!t)skip++;else tally[t]=(tally[t]||0)+1}
-  if(g.provoke&&g.provoke.day===P.day&&pl(R,g.provoke.t)&&pl(R,g.provoke.t).alive)tally[g.provoke.t]=(tally[g.provoke.t]||0)+2;
+  // kışkırtma gerçek bir oyu büyütür, tek başına astırmaz: herkes çekimserse +2 sayılmaz (kullanıcı kararı 2026-10-25; e2e kararsızlığının kökü)
+  if(g.provoke&&g.provoke.day===P.day&&pl(R,g.provoke.t)&&pl(R,g.provoke.t).alive&&tally[g.provoke.t]>=1)tally[g.provoke.t]+=2;
   const sorted=Object.keys(tally).sort((a,b)=>tally[b]-tally[a]);
   let out=null;if(sorted.length&&(sorted.length===1||tally[sorted[0]]>tally[sorted[1]])&&tally[sorted[0]]>=2)out=sorted[0];
   const E={out:null,summary:''};
