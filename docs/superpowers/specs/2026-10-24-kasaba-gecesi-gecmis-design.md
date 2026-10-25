@@ -135,7 +135,7 @@ sayfalar oyun sunucusuna değil Supabase'e sorar.
 
 Tablolar:
 
-- `oyunlar(id uuid, kasaba_id, kurulum text, oda_kodu, baslama, bitis null, sonuc: 'devam'|'bitti'|'iptal',
+- `oyunlar(id uuid, kasaba_id, kurulum text, oda_kodu (yalnız service_role okur; göç 006 — kod bir yetkidir), baslama, bitis null, sonuc: 'devam'|'bitti'|'iptal',
   kazanan_takim, kazanan_metin, oyuncu_sayisi, ayarlar jsonb)` — `kurulum`: `kur.sh` kurulum adı
   (`kasaba`, `kasaba-test`); test kurulumu aynı veritabanına yazar ama sayfalar ve görünümler kendi
   kurulumlarının oyunlarını gösterir (`/ayar.json` kurulum adını verir).

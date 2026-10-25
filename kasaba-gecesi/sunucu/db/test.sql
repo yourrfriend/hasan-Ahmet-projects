@@ -16,7 +16,7 @@ insert into public.kasaba_uyeleri (kasaba_id, uye, rol) values
   ('aaaaaaaa-0000-0000-0000-000000000001', '22222222-2222-2222-2222-222222222222', 'uye'),
   ('aaaaaaaa-0000-0000-0000-000000000002', '33333333-3333-3333-3333-333333333333', 'sahip');
 -- G1: K1'de süren oyun; oyuncular U1 (p1) ve misafir (p2). G2: K2'de bitmiş oyun (U3)
-insert into public.oyunlar (id, kasaba_id, kurulum, sonuc) values ('bbbbbbbb-0000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000001', 'kasaba', 'devam');
+insert into public.oyunlar (id, kasaba_id, kurulum, sonuc, oda_kodu) values ('bbbbbbbb-0000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000001', 'kasaba', 'devam', 'ODAKODU12345');
 insert into public.oyunlar (id, kasaba_id, kurulum, sonuc, bitis, kazanan_takim, kazanan_metin) values
   ('bbbbbbbb-0000-0000-0000-000000000002', 'aaaaaaaa-0000-0000-0000-000000000002', 'kasaba', 'bitti', now(), 'inn', 'Masumlar kazandı!');
 insert into public.oyun_oyunculari (oyun_id, pub_id, uye, ad, rol_key, takim, sonunda_sag) values
@@ -119,5 +119,27 @@ do $$ begin
   if (select count(*) from public.kasabalar where id = 'aaaaaaaa-0000-0000-0000-000000000001') <> 1 then raise exception 'BAŞARISIZ 8: kasaba kayboldu'; end if;
   raise notice 'GEÇTİ 8: kasaba sahibi silinemez';
 end $$;
+
+-- 9) oda kodu yetkidir: kasaba üyesi/oyuncu oyunu görür ama oda_kodu sütununu okuyamaz; service_role okur (006)
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}', true);
+do $$ begin
+  if (select count(*) from public.oyunlar where id = 'bbbbbbbb-0000-0000-0000-000000000001') <> 1 then raise exception 'BAŞARISIZ 9: üye oyunu görmüyor'; end if;
+  begin
+    perform oda_kodu from public.oyunlar where id = 'bbbbbbbb-0000-0000-0000-000000000001';
+    raise exception 'BAŞARISIZ 9: üye oda kodunu okuyabildi';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform * from public.oyunlar where id = 'bbbbbbbb-0000-0000-0000-000000000001';
+    raise exception 'BAŞARISIZ 9: üye select * ile oda kodunu okuyabildi';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+set local role service_role;
+do $$ begin
+  if (select oda_kodu from public.oyunlar where id = 'bbbbbbbb-0000-0000-0000-000000000001') <> 'ODAKODU12345' then raise exception 'BAŞARISIZ 9: service_role oda kodunu okuyamıyor'; end if;
+  raise notice 'GEÇTİ 9: oda kodu yalnız sunucuya açık';
+end $$;
+reset role;
 
 rollback;
