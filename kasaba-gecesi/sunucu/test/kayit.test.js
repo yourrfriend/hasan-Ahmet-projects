@@ -117,3 +117,32 @@ test('inceleme: başlangıç 4xx ile düşerse maç atlanır (sonraki olaylar i�
     const oy=t.T.oyunlar.find(o=>o.id===OY);assert.strictEqual(oy.baslama,new Date(123).toISOString());
   }finally{k.kapat();await t.kapat()}
 });
+
+// ---------- Geri bildirim paketi: rol geçmişi tohumu (sonRoller) ----------
+test('sonRoller: bu kurulumdaki son 5 bitmiş maç, en yeni önde; Hırsız başlangıç rolü; devam/başka kurulum dışarıda',async()=>{
+  const t=await taklitRest();const k=Kayit.olustur({url:t.url,serviceKey:'srv',kurulum:'kasaba-test',quiet:true});
+  try{
+    const roller=['doktor','polis','gozcu','izci','hain','dedektif','masum'];
+    for(let i=0;i<7;i++){t.T.oyunlar.push({id:'g'+i,kurulum:'kasaba-test',sonuc:'bitti',bitis:'2026-10-25T10:0'+i+':00Z'});
+      t.T.oyun_oyunculari.push({oyun_id:'g'+i,pub_id:'p',uye:'u1',rol_key:i===6?'polis':roller[i],takim:roller[i]==='hain'?'imp':'inn',calinan_rol:i===6?'polis':null})}
+    t.T.oyunlar.push({id:'devam',kurulum:'kasaba-test',sonuc:'devam',bitis:null});t.T.oyun_oyunculari.push({oyun_id:'devam',pub_id:'p',uye:'u1',rol_key:null,takim:null});
+    t.T.oyunlar.push({id:'baska',kurulum:'kasaba',sonuc:'bitti',bitis:'2026-10-25T12:00:00Z'});t.T.oyun_oyunculari.push({oyun_id:'baska',pub_id:'p',uye:'u1',rol_key:'deli',takim:'inn'});
+    const h=await k.sonRoller('u1');
+    assert.deepStrictEqual(h,[{key:'hirsiz',team:'inn'},{key:'dedektif',team:'inn'},{key:'hain',team:'imp'},{key:'izci',team:'inn'},{key:'gozcu',team:'inn'}]);
+    const r=t.istekler.find(x=>x.tablo==='oyun_oyunculari'&&x.yontem==='GET');assert.ok(r,'GET isteği');
+    assert.match(r.yol,/uye=eq\.u1/);assert.match(r.yol,/oyunlar\.kurulum=eq\.kasaba-test/);assert.match(r.yol,/oyunlar\.sonuc=eq\.bitti/);assert.match(r.yol,/limit=5/);
+    assert.strictEqual(k.sayac.gecmisOkunan,1);assert.strictEqual(k.sayac.gecmisHata,0);
+    assert.deepStrictEqual(await k.sonRoller('kimse'),[],'geçmişi olmayan → boş liste');
+  }finally{k.kapat();await t.kapat()}
+});
+test('sonRoller: sunucu hatası, zaman aşımı ve ayarsız kurulum → null, sayaç',async()=>{
+  const t=await taklitRest();
+  try{
+    t.hataAyarla(()=>500);const k=Kayit.olustur({url:t.url,serviceKey:'srv',kurulum:'kasaba-test',quiet:true});
+    assert.strictEqual(await k.sonRoller('u1'),null);assert.strictEqual(k.sayac.gecmisHata,1);k.kapat();
+    t.hataAyarla(()=>null);t.gecikmeAyarla(300);const k2=Kayit.olustur({url:t.url,serviceKey:'srv',kurulum:'kasaba-test',quiet:true,zamanAsimiMs:100});
+    assert.strictEqual(await k2.sonRoller('u1'),null,'zaman aşımı');assert.strictEqual(k2.sayac.gecmisHata,1);k2.kapat();t.gecikmeAyarla(0);
+    await kadar(()=>t.istekler.filter(x=>x.tablo==='oyun_oyunculari').length>=2); // gecikmeli istek taklitte yanıt anında kaydedilir
+    const k3=Kayit.olustur({quiet:true});assert.strictEqual(await k3.sonRoller('u1'),null);await bekle(50);assert.strictEqual(t.istekler.filter(x=>x.tablo==='oyun_oyunculari').length,2,'ayarsızken istek yok');k3.kapat();
+  }finally{await t.kapat()}
+});

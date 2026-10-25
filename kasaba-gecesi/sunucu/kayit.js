@@ -1,7 +1,7 @@
 'use strict';
 // Kayıt yuvası: sunucu her yayında (flush) odanın olay günlüğünü (R.log) buraya boşaltır; kayıtlı oyuncuların profilini
 // buradan yazar. Oyun sunucusu SQL bilmez; bu modül Supabase'e PostgREST (HTTP, service_role) ile yazar.
-//   olustur(opts) → {kuyrukla(room, olaylar), profil(uye, {ad,renk,sapka}), kapat(), sayac}
+//   olustur(opts) → {kuyrukla(room, olaylar), profil(uye, {ad,renk,sapka}), sonRoller(uye), kapat(), sayac}
 // opts: {url, serviceKey, kurulum, deneme:[ms…] (yeniden deneme aralıkları), kuyrukSinir (10000), bekleMs (profil tekilleştirme),
 //        zamanAsimiMs (5000), quiet}
 // url/serviceKey yoksa hiçbir istek yapılmaz (misafir kurulum). kuyrukla/profil hiçbir zaman beklemez ya da fırlatmaz.
@@ -13,7 +13,7 @@
 const DENEME=[1000,5000,15000,60000,300000];
 const {ek}=require('./game.js'); // kasaba adı: "Ece'nin Kasabası" (game.js saf; tek kaynak)
 function olustur(opts={}){
-  const sayac={olay:0,yazilan:0,hata:0,dusen:0,atlanan:0,profil:0,kuyruk:0};
+  const sayac={olay:0,yazilan:0,hata:0,dusen:0,atlanan:0,profil:0,kuyruk:0,gecmisOkunan:0,gecmisHata:0};
   const acik=!!(opts.url&&opts.serviceKey);const bekleMs=opts.bekleMs??2000,zamanAsimi=opts.zamanAsimiMs??5000;
   const deneme=opts.deneme||DENEME,kuyrukSinir=opts.kuyrukSinir||10000,kurulum=opts.kurulum||'bilinmiyor';
   const log=opts.quiet?()=>{}:(...a)=>console.log(new Date().toISOString(),'kayit:',...a);
@@ -105,8 +105,18 @@ function olustur(opts={}){
   // açılış temizliği: servis yeniden başlamış, kuyruk gitmiş → 3 saatten eski "devam" oyunları iptal
   if(acik){const esik=new Date(Date.now()-3*3600*1000).toISOString();
     istek('PATCH','oyunlar?sonuc=eq.devam&kurulum=eq.'+encodeURIComponent(kurulum)+'&baslama=lt.'+encodeURIComponent(esik),{sonuc:'iptal',bitis:new Date().toISOString()},'return=minimal').then(()=>log('eski devam oyunları iptal edildi')).catch(e=>{sayac.hata++;log('açılış temizliği yapılamadı',e.message)})}
+  // ---------- rol geçmişi tohumu (geri bildirim paketi §5.4): oyuncunun bu kurulumdaki son 5 bitmiş maçtaki rolleri ----------
+  // En yeni önde; Hırsız'ın kayıtlı rol_key'i çalınan roldür → başlangıç rolü 'hirsiz'. Hata/zaman aşımı/ayarsız → null (sessiz).
+  async function sonRoller(uye){
+    if(!acik||kapali||!uye)return null;
+    try{
+      const rows=await istek('GET','oyun_oyunculari?select=rol_key,takim,calinan_rol,oyunlar!inner(bitis)&uye=eq.'+encodeURIComponent(uye)+'&rol_key=not.is.null&oyunlar.kurulum=eq.'+encodeURIComponent(kurulum)+'&oyunlar.sonuc=eq.bitti&order=oyunlar(bitis).desc&limit=5');
+      sayac.gecmisOkunan++;
+      return (rows||[]).map(r=>({key:r.calinan_rol?'hirsiz':r.rol_key,team:r.takim})).filter(r=>r.key&&r.team);
+    }catch(e){sayac.gecmisHata++;log('rol geçmişi okunamadı',String(uye).slice(0,8),e.message);return null}
+  }
   return{
-    kuyrukla,profil,
+    kuyrukla,profil,sonRoller,
     kapat(){kapali=true;clearTimeout(zamanlayici);for(const b of bekleyen.values())clearTimeout(b.t);bekleyen.clear()},
     sayac
   };
