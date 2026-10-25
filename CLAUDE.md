@@ -25,8 +25,8 @@ Her iş kendi dalında; PR en sonda. Yeni özellik önce `kasaba-test.munupixi.c
 ## Sabit kararlar (kullanıcı)
 - Her hain gecede kendi başına öldürür; hain sayısı 4–8 kişide 1, 9–12'de 2; Bombacı ve Seri Katil Polis tarafından tutulamaz.
 - Oylar oyun sonunda da yalnız toplam olarak görünür; tek tek oylar kaydedilmez.
-- Kimlik: anonim Supabase kullanıcısı = kayıtlı (giriş ekranı yok); hesap bağlama **e-posta sihirli link** ile (Google yok); ikinci cihazda geçmiş birleştirilir (`hesap_birlestir`).
-- E-posta: sağlayıcı Resend; tüm gönderim tek `sendTransactionalEmail()` içinde (sağlayıcı değiştirilebilir); oyun olayı için e-posta **üretilmez**, davetler link ile.
+- Kimlik: anonim Supabase kullanıcısı = kayıtlı (giriş ekranı yok); hesap bağlama **e-posta + 6 haneli kod** ile (Google yok, sihirli link yok, **şifre yok**; şifreyle giriş ve kurtarma Caddy'de 403); ikinci cihazda geçmiş sorularak birleştirilir (`hesap_birlestir`; "Hayır" → hiçbir çağrı).
+- E-posta: sağlayıcı Resend; tüm gönderim tek `sendTransactionalEmail()` içinde (`sunucu/eposta.js`; GoTrue mail göndermez, "Send Email" kancasıyla `POST /eposta/kanca`'ya verir); oyun olayı için e-posta **üretilmez**, davetler link ile. Kanca tek kuruluma gider (`kur-supabase.sh --kanca`): geliştirmede kasaba-test, yayında kasaba.
 - Oda kodu 12 karakter ve yalnız sunucu üretir; IP başına 5 oda / 24 soket / 5 kurma-dk; Cloudflare `/ws` 10 sn'de 30 el sıkışma.
 - Gazete/hikâye yalnız günlükteki gerçek olaylardan; niyet atfı yok ("yalan söyledi", "MVP" yok); "en çok kaybeden" tablosu yok, oranların yanında örneklem.
 
@@ -34,7 +34,7 @@ Her iş kendi dalında; PR en sonda. Yeni özellik önce `kasaba-test.munupixi.c
 - `index.html` uzun tek satırlardan oluşur: satır içine `// yorum` ekleme, satırın kalanını yorumlar (`node --check` yakalamaz, e2e düşer). Yorumu ayrı satıra koy.
 - `kontrol.sh --e2e | grep … && git commit` deseni testler düşse de commit eder (boru çıkış kodu grep'in). Çıkış kodunu değişkene al, sonra commit.
 - Paralel Bash çağrılarında `cd` kalıcıdır: ikinci komut yanlış klasörde çalışabilir; her komuta mutlak `cd` ile başla.
-- `kur.sh` kurulacak dalın kendi `kur.sh`'siyle çalışmalı (sunucudaki klonu o dala al); eski `kur.sh` yeni dosyaları (kayit.js, sayfa/) kopyalamaz ve geri alma tetiklenir.
+- `kur.sh` kurulacak dalın kendi `kur.sh`'siyle çalışmalı (sunucudaki klonu o dala al); eski `kur.sh` yeni dosyaları kopyalamaz ve geri alma tetiklenir (artık `sunucu/*.js` tamamı kopyalanır; `sayfa/` ayrı liste).
 - Self-hosted Supabase v0.8 token'ları ES256 ile imzalar (JWKS); HS256 varsayma. Yerel `fetch` ilk bağlantıda ~400 ms sürebilir: testlerde sabit bekleme yerine yoklama.
 - Supabase-js **gömülü** (`kasaba-gecesi/sayfa/supabase.js`, sürüm sabit); CDN yok. Sayfalar (`/oyun`, `/kasaba`) aynı origin'de olduğu için oturum paylaşılır.
 

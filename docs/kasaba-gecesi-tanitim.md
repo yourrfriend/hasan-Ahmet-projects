@@ -103,7 +103,8 @@ ayarlandı: tek hain bile ilk gecelerde yeterince tehlikelidir; iki hain küçü
   **kasaba sayfası** (ev sahibinin grubu: tablo — maç, zafer, en çok rol; arkadaş karşılaştırmaları; son maçlar) ve giriş
   sayfasında "Geçmişin" (kişisel kart, son oyunlar, kasabalar). Yüzde ve "en çok kaybeden" listesi bilerek yok; tek tek oylar
   hiç kaydedilmez.
-- Yapımda: hesabı ikinci cihaza taşımak için **e-posta ile bağlama** (sihirli link); evlerin yeni çizimi (bej duvar, koyu çatı, baca, tabela).
+- **E-posta ile hesap** (kasaba-test'te): "E-postanı bağla" → maile 6 haneli kod → kod yazılır; başka cihazda "Hesabınla gir" aynı kodla; o cihazdaki anonim maçlar istenirse hesaba taşınır. Şifre yok, Google yok, link yok. Mail kısa ve Türkçe.
+- Yapımda: evlerin yeni çizimi (bej duvar, koyu çatı, baca, tabela).
 
 ## Değişmeyecek kararlar
 

@@ -78,7 +78,7 @@ Kullanıcı B'yi seçti (2026-10-25): "tek gönderim fonksiyonu, sağlayıcı de
 - **İmza (Standard Webhooks):** başlıklar `webhook-id`, `webhook-timestamp`, `webhook-signature`; imzalanan metin `${id}.${timestamp}.${gövde}`; HMAC-SHA256, anahtar `whsec_` sonrasının base64 çözümü; `webhook-signature` boşlukla ayrılmış birden çok `v1,<base64>` içerebilir, biri eşleşirse geçer (`timingSafeEqual`); `timestamp` şimdiden ±5 dk dışındaysa red. Birden çok sır `|` ile ayrılmış olabilir (dönüşüm için). Gövde en çok 64 KB. Red → 401 `{error:{http_code:401,message}}`.
 - **Yük:** `{user:{id,email,new_email?,is_anonymous,...}, email_data:{token, token_hash, redirect_to, email_action_type, site_url, token_new, token_hash_new}}`.
   - `email_action_type==='magiclink'` (ikinci cihaz girişi): alıcı `user.email`, kod `email_data.token`, metin "giriş kodun".
-  - `email_action_type==='email_change'` (bağlama): alıcı yeni adres (`user.new_email`; yoksa `user.email_change`), kod `email_data.token_new` ile `email_data.token`'dan **hangisinin yeni adrese ait olduğu kasaba-test'te doğrulanır** (belgede adlar "geriye uyumluluk için ters"); inşaatçı ilk denemede kanca yükünü (kodlar maskeli) günlüğe basıp seçer ve testi ona göre sabitler. Metin "doğrulama kodun".
+  - `email_action_type==='email_change'` (bağlama): alıcı yeni adres (`user.new_email`; yoksa `user.email_change`), kod **`email_data.token`** (kasaba-test'te gerçek denemeyle doğrulandı, 2026-10-25: anonim kullanıcının e-posta bağlamasında yeni adrese giden kod `token`). Metin "doğrulama kodun".
   - `email_action_type==='signup'`: GoTrue bu türü **doğrulanmamış** e-posta kullanıcısına üretir (anon anahtarla herkes `/auth/v1/otp` `create_user:true` ile bir adrese boş kullanıcı açabilir). Sessiz atlanırsa adres kilitlenir: gerçek sahibi bağlayamaz ("zaten kayıtlı") ve giremez (kod gelmez). Bu yüzden `signup` da **"giriş kodun"** olarak gönderilir (alıcı `user.email`, kod `token`); istemci "Hesabınla gir"de `verifyOtp({type:'email'})` ile açar (GoTrue bu türle signup kodunu da kabul eder; kasaba-test'te doğrulanır). Sonuç: adresi başkası önceden açmış olsa bile sahibi girer, boş hesabı devralır, anonim geçmişini "Ekle" ile taşır. (Benim kararım; inşaatçı sorusu 2.)
   - Diğer türler (`recovery`, `invite`, `reauthentication`, bildirimler): bu kurulumda üretilmemeli; 200 döner, mail yollanmaz, sayaç artar (`/saglik` → `eposta.atlanan`).
 - Gönderim `sendTransactionalEmail()` ile; başarı → `200 {}`; sağlayıcı hatası → `500 {error:{http_code:500,message:'gönderilemedi'}}` (GoTrue bunu istemciye hata olarak döner; istemci "mail gönderilemedi, tekrar dene" der).
@@ -115,6 +115,9 @@ Kullanıcı B'yi seçti (2026-10-25): "tek gönderim fonksiyonu, sağlayıcı de
 
 ### 5.7 Güvenlik ve kötüye kullanım
 
+- **Önceden hesap açma (pre-hijack) kapatıldı (uygulama sırasında eklendi):** e-posta sağlayıcısı açıkken biri başkasının adresiyle `/auth/v1/signup`'tan şifreli, doğrulanmamış hesap açabilir; sahibi kodla girince hesap doğrulanır ve saldırgan şifresiyle girebilirdi. Bu oyunda şifre olmadığı için `db/caddy.sh` dış kapıda `/auth/v1/token?grant_type=password` ve `/auth/v1/recover`'a 403 verir; kanca `recovery` maili üretmez. Sahibi "Hesabınla gir" ile boş hesabı devralır.
+- **Mailde tek link:** kurulumun kendi adresi (`https://<ALAN>/`, env `ALAN`), "Sayfa kapandıysa" diye; başka link yok (kullanıcı isteği, 2026-10-25).
+
 - Kanca ucu imzasız/eski istekleri reddeder; sır yalnız env'de. Birleştirme ucu iki taze token ister; token'lar günlüğe yazılmaz.
 - Kod mailini kim isteyebilir: herkes (anon anahtarla GoTrue'ya erişen). Tavan: adres başına 60 sn, kurulum geneli saatte 30; metin link içermediği için oltalama değeri düşük. Resend kotası ayda 3.000.
 - `service_role` ve Resend anahtarı yalnız sunucu env'inde; `/ayar.json`'a girmez.
@@ -145,3 +148,8 @@ Kullanıcı B'yi seçti (2026-10-25): "tek gönderim fonksiyonu, sağlayıcı de
 ## 7. Kullanıcıdan gerekenler
 
 - Yok: Resend anahtarı elimizde, alan doğrulandı. Gerçek denemede kod maili Barış'ın Gmail'ine gidecek; Gmail bağlayıcısı bu oturumda bağlı.
+
+## 8. Uygulama notları (2026-10-25)
+
+- `kur.sh` artık `sunucu/*.js`'nin tamamını kopyalar (eposta.js/hesap.js eksik kalınca kasaba-test geri alınmıştı).
+- Gerçek deneme kasaba-test'te: bağlama (uuid aynı), ikinci cihazda giriş + "1 oyunu ekle" → RPC + eski anonim kullanıcı silindi; `email_change` kodu `token` alanı. Gmail bağlayıcısı yetkilendirme istediği için kodlar kullanıcıdan alındı.
