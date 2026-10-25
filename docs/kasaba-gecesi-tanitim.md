@@ -96,6 +96,8 @@ ayarlandı: tek hain bile ilk gecelerde yeterince tehlikelidir; iki hain küçü
 - Tüm yukarıdaki roller, gece yürüyüşü ve 17 rol hareketi, kalıcı gece izleri (tuzak, kelepçe, mum, dinamit),
   kopan oyuncu rozeti, telefonda yatay düzen, oyun sonu özeti; **Kasabada Bu Gece** gazetesi (en çok 3 kart, yalnız
   gerçek olaylardan), **rövanş** (hazır sayacı, aynı odada yeni maç), **Bu Akşam** skoru (oyuncu başına kazanılan/oynanan).
+  Tartışmada **⚡ hızlı ifadeler** (tek dokunuşla "Rolüm: …", "… hakkında şüphem var" vb.; sınırlı, sunucu kurar) ve gazetede
+  "iddia ve gerçeklik" kartı; üst barda **📘 rol rehberi** (oyunu durdurmayan çekmece: roller, ipuçları, dağılım kuralları).
 - Yapımda: **oyuncu geçmişi** — herkes kayıt olmadan tanınır, oyunlar ve roller saklanır, "kasaba" adlı grup sayfası,
   gece gece anlatılan oyun hikâyesi, en çok kazanan/kaybeden tabloları; istenirse Google ile bağlama.
   Ayrıca evlerin yeni çizimi (bej duvar, koyu çatı, baca, tabela).

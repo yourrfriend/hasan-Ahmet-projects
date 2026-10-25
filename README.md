@@ -36,6 +36,11 @@ Eşikler `npm run denge` ile ölçüldü (her kişi sayısı için 2000 oyun, ba
 
 **Kurallar:** her hain kendi başına öldürür, yardımcı hainler gece ya yeteneğini kullanır ya öldürür; hainler birbirini tanır ama yazışamaz ve gece birbirini göremez. Polis, Seri Katil'i ve Bombacı'yı tutamaz (ikiye düşünce oyun kilitlenmesin diye). Oylar gizlidir; sonunda yalnızca toplamlar açıklanır. Ölen oyuncular kendi aralarında yazışabilir.
 
+### Tartışma: hızlı ifadeler ve rol rehberi
+
+- **⚡ Hızlı ifade** (tartışmada, sağ oyuncular): "Rolüm: …" (tüm rol kataloğu, o maçta olmayan rol de söylenebilir), "… hakkında şüphem var", "Bu bilgi kesin değil", "Beni koruyun!", "Bir açıklama yapacağım". Metni sunucu kurar ve sohbete oyuncunun sözü olarak koyar (rozet yok). Sınırlar sunucuda: 8 sn bekleme, gün başına 4; yeniden bağlanmak sıfırlamaz. Rol iddiaları o anki gerçek rolle birlikte günlüğe yazılır; gazete maç sonunda "Gün 2: Hasan Doktor olduğunu söyledi; o sırada rolü Hain idi" der (niyet atfı yok; Deli'nin sandığı rolü söylemesi blöf sayılmaz).
+- **📘 Rol rehberi** (üst bar, lobi ve oyun): oyunu durdurmayan çekmece — taraflar, her rol için açıklama ve kısa ipucu, oyuncu sayısına göre genel dağılım kuralları, odanın süreleri. Yalnız herkese açık bilgi; bu maçın gizli dağılımına dokunmaz.
+
 ### Oyun sonu: gazete, rövanş, bu akşamın skoru
 
 - **🗞️ Kasabada Bu Gece:** en çok 3 kart, yalnız oyunun gerçek olaylarından (Deli ifşası, Doktor'un önlediği saldırı, yelek, tuzak, Polis, Hırsız, Büyücü, patlama, Hortlak intikamı; yer kalırsa oyunu bitiren olay). Aynı oyun hep aynı kartları üretir; uydurma yok.

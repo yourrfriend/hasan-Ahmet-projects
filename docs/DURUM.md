@@ -18,6 +18,10 @@ Tasarım: `docs/superpowers/specs/2026-10-24-kasaba-gecesi-gecmis-design.md`.
 - Paket 1a ertelenen küçükler: `gordum`/`hazir` izleyiciden de kabul (oyuncuya kısıtla, Plan 4'te karar); bıçaklanan+yıldırımlı kurban için yıldırım kartı çıkmaz (ilk neden); `skorIsle` adı maç başı adıyla yazar; `sunucu/.gitignore` `node_modules/` sembolik bağı yakalamaz; rövanş düğmeleri bazı boyutlarda kaydırma altında. `/code-review` sonrası ertelenen: `skorIsle` üç çağrı noktasında (flush/start/cancel) — tek `oyunBitti` kancası daha temiz olur; `skorListesi` her state'te yeniden sıralanıyor (önbelleklenebilir).
 - Ertelenen inceleme küçükleri: büyücü tahminsiz `guess` olayı; `sira` oyun başına sıfırlanmıyor (`oyun` damgası eklendi); `flush` içindeki `bosalt` try/catch; ev sahibi olmayan oyun sonu metni; olay alanları için eksik testler; test.sql kapsamı (yabancı vs görünümler, `oyuncu_ozet`, `kazanma()`, `kasabalar` ad-only); `oyunlar` `sonuc`/`bitis` tutarlılık `check`; `update.sh` sonrası port denetimi; spec'te `/opt`/`sk-*`/3001 kalıntıları; kurulum günlüğünde anahtar maskeleme; `ayar()` sed kaçışı; `apt-get update`; `kazanma()` kullanılmayan parametre + `nullif(pr.ad,'')`; ad uzunluk sınırları; `caddy.sh` `.yeni`→`mv`; `yedek.sh` `.tmp` artıkları; PostgREST şema yenileme; `oda_kodu` süren oyunda görünür.
 
+### paket1b — hızlı iddia/tepki balonları, rol rehberi (ChatGPT Paket 1, özellik 1 ve 5)
+Tasarım: `docs/superpowers/specs/2026-10-25-kasaba-gecesi-paket1b-iddia-rehber-design.md`; plan `…2026-10-25-paket1b-iddia-rehber.md`.
+- ✅ Görev 1–4: `hizli` kuralı + sunucu yolu, gazete `iddia` kartı, ⚡ paneli, 📘 rehber çekmecesi (`ipucu` game.js'te). Belgeler bu commit'te; kasaba-test denemesi ve taze inceleme sırada.
+
 ### sahne — rol dağılımı, gece yürüyüşü ve rol animasyonları, evler
 Tasarım: `docs/superpowers/specs/2026-10-24-kasaba-gecesi-sahne-design.md`.
 - ✅ Plan 1 `…sahne-1-rol-dagilimi.md`: `autoSetup` eşikleri (`DAGILIM`), 500×9 kısıt testi, `npm run denge`, README tablosu; **Bombacı Polis tarafından tutulamaz** (Polis–Bombacı kilidi kapandı).
