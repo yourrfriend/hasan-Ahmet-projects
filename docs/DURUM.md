@@ -1,6 +1,6 @@
 # İş durumu
 
-Son güncelleme: 2026-10-24 (gece). Bu dosya oturumlar arası bağlam içindir; her plan bitişinde güncelle.
+Son güncelleme: 2026-10-25. Bu dosya oturumlar arası bağlam içindir; her plan bitişinde güncelle.
 
 ## Canlı
 - `kasaba.munupixi.com` ← `sahne@970bac4` (ionos, tünel kipi; 2026-10-24 gece). `kasaba-test.munupixi.com` ← `sahne@970bac4`.
@@ -12,8 +12,9 @@ Son güncelleme: 2026-10-24 (gece). Bu dosya oturumlar arası bağlam içindir; 
 Tasarım: `docs/superpowers/specs/2026-10-24-kasaba-gecesi-gecmis-design.md`.
 - ✅ Plan 1 `…gecmis-1-oyun-sonu-ozeti.md`: `R.log`/`R.gameLog`, `P.ozet`, `priv.payin`, `kayit.js` yuvası, oyun sonu ekranı + "Tekrar oyna".
 - ✅ Plan 2 `…gecmis-2-supabase-kurulumu.md`: kurulum, Caddy kapısı, şema/RLS/görünümler/`hesap_birlestir`, yedek+tatbikat, belgeler.
-- ✅ Plan 2b (Paket 1a) `…2026-10-25-paket1a-gazete-rovans-skor.md`: `kazananlar`, Kasaba Gazetesi (`P.gazete`), rövanş (`hazir`, `start rovans`), Bu Akşamın Skoru (`P.skor`), ölçüm olayları (`oyun:gameId` damgası). Taze inceleme bekliyor; kasaba-test denemesi sonra. Kaynak: kullanıcının dış asistanla hazırladığı Paket 1 belgesi; 1b (iddia balonları + rol rehberi) ayrı plan olacak.
+- ✅ Plan 2b (Paket 1a) `…2026-10-25-paket1a-gazete-rovans-skor.md`: `kazananlar`, Kasaba Gazetesi (`P.gazete`), rövanş (`hazir`, `start rovans`), Bu Akşamın Skoru (`P.skor`), ölçüm olayları (`oyun:gameId` damgası); taze inceleme yapıldı, önemliler düzeltildi (Türkçe ekler `ek()`, lobide skor, sayaç tutarlılığı). **kasaba-test denemesi bekliyor.** Kaynak: kullanıcının dış asistanla hazırladığı Paket 1 belgesi; 1b (iddia balonları + rol rehberi) ayrı plan olacak.
 - ⏳ Plan 3 kimlik (anonim oturum, token ile join, `/ayar.json`), Plan 4 kayıt yazma (`kayit.js` → Supabase, `kur.sh` env koruma), Plan 5 sayfalar (`/oyun`, geçmiş, `/kasaba`), Plan 6 Google + ikinci cihaz birleştirme.
+- Paket 1a ertelenen küçükler: `gordum`/`hazir` izleyiciden de kabul (oyuncuya kısıtla, Plan 4'te karar); bıçaklanan+yıldırımlı kurban için yıldırım kartı çıkmaz (ilk neden); `skorIsle` adı maç başı adıyla yazar; `sunucu/.gitignore` `node_modules/` sembolik bağı yakalamaz; rövanş düğmeleri bazı boyutlarda kaydırma altında.
 - Ertelenen inceleme küçükleri: büyücü tahminsiz `guess` olayı; `sira` oyun başına sıfırlanmıyor (`oyun` damgası eklendi); `flush` içindeki `bosalt` try/catch; ev sahibi olmayan oyun sonu metni; olay alanları için eksik testler; test.sql kapsamı (yabancı vs görünümler, `oyuncu_ozet`, `kazanma()`, `kasabalar` ad-only); `oyunlar` `sonuc`/`bitis` tutarlılık `check`; `update.sh` sonrası port denetimi; spec'te `/opt`/`sk-*`/3001 kalıntıları; kurulum günlüğünde anahtar maskeleme; `ayar()` sed kaçışı; `apt-get update`; `kazanma()` kullanılmayan parametre + `nullif(pr.ad,'')`; ad uzunluk sınırları; `caddy.sh` `.yeni`→`mv`; `yedek.sh` `.tmp` artıkları; PostgREST şema yenileme; `oda_kodu` süren oyunda görünür.
 
 ### sahne — rol dağılımı, gece yürüyüşü ve rol animasyonları, evler
