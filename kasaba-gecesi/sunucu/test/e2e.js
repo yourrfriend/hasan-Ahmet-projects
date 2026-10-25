@@ -377,6 +377,18 @@ const step=t=>console.log('•',t);
       assert.strictEqual((await watcher.$$('.lobby-skor .cip')).length,4,'lobide bu akşamın skoru görünmeli');
     }
 
+    step('7 oyuncu, telefon yatay 844×390: evler ekrana sığar, birbirine binmez (sahne küçülür)');
+    { const WebSocket=require('ws');const c7=await browser.newContext({viewport:{width:844,height:390},deviceScaleFactor:2,isMobile:true,hasTouch:true});
+      const p7=await open(c7,'Sığma',base);await p7.click('text=Yeni oda kur');await p7.fill('#nameInput','Ev');await p7.click('text=Lobiye gir');
+      await p7.waitForFunction(()=>typeof P!=='undefined'&&!!P.room);const oda=await p7.evaluate(()=>P.room);
+      const botlar=[];for(let i=1;i<7;i++){const w=new WebSocket('ws://127.0.0.1:'+srv.server.address().port+'/ws');await new Promise(r=>w.on('open',r));w.send(JSON.stringify({t:'join',room:oda,uid:'sig'+i,name:'Oyuncu'+i,color:G.COLORS[i],hat:'none'}));botlar.push(w)}
+      await p7.waitForFunction(()=>P.lobby&&P.lobby.length===7);await p7.evaluate(()=>send({t:'start'}));await p7.waitForFunction(()=>P.phase==='night');await p7.waitForTimeout(3000);
+      const evler=await p7.evaluate(()=>P.players.map(x=>{const r=scene.houses[x.id].g.getBoundingClientRect();return{ad:x.name,l:Math.round(r.left),t:Math.round(r.top),r:Math.round(r.right),b:Math.round(r.bottom)}}));
+      for(const e of evler)assert.ok(e.l>=0&&e.r<=844&&e.t>=60&&e.b<=390,'ev ekrana sığmalı (üst şerit 60px): '+JSON.stringify(e));
+      for(let i=0;i<evler.length;i++)for(let j=i+1;j<evler.length;j++){const a=evler[i],b=evler[j];const ox=Math.min(a.r,b.r)-Math.max(a.l,b.l),oy=Math.min(a.b,b.b)-Math.max(a.t,b.t);assert.ok(ox<=6||oy<=6,'evler binişiyor: '+JSON.stringify([a,b]))}
+      for(const w of botlar)w.close();await c7.close();
+    }
+
     assert.deepStrictEqual(errors,[],'sayfa hataları');
     console.log('\nE2E: tüm adımlar geçti');
   }finally{
