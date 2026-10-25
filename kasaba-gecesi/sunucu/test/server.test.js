@@ -611,6 +611,27 @@ test('/eposta/kod ve /hesap/anonim: Turnstile + tavanlar + yerel GoTrue; /ayar.j
   await new Promise(r=>s3.server.listen(0,'127.0.0.1',r));const b3='127.0.0.1:'+s3.server.address().port;
   try{assert.strictEqual(JSON.parse((await postJ(b3,'/eposta/kod',JSON.stringify({tur:'gir',email:'a@b.c',turnstile:'t'}))).b).error,'ic');assert.strictEqual((await postJ(b3,'/hesap/anonim','')).s,503)}finally{await new Promise(r=>s3.close(r))}
 });
+test('/eposta/kod: eşzamanlı isteklerde tavan Turnstile sonrası yeniden denetlenir (TOCTOU yok); istemci IP\'si GoTrue\'ya X-Forwarded-For ile gider; kota dalı 503',async()=>{
+  const rest=await taklitRest();
+  const turnstileFetch=async(u,o)=>{await new Promise(r=>setTimeout(r,300));return {ok:true,status:200,json:async()=>({success:true,action:'kod_gir',hostname:'x.test'})}};
+  const ayar={url:'http://127.0.0.1:1',anonKey:'anon',serviceKey:'srv',jwtSecret:'x',kurulum:'t',kancaSirri:'v1,whsec_YQ==',turnstileSite:'site',turnstileSecret:'sir',turnstileHostnames:['x.test'],icUrl:rest.url};
+  const srv=createServer({quiet:true,jwksAlma:false,turnstileFetch,kayit:{kuyrukla(){},profil(){},kapat(){},sayac:{}},ayar,kodTavan:{ipOn:1,ipSaat:9,adresSaat:9,adresGun:9}});
+  await new Promise(r=>srv.server.listen(0,'127.0.0.1',r));const base='127.0.0.1:'+srv.server.address().port;
+  try{
+    const [a,b]=await Promise.all([postJ(base,'/eposta/kod',JSON.stringify({tur:'gir',email:'e1@ornek.com',turnstile:'t1'})),postJ(base,'/eposta/kod',JSON.stringify({tur:'gir',email:'e2@ornek.com',turnstile:'t2'}))]);
+    assert.deepStrictEqual([a.s,b.s].sort(),[200,429],'IP 1/10 dk: iki eşzamanlı istekten yalnız biri geçer');
+    const otp=rest.istekler.filter(i=>i.yol.startsWith('/auth/v1/otp'));assert.strictEqual(otp.length,1);assert.strictEqual(otp[0].xff,'127.0.0.1','istemci IP\'si GoTrue\'ya iletilir');
+    const an=await postJ(base,'/hesap/anonim','');assert.strictEqual(an.s,200);const sg=rest.istekler.filter(i=>i.yol.startsWith('/auth/v1/signup'));assert.strictEqual(sg[0].xff,'127.0.0.1');
+  }finally{await new Promise(r=>srv.close(r))}
+  const hizli=async()=>({ok:true,status:200,json:async()=>({success:true,action:'kod_gir',hostname:'x.test'})});
+  const s2=createServer({quiet:true,jwksAlma:false,turnstileFetch:hizli,kayit:{kuyrukla(){},profil(){},kapat(){},sayac:{}},ayar:{...ayar,kodGunluk:2,kodSaatlik:2},kodTavan:{ipOn:99,ipSaat:99,adresSaat:99,adresGun:99}});
+  await new Promise(r=>s2.server.listen(0,'127.0.0.1',r));const b2='127.0.0.1:'+s2.server.address().port;
+  try{
+    for(let i=0;i<2;i++)assert.strictEqual((await postJ(b2,'/eposta/kod',JSON.stringify({tur:'gir',email:'k'+i+'@ornek.com',turnstile:'t'+i}))).s,200);
+    const r=await postJ(b2,'/eposta/kod',JSON.stringify({tur:'gir',email:'k9@ornek.com',turnstile:'t9'}));assert.strictEqual(r.s,503);assert.strictEqual(JSON.parse(r.b).error,'kota');
+    assert.strictEqual(JSON.parse((await getH(b2,'/saglik')).b).kod.kota,1);
+  }finally{await new Promise(r=>s2.close(r));await rest.kapat()}
+});
 const getH=(b,p,h)=>new Promise((res,rej)=>http.get('http://'+b+p,{headers:h||{}},r=>{let s='';r.on('data',d=>s+=d);r.on('end',()=>res({s:r.statusCode,b:s,h:r.headers}))}).on('error',rej));
 test('statik dosya önbelleği: sürümsüz /sayfa/* ve game.js no-cache + ETag (304); ?v= ile uzun önbellek; html sayfalarda __V__ sürümle dolar',async()=>{
   const srv=createServer({quiet:true});await new Promise(r=>srv.server.listen(0,'127.0.0.1',r));const base='127.0.0.1:'+srv.server.address().port;

@@ -212,7 +212,9 @@ for f in "$AYAR_KOK"/*.env; do [ -e "$f" ] || continue; a="$(basename "$f" .env)
   a_alan="$(ayar_oku "$a" ALAN)";a_port="$(ayar_oku "$a" PORT)"
   if [ "$KIP" = tunel ]; then site="http:\/\/$a_alan:$TUNEL_PORT {\n\tbind 127.0.0.1";else site="$a_alan {";fi
   sablon="$APP_KOK/$a/sunucu/Caddyfile";[ -f "$sablon" ] || sablon="$KAYNAK/Caddyfile"
-  sed "s/^ALAN {/$site/; s/127.0.0.1:8787/127.0.0.1:$a_port/" "$sablon" > "$CADDY_KOK/games/$a.caddy"
+  # https kipinde Cloudflare yok: istemcinin yolladığı Cf-Connecting-Ip düşürülür (sunucu ipOf bu başlığa güvenir; tünelde Cloudflare yazar)
+  if [ "$KIP" = https ]; then rp="reverse_proxy 127.0.0.1:$a_port {\n\t\theader_up -Cf-Connecting-Ip\n\t}"; else rp="reverse_proxy 127.0.0.1:$a_port"; fi
+  sed "s/^ALAN {/$site/; s/reverse_proxy 127.0.0.1:8787/$rp/" "$sablon" > "$CADDY_KOK/games/$a.caddy"
 done
 # Supabase parçası (db/caddy.sh yazar) kurulum parçası değildir; kip değiştiyse eski kipte kalır, kullanıcıya söylenir
 if [ -f "$CADDY_KOK/games/supabase.caddy" ] && ! head -1 "$CADDY_KOK/games/supabase.caddy" | grep -q "(kip $KIP)"; then

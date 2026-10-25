@@ -1,7 +1,7 @@
 'use strict';
 // Kod isteği tavanları ve Turnstile doğrulaması (Plan 7; tasarım …eposta-kotuye-kullanim-design.md §5.2, §5.5). Saf: ağ yalnız verilen fetch ile.
 //   tavanlar({simdi, ipOn, ipSaat, adresSaat, adresGun, saat, gun, anonSaat}) → {kontrol, isaretle, anonimKontrol, temizle, boyut, sayac}
-//     kontrol({ip,adres}) → {ok:true} | {ok:false, neden:'ip'|'adres'|'kota', sureSn}   (sıra: ip → adres → kota; sayaçları artırmaz)
+//     kontrol({ip,adres}, say=true) → {ok:true} | {ok:false, neden:'ip'|'adres'|'kota', sureSn}   (sıra: ip → adres → kota; say=false sayaçlara yazmaz)
 //     isaretle({ip,adres})  — Turnstile geçtikten sonra çağrılır (kayıt düşer)
 //     anonimKontrol(ip) → {ok:true} | {ok:false, sureSn}   (kontrol + kayıt birlikte)
 //   turnstileDogrula({secret, response, remoteip, action, hostnames, fetch, zamanAsimiMs}) → {ok:true,hostname} | {ok:false, neden, kodlar?}
@@ -15,11 +15,12 @@ function tavanlar(a={}){
   const kirp=(l,pencere,t)=>{while(l.length&&t-l[0]>=pencere)l.shift();return l};
   // pencere içindeki kayıt sayısı sınırı aşıyorsa en eski kaydın düşmesine kalan saniye, yoksa 0
   const asim=(k,pencere,sinir,t)=>{const l=M.get(k);if(!l)return 0;const ic=l.filter(x=>t-x<pencere);if(ic.length<sinir)return 0;return Math.max(1,Math.ceil((ic[ic.length-sinir]+pencere-t)/1000))};
-  function kontrol({ip,adres}){
+  // say=false: ön denetim (Turnstile'dan önce), sayaçlara yazmaz; karar Turnstile sonrası ikinci denetimde sayılır
+  function kontrol({ip,adres},say=true){
     const t=simdi();const ad=String(adres||'').trim().toLowerCase();
-    let s=asim('ip:'+ip,ON_DK,S.ipOn,t)||asim('ip:'+ip,SAAT,S.ipSaat,t);if(s){sayac.ip_sinir++;return {ok:false,neden:'ip',sureSn:s}}
-    s=asim('adres:'+ad,SAAT,S.adresSaat,t)||asim('adres:'+ad,GUN,S.adresGun,t);if(s){sayac.adres_sinir++;return {ok:false,neden:'adres',sureSn:s}}
-    s=asim('kurulum',SAAT,S.saat,t)||asim('kurulum',GUN,S.gun,t);if(s){sayac.kota++;return {ok:false,neden:'kota',sureSn:s}}
+    let s=asim('ip:'+ip,ON_DK,S.ipOn,t)||asim('ip:'+ip,SAAT,S.ipSaat,t);if(s){if(say)sayac.ip_sinir++;return {ok:false,neden:'ip',sureSn:s}}
+    s=asim('adres:'+ad,SAAT,S.adresSaat,t)||asim('adres:'+ad,GUN,S.adresGun,t);if(s){if(say)sayac.adres_sinir++;return {ok:false,neden:'adres',sureSn:s}}
+    s=asim('kurulum',SAAT,S.saat,t)||asim('kurulum',GUN,S.gun,t);if(s){if(say)sayac.kota++;return {ok:false,neden:'kota',sureSn:s}}
     return {ok:true};
   }
   function isaretle({ip,adres}){const t=simdi();const ad=String(adres||'').trim().toLowerCase();sayac.istek++;for(const k of ['ip:'+ip,'adres:'+ad,'kurulum'])kirp(liste(k),GUN,t).push(t)}

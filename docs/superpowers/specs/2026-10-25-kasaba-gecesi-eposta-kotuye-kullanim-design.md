@@ -39,7 +39,7 @@ Anti-hedefler
 
 ### 5.1 Akış
 
-1. İstemci "Kod gönder": Turnstile belirteci alınır (`turnstile.render` görünmez kip, `execute`), `POST /eposta/kod {tur:'bagla'|'gir', email, turnstile, token}` — `token`: bağla için oyuncunun kendi erişim token'ı (GoTrue'ya onun adına `PUT /user` yapılacak); gir için gereksiz.
+1. İstemci "Kod gönder": Turnstile belirteci alınır; bağla için token `sb.auth.getSession()`'dan (supabase-js gerekirse yeniler; saatlerdir açık sayfada bellekteki token süresi dolmuş olabilir) (`turnstile.render` görünmez kip, `execute`), `POST /eposta/kod {tur:'bagla'|'gir', email, turnstile, token}` — `token`: bağla için oyuncunun kendi erişim token'ı (GoTrue'ya onun adına `PUT /user` yapılacak); gir için gereksiz.
 2. Sunucu sırayla: gövde/biçim → IP tavanı → Turnstile siteverify (`POST https://challenges.cloudflare.com/turnstile/v0/siteverify` `{secret, response, remoteip}`; 5 sn) → adres tavanı → küresel saatlik/günlük tavan → GoTrue'ya **yerel adres** üzerinden (`SUPABASE_IC_URL`, ör. `http://127.0.0.1:8000`; `apikey` anon) istek:
    - bağla: `PUT /auth/v1/user {email}` başlık `Authorization: Bearer <token>` (GoTrue `email_change` kodu üretir → kanca → mail).
    - gir: `POST /auth/v1/otp {email, create_user:false}` (GoTrue `magiclink` kodu → kanca → mail).
@@ -52,7 +52,7 @@ Anti-hedefler
 
 | Anahtar | Sınır | Aşımda |
 |---|---|---|
-| IP | 10 dakikada 3 kod isteği, saatte 6 | 429 "Çok sık istek; biraz sonra dene." |
+| IP | 10 dakikada 3 kod isteği, saatte 6 | 429 "Çok sık istek; biraz sonra dene." (ön denetim Turnstile'dan önce, kesin karar ve işaret Turnstile **sonrasında** aynı tick'te: eşzamanlı istekler tavanı delemez) |
 | Adres (küçük harf) | saatte 3, günde 6 | 429 aynı metin |
 | Küresel (kurulum başına, env `KOD_GUNLUK`; kasaba 80, kasaba-test 20; saatlik `KOD_SAATLIK` 30) | Resend 100'ün altında; GoTrue saatte 60 kalır | 503 "Bugünlük kod sınırı doldu; yarın tekrar dene." + günlük `UYARI` satırı |
 | Kanca (tek boğaz; `KANCA_GUNLUK` 90) | iki kurulum birlikte 100'ü aşmasın | 500 → GoTrue hata → istemci "gönderilemedi" (ikinci kat; normalde kurulum tavanları önce durdurur) |
@@ -66,7 +66,7 @@ Kanca tarafındaki alıcı başına saatte 5 kalır (ikinci kat). `/saglik` → 
 - `/auth/v1/token`: yalnız ham sorgu `grant_type=refresh_token` (Plan 6, kalır).
 - **403:** `/auth/v1/signup`, `/auth/v1/otp`, `/auth/v1/magiclink`, `/auth/v1/resend`, `/auth/v1/recover`, `/auth/v1/user` için **PUT** (GET kalır). Caddy: `@userYaz { path /auth/v1/user; method PUT }`.
 - Açık kalanlar (inşaatçı doğruladı, supabase-js bunlara takılmaz): `POST /auth/v1/verify`, `POST /auth/v1/logout`, `GET /auth/v1/user`, `/auth/v1/settings`, `/auth/v1/health`, `/auth/v1/.well-known/jwks.json`, `/rest/*`, `/realtime/*`, `/storage/*`.
-- **Gerçek IP GoTrue'ya ulaşsın:** tünel kipinde cloudflared → Caddy → api-gw zincirinde GoTrue herkesi `127.0.0.1` görüyor olabilir (IP başına `RATE_LIMIT_VERIFY`, `RATE_LIMIT_ANONYMOUS_USERS` o zaman küresel çalışır: tek saldırgan herkesin `verify`'ını kilitler). Supabase Caddy parçasına `reverse_proxy { trusted_proxies private_ranges }` eklenir; doğrulama: anonim giriş sonrası `auth.audit_log_entries.ip_address` gerçek IP'yi göstermeli (psql).
+- **Gerçek IP GoTrue'ya ulaşsın (inceleme sonrası düzeltildi):** Caddy `X-Forwarded-For`'u istemciden **almaz**, kendisi yazar: tünel kipinde `header_up X-Forwarded-For {header.Cf-Connecting-Ip}` (Cloudflare'in yazdığı, spoof edilemez), https kipinde `{remote_host}`. (`trusted_proxies private_ranges` istemcinin yolladığı XFF'i koruyordu — Cloudflare XFF'i ekler, silmez — bu yüzden kaldırıldı.) GoTrue'nun IP sınırları (`verify`, `otp`, anonim) ancak `RATE_LIMIT_HEADER=X-Forwarded-For` ile çalışır (`kur-supabase.sh` yazar; aksi hâlde GoTrue hiç IP sınırı uygulamaz). Sunucumuzun yerel GoTrue çağrıları da istemci IP'sini `X-Forwarded-For` ile iletir (sunucu tek anahtar olmasın). Doğrulama: `auth.audit_log_entries.ip_address` bu sürümde boş; GoTrue istek günlüğündeki `remote_addr` (docker logs supabase-auth) gerçek IP'yi göstermeli; `curl -H 'X-Forwarded-For: 9.9.9.9'` ile spoof denemesi günlükte gerçek IP olarak kalmalı; 30+ `verify` denemesi 429 almalı.
 - Sunucu ↔ GoTrue: yerel adres (`SUPABASE_IC_URL`); ionos'ta `http://127.0.0.1:8000`. Tanımsızsa `/hesap/anonim` ve `/eposta/kod` 503 döner ve açılışta `UYARI` yazılır (dış adres kapalı olduğu için işe yaramaz).
 
 ### 5.4 GoTrue ayarları (`db/kur-supabase.sh`)
@@ -116,3 +116,9 @@ Kanca tarafındaki alıcı başına saatte 5 kalır (ikinci kat). `/saglik` → 
 ## 7. Kullanıcıdan gerekenler
 
 - ~~Turnstile widget'ı~~ alındı (2026-10-25). Kurulum bitince Cloudflare'de **Rotate secret** (anahtar sohbetten geçti) ve yeni değerin bana verilmesi (dosyaya yazılır).
+
+## 8. Uygulama notları (2026-10-25)
+
+- Taze inceleme (fable): 1 kritik (GoTrue IP sınırları `RATE_LIMIT_HEADER` olmadan kapalıydı ve `trusted_proxies` XFF'i spoof'a açıyordu) + 4 önemli (tavan TOCTOU, bağla token yenileme, https kipinde `Cf-Connecting-Ip` spoof, sunucunun GoTrue'ya tek IP görünmesi) → hepsi düzeltildi: Caddy XFF yeniden yazma, `RATE_LIMIT_HEADER`, Turnstile sonrası yeniden denetim + `kontrol(…, say=false)` ön denetim, `getSession` token'ı, `kur.sh` https parçasında `header_up -Cf-Connecting-Ip`, `icIstek` XFF.
+- Gerçek deneme: otomasyon Turnstile'da kutu alıp reddedilir (tasarlanan davranış); doğrulama kullanıcının telefonundan (bağla → "zaten bağlı", gir → kod geldi, giriş, boş anonim kimlik silindi). `auth.users`'ta deneme kalıntısı anonim kullanıcılar birikti; temizlik ayrı iş.
+- Node test koşucusunda tek bir dosyayı `--test-name-pattern` ile çalıştırırken başarısız iddia sonrası süreç askıda kalabiliyor; test gövdesini düz betik olarak koşturmak teşhisi hızlandırdı.

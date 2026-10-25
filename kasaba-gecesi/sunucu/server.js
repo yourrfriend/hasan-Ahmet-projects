@@ -121,7 +121,8 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
   const tavanTemizle=setInterval(()=>tavan.temizle(),600000);if(tavanTemizle.unref)tavanTemizle.unref();
   if(ayar.url&&ayar.serviceKey&&ayar.kancaSirri&&!ayar.icUrl)log('UYARI: SUPABASE_IC_URL yok; /eposta/kod ve /hesap/anonim 503 döner');
   const icKok=()=>String(ayar.icUrl||'').replace(/\/+$/,'');
-  async function icIstek(yontem,yol,govde,ekBaslik){const r=await icFetch(icKok()+yol,{method:yontem,headers:{apikey:ayar.anonKey||'','Content-Type':'application/json',...(ekBaslik||{})},body:govde===undefined?undefined:JSON.stringify(govde),signal:AbortSignal.timeout(10000)});let j=null;try{j=await r.json()}catch(e){}return {durum:r.status,govde:j}}
+  // ip: istemci IP'si X-Forwarded-For ile GoTrue'ya gider (ağ geçidi ekler, GoTrue ilk değeri alır) — IP başına sınırları sunucumuz tek anahtara düşürmesin
+  async function icIstek(yontem,yol,govde,ekBaslik,ip){const r=await icFetch(icKok()+yol,{method:yontem,headers:{apikey:ayar.anonKey||'','Content-Type':'application/json',...(ip?{'X-Forwarded-For':ip}:{}),...(ekBaslik||{})},body:govde===undefined?undefined:JSON.stringify(govde),signal:AbortSignal.timeout(10000)});let j=null;try{j=await r.json()}catch(e){}return {durum:r.status,govde:j}}
   async function kodUcu(req,res){
     const json=(d,b)=>{res.writeHead(d,{'Content-Type':'application/json'});res.end(JSON.stringify(b))};
     if(!ayarAcik().eposta){res.writeHead(404);return res.end('yok')}
@@ -130,22 +131,22 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
     if(!(tur==='bagla'||tur==='gir')||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>254)return json(400,{error:'gecersiz_govde'});
     if(!ayar.turnstileSecret)return json(503,{error:'turnstile_ayarsiz'});
     if(!ayar.icUrl)return json(503,{error:'ic'});
-    const ip=ipOf(req);const k=tavan.kontrol({ip,adres:email});
-    if(!k.ok&&k.neden==='ip')return json(429,{error:'limit',sureSn:k.sureSn});
+    const ip=ipOf(req);const k=tavan.kontrol({ip,adres:email},false); // ön denetim: IP doluysa Turnstile'a gitmeden 429 (sayılmaz; kesin karar aşağıda)
+    if(!k.ok&&k.neden==='ip'){tavan.sayac.ip_sinir++;return json(429,{error:'limit',sureSn:k.sureSn})}
     const t=await Kod.turnstileDogrula({secret:ayar.turnstileSecret,response:g.turnstile,remoteip:ip,action:'kod_'+tur,hostnames:ayar.turnstileHostnames,fetch:turnstileFetch});
     if(!t.ok){kodSayac.turnstile_red++;log('kod turnstile red',t.neden);return json(403,{error:'turnstile',neden:t.neden})}
-    if(!k.ok)return json(k.neden==='kota'?503:429,{error:k.neden==='kota'?'kota':'limit',sureSn:k.sureSn});
-    let sonuc;
+    // Turnstile beklerken başka istekler geçmiş olabilir: tavanı yeniden denetle ve araya await girmeden işaretle (eşzamanlı istekler tavanı delmesin)
+    let kim=null;
     if(tur==='bagla'){
       if(typeof g.token!=='string'||!g.token)return json(401,{error:'token'});
-      const kim=Kimlik.dogrula(g.token,dogrulama);if(!kim||kim.suresiDolmus)return json(401,{error:'token'});
+      kim=Kimlik.dogrula(g.token,dogrulama);if(!kim||kim.suresiDolmus)return json(401,{error:'token'});
       if(kim.eposta)return json(400,{error:'zaten_bagli'});
-      tavan.isaretle({ip,adres:email});
-      try{sonuc=await icIstek('PUT','/auth/v1/user',{email},{Authorization:'Bearer '+g.token})}catch(e){return json(503,{error:'ic'})}
-    }else{
-      tavan.isaretle({ip,adres:email});
-      try{sonuc=await icIstek('POST','/auth/v1/otp',{email,create_user:false})}catch(e){return json(503,{error:'ic'})}
     }
+    const k2=tavan.kontrol({ip,adres:email});if(!k2.ok)return json(k2.neden==='kota'?503:429,{error:k2.neden==='kota'?'kota':'limit',sureSn:k2.sureSn});
+    tavan.isaretle({ip,adres:email});
+    let sonuc;
+    if(tur==='bagla'){try{sonuc=await icIstek('PUT','/auth/v1/user',{email},{Authorization:'Bearer '+g.token},ip)}catch(e){return json(503,{error:'ic'})}}
+    else{try{sonuc=await icIstek('POST','/auth/v1/otp',{email,create_user:false},null,ip)}catch(e){return json(503,{error:'ic'})}}
     log('kod',tur,Hesap.maskele(email),sonuc.durum);
     if(sonuc.durum>=200&&sonuc.durum<300){kodSayac.gonderildi++;return json(200,{ok:true})}
     const b=sonuc.govde||{};return json(sonuc.durum>=400&&sonuc.durum<600?sonuc.durum:502,{error:'gotrue',error_code:b.error_code||b.code||null,msg:b.msg||b.message||null});
@@ -154,8 +155,8 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
     const json=(d,b)=>{res.writeHead(d,{'Content-Type':'application/json'});res.end(JSON.stringify(b))};
     if(!(ayar.url&&ayar.anonKey)){res.writeHead(404);return res.end('yok')}
     if(!ayar.icUrl)return json(503,{error:'ic'});
-    const a=tavan.anonimKontrol(ipOf(req));if(!a.ok)return json(429,{error:'limit',sureSn:a.sureSn});
-    let sonuc;try{sonuc=await icIstek('POST','/auth/v1/signup',{})}catch(e){return json(503,{error:'ic'})}
+    const ip=ipOf(req);const a=tavan.anonimKontrol(ip);if(!a.ok)return json(429,{error:'limit',sureSn:a.sureSn});
+    let sonuc;try{sonuc=await icIstek('POST','/auth/v1/signup',{},null,ip)}catch(e){return json(503,{error:'ic'})}
     return json(sonuc.durum,sonuc.govde||{});
   }
   // Hesap birleştirme (Plan 6): ikinci cihazda e-postayla girince o cihazın anonim geçmişi hesaba taşınır. Yalnız kayıt açıkken; IP başına dakikada 5.

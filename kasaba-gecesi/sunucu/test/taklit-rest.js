@@ -5,7 +5,7 @@ const http=require('http');
 function taklitRest(){const T={kasabalar:[],kasaba_uyeleri:[],oyunlar:[],oyun_oyunculari:[],olaylar:[],profiller:[]};const istekler=[];let hata=()=>null;let sayac=0;
   const s=http.createServer((req,res)=>{let b='';req.on('data',d=>b+=d);req.on('end',()=>{
     const u=new URL(req.url,'http://x');const tablo=u.pathname.replace('/rest/v1/','');const govde=b?JSON.parse(b):null;
-    const kayit={yol:req.url,tablo,yontem:req.method,prefer:req.headers.prefer||'',govde};istekler.push(kayit);
+    const kayit={yol:req.url,tablo,yontem:req.method,prefer:req.headers.prefer||'',govde,xff:req.headers['x-forwarded-for']||null};istekler.push(kayit);
     const h=hata(kayit);if(h){res.writeHead(h);return res.end(JSON.stringify({message:'taklit hata '+h}))}
     const yaz=(d,kod=200)=>{res.writeHead(kod,{'Content-Type':'application/json'});res.end(JSON.stringify(d))};
     // Plan 7: GoTrue yerel uçları — anonim signup (gövde {}), e-postalı signup 422, PUT /user (Authorization gerekir), POST /otp (create_user:false; yok@… → 422)

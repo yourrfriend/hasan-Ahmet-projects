@@ -78,6 +78,7 @@ ayar STUDIO_DEFAULT_ORGANIZATION munupixi
 # ---------- e-posta kodu ve kanca (Plan 6) ----------
 ayar MAILER_OTP_EXP 900
 ayar MAILER_OTP_LENGTH 6
+ayar RATE_LIMIT_HEADER X-Forwarded-For   # IP başına sınırlar (verify, otp, anonim) ancak bu başlıkla çalışır; Caddy başlığı gerçek IP'den yazar (caddy.sh)
 ayar HOOK_SEND_EMAIL_ENABLED true
 ayar HOOK_SEND_EMAIL_URI "https://$KANCA_ALAN/eposta/kanca"
 if [ -z "$KANCA_SIR" ]; then KANCA_SIR="$(grep '^HOOK_SEND_EMAIL_SECRETS=' .env | cut -d= -f2- || true)"; fi

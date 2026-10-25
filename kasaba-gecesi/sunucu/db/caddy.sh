@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Supabase'in dış kapısı: Caddy parçası /etc/caddy/games/supabase.caddy. Yalnız API yolları geçer
-# (/auth, /rest, /realtime, /storage); Studio (/) ve pg-meta (/pg) dışarıdan 404 alır. Şifreyle giriş, şifre kurtarma, OTP/magiclink/resend ve PUT /user 403 (Plan 6–7); trusted_proxies ile gerçek IP GoTrue'ya ulaşır.
+# (/auth, /rest, /realtime, /storage); Studio (/) ve pg-meta (/pg) dışarıdan 404 alır. Şifreyle giriş, şifre kurtarma, OTP/magiclink/resend ve PUT /user 403 (Plan 6–7); X-Forwarded-For Cloudflare'in gerçek IP başlığından yeniden yazılır.
 # Kip kur.sh'nin yazdığı /etc/games/.sunucu.env'den okunur (KIP=tunel|https, TUNEL_PORT); dosya yoksa https.
 #
 #   sudo ./caddy.sh [--alan kasaba-api.munupixi.com] [--port 8000] [--signup-kapali] [--yalnizca-yaz DOSYA]   (son seçenek: Caddy'ye dokunmadan üret)
@@ -22,6 +22,9 @@ KIP="${KIP:-}"; TUNEL_PORT="${TUNEL_PORT:-8080}"
 if [ -z "$KIP" ] && [ -f "$AYAR" ]; then KIP="$(sed -n 's/^KIP=//p' "$AYAR" | head -1)"; TUNEL_PORT="$(sed -n 's/^TUNEL_PORT=//p' "$AYAR" | head -1)"; TUNEL_PORT="${TUNEL_PORT:-8080}"; fi
 KIP="${KIP:-https}"
 
+# Gerçek istemci IP'si GoTrue'ya (IP başına sınırlar ve günlük): tünelde Cloudflare'in yazdığı Cf-Connecting-Ip, https'te doğrudan bağlantı.
+# İstemcinin yolladığı X-Forwarded-For hiçbir zaman korunmaz (Cloudflare ekler, silmez; trusted_proxies bunu açıyordu).
+if [ "$KIP" = tunel ]; then XFF_KAYNAK='{header.Cf-Connecting-Ip}'; else XFF_KAYNAK='{remote_host}'; fi
 SIGNUP_PARCA=""
 if [ "$SIGNUP_KAPALI" = 1 ]; then SIGNUP_PARCA="	# anonim giriş de oyun sunucusundan (/hesap/anonim): e-postalı kayıt hiçbir yoldan açılamaz
 	@signup path /auth/v1/signup
@@ -43,7 +46,7 @@ $BASLIK
 	}
 	handle @tokenYenile {
 		reverse_proxy 127.0.0.1:$PORT {
-			trusted_proxies private_ranges
+			header_up X-Forwarded-For $XFF_KAYNAK
 		}
 	}
 	@tokenDiger path /auth/v1/token
@@ -69,7 +72,7 @@ $BASLIK
 $SIGNUP_PARCA	@api path /auth/* /rest/* /realtime/* /storage/*
 	handle @api {
 		reverse_proxy 127.0.0.1:$PORT {
-			trusted_proxies private_ranges
+			header_up X-Forwarded-For $XFF_KAYNAK
 		}
 	}
 	handle {
