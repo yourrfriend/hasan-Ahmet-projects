@@ -30,7 +30,8 @@ function client(uid,name,join,b=base){
 test('statik sayfa ve sağlık uç noktası',async()=>{
   const get=p=>new Promise((res,rej)=>http.get('http://'+base+p,r=>{let b='';r.on('data',d=>b+=d);r.on('end',()=>res({s:r.statusCode,b}))}).on('error',rej));
   const a=await get('/');assert.strictEqual(a.s,200);assert.match(a.b,/Kasaba Gecesi/);
-  const sg=await get('/saglik');assert.strictEqual(sg.s,200);assert.ok('surum' in JSON.parse(sg.b),'/saglik sürümü göstermeli');
+  const sg=await get('/saglik');assert.strictEqual(sg.s,200);const sgj=JSON.parse(sg.b);assert.ok('surum' in sgj,'/saglik sürümü göstermeli');
+  assert.deepStrictEqual(Object.keys(sgj.kayit).sort(),['dusen','hata','kuyruk','yazilan'],'/saglik kayıt sayaçları (yalnız sayılar)');assert.ok(!sg.b.includes('serviceKey'));
   assert.strictEqual((await get('/sunucu/game.js')).s,200);
   assert.strictEqual((await get('/../server.js')).s,404);
 });

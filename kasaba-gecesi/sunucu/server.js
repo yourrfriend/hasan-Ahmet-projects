@@ -91,7 +91,7 @@ function createServer(opts={}){
         res.writeHead(200,{'Content-Type':'application/javascript; charset=utf-8','Cache-Control':'public, max-age=86400'});res.end(req.method==='HEAD'?undefined:buf);
       });return;
     }
-    if(url==='/saglik'){res.writeHead(200,{'Content-Type':'application/json'});return res.end(JSON.stringify({ok:true,rooms:rooms.size,surum:process.env.KG_SURUM||null}))}
+    if(url==='/saglik'){const k=kayit.sayac||{};res.writeHead(200,{'Content-Type':'application/json'});return res.end(JSON.stringify({ok:true,rooms:rooms.size,surum:process.env.KG_SURUM||null,kayit:{kuyruk:k.kuyruk||0,yazilan:k.yazilan||0,hata:k.hata||0,dusen:k.dusen||0}}))} // kayıt sayaçları: yalnız sayılar
     res.writeHead(404,{'Content-Type':'text/plain; charset=utf-8'});res.end('Bulunamadı');
   });
 
