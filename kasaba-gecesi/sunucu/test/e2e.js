@@ -33,7 +33,45 @@ const step=t=>console.log('•',t);
       await p3.waitForFunction(()=>/oda=[a-z0-9]{12}/.test((document.querySelector('.lobbybar code')||{}).textContent||''),null,{timeout:6000});
       assert.ok(Date.now()-t0<9000,'ulaşılmaz Supabase oyunu bekletmemeli');assert.strictEqual(await p3.evaluate(()=>kayitli),false);
       assert.match(await p3.textContent('.kimlik-notu-lobi'),/Misafir/,'sunucu kayıtlı saymadıysa lobide misafir notu');
-      await c3.close();await new Promise(r=>s3.close(r)); }
+      await c3.close();
+      step('giriş sayfası geçmişi: kayıt açık + oturum varken .gecmis bloğu (sahte Supabase: route), oyun kurma düğmesi yerinde');
+      { const Kimlik=require('../kimlik.js');const ben='11111111-2222-4333-8444-555555555555';const o3=base3.replace(/\/$/,'');
+        const jwt=Kimlik.imzala({sub:ben,exp:Math.floor(Date.now()/1000)+3600,role:'authenticated',aud:'authenticated',is_anonymous:true},'x');
+        const oturum={access_token:jwt,token_type:'bearer',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,refresh_token:'r1',user:{id:ben,aud:'authenticated',role:'authenticated',is_anonymous:true,app_metadata:{provider:'anonymous'},user_metadata:{},created_at:new Date().toISOString()}};
+        const g1='aaaaaaaa-0000-4000-8000-000000000001',g2='aaaaaaaa-0000-4000-8000-000000000002',g3='aaaaaaaa-0000-4000-8000-000000000003',k1='bbbbbbbb-0000-4000-8000-000000000001';
+        const tablo={
+          oyuncu_ozet:[{uye:ben,kurulum:'e2e',oyun:3,kazanma:2,en_cok_rol:'doktor',son_oyun:'2026-10-25T20:00:00Z'}],
+          // g3: kasabamın maçı ama ben oynamadım → "son oyunların"da yok
+          oyunlar:[{id:g3,kasaba_id:k1,bitis:'2026-10-25T21:00:00Z',sonuc:'bitti',kazanan_takim:'inn',kazanan_metin:'Masumlar kazandı',oyuncu_sayisi:4},
+                   {id:g1,kasaba_id:k1,bitis:'2026-10-25T20:00:00Z',sonuc:'bitti',kazanan_takim:'inn',kazanan_metin:'Masumlar kazandı',oyuncu_sayisi:5},
+                   {id:g2,kasaba_id:null,bitis:'2026-10-24T19:00:00Z',sonuc:'bitti',kazanan_takim:'imp',kazanan_metin:'Hainler kazandı',oyuncu_sayisi:6}],
+          oyun_oyunculari_acik:[{oyun_id:g1,pub_id:'p1',uye:ben,ad:'Ben',rol_key:'doktor',takim:'inn',deli_gibi:null,calinan_rol:null,sonunda_sag:true,olum_gunu:null,olum_sekli:null},
+                                {oyun_id:g2,pub_id:'p2',uye:ben,ad:'Ben',rol_key:'polis',takim:'imp',deli_gibi:null,calinan_rol:null,sonunda_sag:false,olum_gunu:2,olum_sekli:'asildi'}],
+          kasaba_uyeleri:[{kasaba_id:k1,uye:ben,rol:'uye'}],kasabalar:[{id:k1,ad:"Barış'ın Kasabası"}]};
+        const istekler=[];
+        const c5=await newCtx();
+        await c5.route(u=>/\/(auth|rest)\/v1\//.test(u.pathname)||u.pathname==='/ayar.json',async route=>{
+          const u=new URL(route.request().url());const json=(b,st)=>route.fulfill({status:st||200,contentType:'application/json',body:JSON.stringify(b)});
+          if(u.pathname==='/ayar.json')return json({url:o3,anonKey:'anon',kurulum:'e2e',kayit:true});
+          if(u.pathname.startsWith('/auth/v1/'))return json(/signup|token/.test(u.pathname)?oturum:oturum.user);
+          const t=u.pathname.split('/').pop();istekler.push(t+'?'+u.searchParams.toString());
+          if(!tablo[t])return json({message:'yok: '+t},404);
+          let satir=tablo[t];const uye=u.searchParams.get('uye');if(uye&&uye!=='eq.'+ben)satir=[];
+          if(t==='oyunlar'&&u.searchParams.get('sonuc')==='eq.bitti')satir=satir.filter(o=>o.sonuc==='bitti');
+          return json(satir)});
+        const p5=await open(c5,'Geçmiş',base3);
+        await p5.waitForSelector('.gecmis',{timeout:8000});
+        const g=await p5.evaluate(()=>{const e=document.querySelector('.gecmis');return{t:e.textContent,maclar:[...e.querySelectorAll('a.mac')].map(a=>({href:a.getAttribute('href'),t:a.textContent})),kasabalar:[...e.querySelectorAll('a.kasaba')].map(a=>({href:a.getAttribute('href'),t:a.textContent}))}});
+        assert.match(g.t,/3 oyun/);assert.match(g.t,/2 kazanma/);assert.match(g.t,/Doktor/);assert.ok(!/%/.test(g.t),'yüzde yok');
+        assert.deepStrictEqual(g.maclar.map(m=>m.href),['/oyun/'+g1,'/oyun/'+g2],'yalnız oynadığım maçlar, yeniden eskiye');
+        assert.match(g.maclar[0].t,/Masumlar kazandı/);assert.match(g.maclar[0].t,/Doktor/);assert.match(g.maclar[0].t,/Barış'ın Kasabası/);
+        assert.match(g.maclar[1].t,/Hainler kazandı/);assert.match(g.maclar[1].t,/Polis \(Hain\)/);
+        assert.deepStrictEqual(g.kasabalar,[{href:'/kasaba/'+k1,t:"Barış'ın Kasabası"}]);
+        assert.ok(await p5.$('text=Yeni oda kur'),'oyun kurma düğmesi yerinde');
+        assert.ok(istekler.some(i=>/^oyunlar\?.*sonuc=eq\.bitti/.test(i)&&/order=bitis\.desc/.test(i)),'oyunlar bitiş sırasıyla ve yalnız bitmişler: '+istekler.join(' | '));
+        assert.match(await p5.textContent('.kimlik-notu'),/Kimliğin bu tarayıcıda/);
+        await c5.close(); }
+      await new Promise(r=>s3.close(r)); }
 
     step('geçmiş sayfaları: Supabase yokken hatasız açılır ve "kayıt kapalı" der');
     { const c4=await newCtx();const u='aaaaaaaa-0000-4000-8000-000000000009';
@@ -225,6 +263,7 @@ const step=t=>console.log('•',t);
       const r=await watcher.$eval('.endcard',e=>{const r=e.getBoundingClientRect();return{top:r.top,bottom:r.bottom}});assert.ok(r.top>=0&&r.bottom<=390,'endcard ekrana sığmalı: '+JSON.stringify(r));
       await watcher.setViewportSize({width:900,height:520});
       assert.strictEqual(await pages[newHostName].textContent('.endcard button.lobi'),'Lobiye dön');
+      assert.strictEqual(await watcher.$('.endcard a.hikaye'),null,'kayıt kapalıyken hikâye linki yok');
       await pages[newHostName].click('.endcard button.lobi');
       for(const p of [host,...Object.values(pages)])await p.waitForFunction(()=>P.phase==='lobby'&&!priv.role,null,{timeout:5000});
       assert.strictEqual((await watcher.$$('.lobby-skor .cip')).length,4,'lobide bu akşamın skoru görünmeli');

@@ -45,6 +45,12 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 .setup .r .n{font-weight:700;font-size:14px}.setup .r .d{font-size:12px;color:var(--muted)}
 .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12px;background:var(--panel2)}
 .chip .dot{width:8px;height:8px;border-radius:50%}
+/* giriş sayfası geçmiş bloğu (Plan 5) */
+.gecmis .kart{font-weight:700}.gecmis .maclar{display:grid;gap:6px}
+.gecmis a.mac{display:grid;gap:2px;padding:8px 10px;border-radius:10px;background:var(--panel2);color:var(--fg);text-decoration:none;font-size:14px}.gecmis a.mac:hover{outline:1px solid var(--accent)}
+.gecmis a.mac .ne{font-size:12px;color:var(--muted)}.gecmis a.mac .alt{display:flex;gap:10px;flex-wrap:wrap;align-items:baseline}.gecmis a.mac .kim{font-weight:800}.gecmis a.mac .kim.inn{color:var(--inn)}.gecmis a.mac .kim.imp{color:var(--imp)}.gecmis a.mac .kim.neu{color:var(--neu)}.gecmis a.mac .ben{font-size:13px;color:var(--muted)}
+.gecmis a.kasaba{color:var(--fg);text-decoration:none}
+.endcard a.hikaye{display:inline-block;justify-self:center;font-weight:800;color:#1e3a8a;font-size:clamp(12px,1.5vw,15px)}
 .dot.inn{background:var(--inn)}.dot.imp{background:var(--imp)}.dot.neu{background:var(--neu)}
 
 /* ---------- Sahne ---------- */
@@ -222,7 +228,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 <div id="app"><div class="panel"><p class="muted">Yükleniyor…</p></div></div>
 <script>
 // Script daha başlamadan çökerse "Yükleniyor…" yerine hatayı göster (sürüm damgasıyla).
-window.KG_VER='2026-10-29c';
+window.KG_VER='2026-10-30a';
 window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ff6b6b"><p><b>Sayfa açılamadı.</b> Sürüm '+KG_VER+'</p><p class="small" style="word-break:break-all">'+String(e.message||e.error||e)+(e.filename?' @'+e.lineno:'')+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}});
 setTimeout(function(){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ffb347"><p><b>Sayfa yüklenemedi.</b> Sürüm '+KG_VER+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}},8000);
 </script>
@@ -243,6 +249,7 @@ let isHost=false,myId=null,active=false,myName=ls('kg_name')||'',roomCode=null,w
 // Oturum en çok 2 sn beklenir; gelmezse bu sayfa yüklemesi boyunca misafir (kg_uid). Son token kg_token'da durur: Supabase'e
 // ulaşılamasa da (süresi dolmuş olsa da) aynı kimlikle bağlanılır. kayitli: sunucunun join yanıtı (you.kayitli).
 let ayar=null,kayitli=false,token=ls('kg_token')||null,sb=null,kimlikSoz=null;
+let gecmis=null; // giriş sayfası geçmiş bloğu (Plan 5): {ozet, oyunlar, kasabalar}; Supabase'ten arka planda gelir, 3 sn zaman aşımı, hata sessiz
 let chatLog=[]; // sohbet state ile değil, parça parça gelir ({t:'chat'}); P.chat buna bağlanır
 let myLook=ls('kg_look')||{color:COLORS[Math.floor(Math.random()*COLORS.length)],hat:HATS[Math.floor(Math.random()*HATS.length)][0]};
 let P={phase:'landing'};
@@ -292,6 +299,29 @@ async function kimlikHazirla(){
   let t;try{t=await Promise.race([oturum,new Promise(r=>setTimeout(()=>r(undefined),2000))])}catch(e){t=null}
   if(t){token=t;ls('kg_token',t)} // undefined/null: zaman aşımı ya da hata → eldeki eski token (varsa) ile devam
   return token;
+}
+// Giriş sayfası geçmişi (tasarım §9): kişisel kart (oyuncu_ozet), son 10 oynadığım bitmiş maç, üyesi olduğum kasabalar.
+// Yalnız anon anahtar + oturum (RLS). Oyun kurma akışını beklemez: sonuç gelirse ve hâlâ giriş sayfasındaysak yeniden çizilir.
+async function gecmisYukle(){
+  if(!sb||!ayar||!ayar.kayit)return;
+  const sorgu=(async()=>{
+    const {data:{session}}=await sb.auth.getSession();if(!session)return null;const ben=session.user.id;
+    // görebildiğim son 30 bitmiş maç (oyuncusu ya da kasaba üyesi olduğum) → içlerinden oynadıklarım, en çok 10
+    const [oz,oy,uy]=await Promise.all([
+      sb.from('oyuncu_ozet').select('oyun,kazanma,en_cok_rol').eq('kurulum',ayar.kurulum||''),
+      sb.from('oyunlar').select('id,kasaba_id,bitis,kazanan_takim,kazanan_metin,oyuncu_sayisi').eq('sonuc','bitti').order('bitis',{ascending:false}).limit(30),
+      sb.from('kasaba_uyeleri').select('kasaba_id').eq('uye',ben)]);
+    const oyunlar=oy.data||[],kasabaIds=[...new Set([...(uy.data||[]).map(u=>u.kasaba_id),...oyunlar.map(o=>o.kasaba_id)].filter(Boolean))];
+    const [kat,ks]=await Promise.all([
+      oyunlar.length?sb.from('oyun_oyunculari_acik').select('oyun_id,rol_key,takim,deli_gibi,calinan_rol,sonunda_sag').eq('uye',ben).in('oyun_id',oyunlar.map(o=>o.id)):{data:[]},
+      kasabaIds.length?sb.from('kasabalar').select('id,ad').in('id',kasabaIds):{data:[]}]);
+    const benim=new Map((kat.data||[]).map(k=>[k.oyun_id,k])),kasabaAd=new Map((ks.data||[]).map(k=>[k.id,k.ad]));
+    const uyeKasabalar=(uy.data||[]).map(u=>({id:u.kasaba_id,ad:kasabaAd.get(u.kasaba_id)||'Kasaba'}));
+    return {ozet:(oz.data||[])[0]||null,oyunlar:oyunlar.filter(o=>benim.has(o.id)).slice(0,10).map(o=>({...o,ben:benim.get(o.id),kasaba:kasabaAd.get(o.kasaba_id)||null})),kasabalar:uyeKasabalar};
+  })();
+  sorgu.catch(()=>{});
+  const v=await Promise.race([sorgu,new Promise(r=>setTimeout(()=>r(null),3000))]).catch(()=>null);
+  if(v&&(v.ozet||v.oyunlar.length||v.kasabalar.length)){gecmis=v;if(!active)render()}
 }
 function connect(){
   clearTimeout(retryT);
@@ -824,7 +854,22 @@ function renderLanding(){
   if(ayar&&ayar.kayit){const son=ls('kg_kayitli');const kay=son==null?!!token:son&&!!token;pn.append(el('p','small muted kimlik-notu',kay?'Kimliğin bu tarayıcıda; veriler silinirse geçmiş gider. Google ile bağlama yakında.':'Misafir: geçmişin saklanmaz.'))} // hesapsız kimliğin sınırı açıkça söylenir; sunucunun son cevabı (kg_kayitli) tahminin önüne geçer
   pn.append(el('h3',null,'veya kodla katıl'));const jr=el('div','row');const ji=el('input');ji.id='joinCode';ji.placeholder='Oda kodu';ji.style.flex='1';const jb=el('button',null,'Katıl');
   jb.onclick=()=>{const c=ji.value.trim().toLowerCase();if(c)location.search='?oda='+c};ji.onkeydown=e=>{if(e.key==='Enter')jb.click()};jr.append(ji,jb);pn.append(jr);
-  const w=el('div','wrap');w.append(top,pn,rulesPanel());app.append(w);
+  const w=el('div','wrap');w.append(top,pn);if(gecmis)w.append(gecmisPanel());w.append(rulesPanel());app.append(w);
+}
+// rol etiketi (giriş sayfası): ad + hain sürümü / Deli / Hırsız notu; sayfalardaki rolAdi ile aynı dil
+function rolEtiket(b){if(!b||!b.rol_key)return '?';const r=ROLES[b.rol_key];let ad=r?r.n:b.rol_key;if(b.takim==='imp'&&r&&r.team!=='imp')ad+=' (Hain)';if(b.deli_gibi)ad+=' (aslında Deli)';if(b.calinan_rol)ad+=' (Hırsız çaldı)';return ad}
+const tarihKisa=iso=>{if(!iso)return '';const d=new Date(iso);return d.toLocaleDateString('tr-TR',{day:'numeric',month:'long'})+' '+d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})};
+function gecmisPanel(){
+  const pn=el('div','panel gecmis');pn.append(el('h2',null,'Geçmişin'));
+  // kişisel kart: yüzde yok, örneklem (oyun sayısı) her zaman görünür
+  if(gecmis.ozet){const o=gecmis.ozet;const r=o.en_cok_rol&&ROLES[o.en_cok_rol]?ROLES[o.en_cok_rol].n:null;pn.append(el('p','kart',o.oyun+' oyun · '+o.kazanma+' kazanma'+(r?' · en çok '+r:'')))}
+  if(gecmis.oyunlar.length){pn.append(el('h3',null,'Son oyunların'));const l=el('div','maclar');
+    gecmis.oyunlar.forEach(o=>{const a=el('a','mac');a.href='/oyun/'+o.id;
+      a.append(el('span','ne',tarihKisa(o.bitis)+(o.kasaba?' · '+o.kasaba:'')+' · '+(o.oyuncu_sayisi||'?')+' oyuncu'));
+      const k=el('span','kim '+(o.kazanan_takim||''),o.kazanan_metin||'Oyun bitti');const b=el('span','ben',rolEtiket(o.ben)+(o.ben&&o.ben.sonunda_sag===false?' · öldün':' · sağ kaldın'));
+      const alt=el('span','alt');alt.append(k,b);a.append(alt);l.append(a)});pn.append(l)}
+  if(gecmis.kasabalar.length){pn.append(el('h3',null,'Kasabaların'));const r=el('div','row');gecmis.kasabalar.forEach(k=>{const a=el('a','kasaba chip',k.ad);a.href='/kasaba/'+k.id;r.append(a)});pn.append(r)}
+  return pn;
 }
 function rulesPanel(){
   const pn=el('div','panel');pn.append(el('h2',null,'Nasıl oynanır'));
@@ -972,6 +1017,8 @@ function renderEndUI(stage){
   const c=el('div','ov endcard');const w=el('div','w',P.winner?P.winner.t:'Oyun bitti');if(P.winner&&P.winner.team)w.style.color='var(--'+P.winner.team+')';c.append(w);
   const extras=[];if(P.winner&&P.winner.survivors&&P.winner.survivors.length)extras.push('Hayatta Kalan da kazandı: '+P.winner.survivors.join(', '));if(P.winner&&P.winner.haunters&&P.winner.haunters.length)extras.push('Hortlak da kazandı: '+P.winner.haunters.join(', '));
   extras.forEach(t=>c.append(el('p','small',t)));
+  // kayıt açık kurulumda maçın hikâye sayfası (yeni sekme); kayıt kuyrukta gecikmişse sayfa kendisi "yenile" der
+  if(ayar&&ayar.kayit&&P.oyunId){const a=el('a','hikaye','📖 Hikâyeyi gör');a.href='/oyun/'+P.oyunId;a.target='_blank';a.rel='noopener';c.append(a)}
   // Kasabada Bu Gece: sunucunun gerçek olaylardan ürettiği en çok 3 kart (P.gazete; yalnız bitmiş oyun)
   if(P.gazete&&P.gazete.length){const gz=el('div','gazete');gz.append(el('b',null,'🗞️ KASABADA BU GECE'));P.gazete.forEach(k=>gz.append(el('div','kart',k.metin)));c.append(gz)}
   // maç özeti: her oyuncu bir satır (ad + rol / akıbet); özet sunucudan gelir (P.ozet), Supabase gerekmez
@@ -1012,7 +1059,7 @@ window.addEventListener('resize',()=>{clearTimeout(resizeT);resizeT=setTimeout((
 document.addEventListener('focusout',()=>{if(resizeBekliyor){resizeBekliyor=false;setTimeout(render,50)}}); // ertelenen yeniden çizim
 // ---------- Başlat (tüm tanımlar yüklendikten sonra) ----------
 const qs=new URLSearchParams(location.search);
-kimlikSoz=kimlikHazirla().catch(()=>null).then(()=>{if(!active)render()}); // kimlik gelince giriş sayfasındaki not güncellenir
+kimlikSoz=kimlikHazirla().catch(()=>null).then(()=>{if(!active)render();gecmisYukle().catch(()=>{})}); // kimlik gelince giriş sayfasındaki not güncellenir; geçmiş arka planda
 if(qs.get('oda')){joinRoom(qs.get('oda').toLowerCase().replace(/[^a-z0-9]/g,''))}else{render()}
 </script>
 </body>
