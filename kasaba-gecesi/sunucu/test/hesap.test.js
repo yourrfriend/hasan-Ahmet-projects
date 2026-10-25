@@ -36,13 +36,14 @@ test('kancaIsle: mail gider → 200 {}; sağlayıcı hatası → 500; bilinmeyen
   const cagrilar=[];const eposta={kodMaili:require('../eposta.js').kodMaili,sendTransactionalEmail:async m=>{cagrilar.push(m);return {ok:true,id:'e'}}};
   const sayac={gonderilen:0,hata:0,atlanan:0};
   const r=await H.kancaIsle({yuk:{user:{id:'u1',email:'a@b.c'},email_data:{token:'123456',email_action_type:'magiclink'}},eposta,sayac});
-  assert.deepStrictEqual(r,{durum:200,govde:{}});assert.strictEqual(cagrilar.length,1);assert.strictEqual(cagrilar[0].to,'a@b.c');assert.match(cagrilar[0].subject,/giriş kodun: 123456/);
+  assert.deepStrictEqual(r,{durum:200,govde:{}});assert.strictEqual(cagrilar.length,1);assert.strictEqual(cagrilar[0].to,'a@b.c');assert.match(cagrilar[0].subject,/giriş kodun: 123456/);assert.ok(!/http/.test(cagrilar[0].text),'sayfa verilmedi → link yok');
+  const rs=await H.kancaIsle({yuk:{user:{id:'u1',email:'a@b.c'},email_data:{token:'123456',email_action_type:'magiclink'}},eposta,sayac,sayfa:'https://x.test/'});assert.strictEqual(rs.durum,200);assert.match(cagrilar[1].text,/https:\/\/x\.test\/ → "Hesabınla gir"/);
   const r2=await H.kancaIsle({yuk:{user:{id:'u1',email:'a@b.c'},email_data:{token:'1',email_action_type:'recovery'}},eposta,sayac});
-  assert.deepStrictEqual(r2,{durum:200,govde:{}});assert.strictEqual(cagrilar.length,1);assert.strictEqual(sayac.atlanan,1);
+  assert.deepStrictEqual(r2,{durum:200,govde:{}});assert.strictEqual(cagrilar.length,2,'recovery → mail yok');assert.strictEqual(sayac.atlanan,1);
   const kotu={kodMaili:eposta.kodMaili,sendTransactionalEmail:async()=>({ok:false,neden:'saglayici',durum:500})};
   const r3=await H.kancaIsle({yuk:{user:{id:'u1',email:'a@b.c'},email_data:{token:'1',email_action_type:'magiclink'}},eposta:kotu,sayac});
   assert.strictEqual(r3.durum,500);assert.strictEqual(r3.govde.error.http_code,500);assert.match(r3.govde.error.message,/gönderilemedi/);
-  assert.strictEqual(sayac.gonderilen,1);assert.strictEqual(sayac.hata,1);
+  assert.strictEqual(sayac.gonderilen,2);assert.strictEqual(sayac.hata,1);
 });
 test('maskele: alıcı günlük için maskelenir',()=>{
   assert.strictEqual(H.maskele('baris@gmail.com'),'b***@gmail.com');assert.strictEqual(H.maskele('x'),'***');

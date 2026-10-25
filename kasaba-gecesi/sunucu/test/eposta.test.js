@@ -10,6 +10,9 @@ test('kodMaili: Türkçe, kod geçer, süre geçer, link yok; bağlama ve giriş
   assert.strictEqual(m.subject,'Kasaba Gecesi doğrulama kodun: 123456');
   assert.match(m.text,/kodun: 123456/);assert.match(m.text,/15 dakika/);assert.match(m.html,/<b>123456<\/b>/);
   assert.ok(!/http/.test(m.text)&&!/http/.test(m.html),'mailde link yok');
+  // sayfa verilince tek link o adres (başka link yok)
+  const l=Eposta.kodMaili({tur:'baglama',kod:'123456',sayfa:'https://kasaba.munupixi.com/'});
+  assert.match(l.text,/Sayfa kapandıysa: https:\/\/kasaba\.munupixi\.com\/ → "E-postanı bağla"/);assert.strictEqual((l.html.match(/https?:\/\//g)||[]).length,2,'html: href + görünen metin, başka link yok');assert.match(l.html,/href="https:\/\/kasaba\.munupixi\.com\/"/);
   const g=Eposta.kodMaili({tur:'giris',kod:'654321',sureDk:10});
   assert.match(g.subject,/giriş kodun: 654321/);assert.match(g.text,/10 dakika/);assert.match(g.text,/giriş/);
 });

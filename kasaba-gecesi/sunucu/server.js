@@ -73,7 +73,8 @@ function createServer(opts={}){
     const id=req.headers['webhook-id'];const simdi=Date.now();for(const [k,v] of kancaGorulen)if(simdi-v.zaman>600000)kancaGorulen.delete(k);
     const onceki=kancaGorulen.get(id);if(onceki)return json(onceki.durum,onceki.govde);
     let yuk;try{yuk=JSON.parse(govde)}catch(e){return json(400,{error:{http_code:400,message:'json'}})}
-    const r=await Hesap.kancaIsle({yuk,eposta,sayac:epostaSayac});kancaGorulen.set(id,{zaman:simdi,durum:r.durum,govde:r.govde});
+    // sayfa: kurulumun kendi adresi (ALAN, kur.sh'nin env'i) — maildeki tek link
+    const r=await Hesap.kancaIsle({yuk,eposta,sayac:epostaSayac,sayfa:process.env.ALAN?'https://'+process.env.ALAN+'/':undefined});kancaGorulen.set(id,{zaman:simdi,durum:r.durum,govde:r.govde});
     const c=Hesap.kancaYukunuCoz(yuk);log('kanca',c.tur||'atlandi',c.alici?Hesap.maskele(c.alici):'-',r.durum);
     return json(r.durum,r.govde);
   }

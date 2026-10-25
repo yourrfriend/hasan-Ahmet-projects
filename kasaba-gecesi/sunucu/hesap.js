@@ -3,7 +3,7 @@
 //   imzaDogrula({sirlar, headers, govde, simdiMs}) → {ok:true} | {ok:false, neden:'baslik'|'zaman'|'imza'}   (Standard Webhooks)
 //   imzala({sir, id, ts, govde}) → headers   (testler ve araçlar için)
 //   kancaYukunuCoz(yuk) → {tur:'giris'|'baglama'|null, alici, kod}
-//   kancaIsle({yuk, eposta, sayac}) → {durum, govde}
+//   kancaIsle({yuk, eposta, sayac, sayfa}) → {durum, govde}   (sayfa: kodun yazılacağı adres, maile girer)
 //   birlestir({eski,yeni}, {dogrula,url,serviceKey,fetch}) → {durum, govde}
 //   maskele(eposta) → 'b***@gmail.com'   (günlük için; kod ve token asla yazılmaz)
 const crypto=require('crypto');
@@ -30,10 +30,10 @@ function kancaYukunuCoz(yuk){
   if(tur==='email_change'){const alici=adres(u.new_email)||adres(u.email_change);const kod=d[EMAIL_CHANGE_KOD];return alici&&kodDogru(kod)?{tur:'baglama',alici,kod}:{tur:null}}
   return {tur:null};
 }
-async function kancaIsle({yuk,eposta,sayac}){
+async function kancaIsle({yuk,eposta,sayac,sayfa}){
   const c=kancaYukunuCoz(yuk);
   if(!c.tur){if(sayac)sayac.atlanan=(sayac.atlanan||0)+1;return {durum:200,govde:{}}}
-  const r=await eposta.sendTransactionalEmail({to:c.alici,...eposta.kodMaili({tur:c.tur,kod:c.kod})});
+  const r=await eposta.sendTransactionalEmail({to:c.alici,...eposta.kodMaili({tur:c.tur,kod:c.kod,sayfa})});
   if(r&&r.ok){if(sayac)sayac.gonderilen=(sayac.gonderilen||0)+1;return {durum:200,govde:{}}}
   if(sayac)sayac.hata=(sayac.hata||0)+1;return {durum:500,govde:{error:{http_code:500,message:'e-posta gönderilemedi'}}};
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Supabase'in dış kapısı: Caddy parçası /etc/caddy/games/supabase.caddy. Yalnız API yolları geçer
-# (/auth, /rest, /realtime, /storage); Studio (/) ve pg-meta (/pg) dışarıdan 404 alır.
+# (/auth, /rest, /realtime, /storage); Studio (/) ve pg-meta (/pg) dışarıdan 404 alır. Şifreyle giriş ve şifre kurtarma 403 (Plan 6: şifre yok).
 # Kip kur.sh'nin yazdığı /etc/games/.sunucu.env'den okunur (KIP=tunel|https, TUNEL_PORT); dosya yoksa https.
 #
 #   sudo ./caddy.sh [--alan kasaba-api.munupixi.com] [--port 8000] [--yalnizca-yaz DOSYA]   (son seçenek: Caddy'ye dokunmadan üret)
@@ -24,6 +24,19 @@ if [ "$KIP" = tunel ]; then BASLIK="http://$ALAN:$TUNEL_PORT {
 	bind 127.0.0.1"; else BASLIK="$ALAN {"; fi
 PARCA="# db/caddy.sh yazar: Supabase dış kapısı (kip $KIP). Yalnız API yolları; Studio ve pg-meta dışarı kapalı.
 $BASLIK
+	# Şifre yok (Plan 6): şifreyle giriş ve şifre kurtarma dışarıdan kapalı. Biri senin adresinle önceden şifreli hesap açsa bile
+	# (e-posta sağlayıcısı açık) o şifreyle giremez; sahibi kodla girer ve hesabı devralır.
+	@sifre {
+		path /auth/v1/token
+		query grant_type=password
+	}
+	handle @sifre {
+		respond 403
+	}
+	@kurtar path /auth/v1/recover
+	handle @kurtar {
+		respond 403
+	}
 	@api path /auth/* /rest/* /realtime/* /storage/*
 	handle @api {
 		reverse_proxy 127.0.0.1:$PORT
