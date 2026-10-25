@@ -148,6 +148,12 @@ const step=t=>console.log('•',t);
       const sp=pages[aliveNames[0]];
       await sp.fill('#chatInput','merhaba kasaba');await sp.click('.chat button');
       for(const p of Object.values(pages))await p.waitForFunction(()=>(P.chat||[]).some(m=>m.t==='merhaba kasaba'));
+      // hızlı ifade: ⚡ → Rolüm → Doktor → herkeste sohbette; hemen ikinci dokunuş → "Biraz bekle" uyarısı
+      await sp.click('button.hizli');await sp.click('.hizli button.secenek[data-k="rol"]');await sp.click('.hizli .rol[data-rol="doktor"]');
+      for(const p of Object.values(pages))await p.waitForFunction(()=>(P.chat||[]).some(m=>m.kisa==='rol'&&m.t==='🗣️ Rolüm: Doktor'),null,{timeout:5000});
+      await sp.click('button.hizli');await sp.click('.hizli button.secenek[data-k="koru"]');
+      await sp.waitForFunction(()=>/Biraz bekle/.test((document.querySelector('.hizli-uyari')||{}).textContent||''),null,{timeout:4000});
+      assert.match(await sp.textContent('button.hizli'),/⚡ \d/,'bekleme sayacı düğmede');
 
       step('bağlantı kopar: rozet görünür, kendiliğinden döner');
       const lost=pages[aliveNames[0]];

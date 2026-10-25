@@ -444,7 +444,7 @@ function hizli(R,id,m){
   if(h.n>=HIZLI_GUN)return {ok:false,kod:'gun'};
   h.n++;h.son=simdi;if(n){h.anahtarlar.push(n);if(h.anahtarlar.length>HIZLI_ANAHTAR)h.anahtarlar.shift()}
   const t=HIZLI_TUR[m.k].replace('{rol}',rol?ROLES[rol].n:'').replace('{ad}',hedef?nameOf(R,hedef):'');
-  pushChat(R,{id,t,d:P.day,ts:simdi,hizli:m.k});
+  pushChat(R,{id,t,d:P.day,ts:simdi,kisa:m.k}); // kisa: hızlı ifade türü (yalnız hafif stil)
   if(m.k==='rol'){const r=g.roles[id];logEv(R,'iddia',{kim:id,rol_iddia:rol,gercek_rol:r.key,gercek_takim:r.team,algilanan_rol:r.mad||null})}
   else olay(R,'hizli',{kim:id,k:m.k});
   return {ok:true};

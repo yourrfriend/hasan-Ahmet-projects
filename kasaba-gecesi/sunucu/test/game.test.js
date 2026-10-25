@@ -4,7 +4,7 @@ const test=require('node:test');
 const assert=require('node:assert');
 const G=require('../game.js');
 
-const SECRET_KEYS=['roles','acts','votes','notes','dchat','candle','planted','mad','uses','vest','haunt','provoke','blame','log','gameLog'];
+const SECRET_KEYS=['roles','acts','votes','notes','dchat','candle','planted','mad','uses','vest','haunt','provoke','blame','log','gameLog','hizli'];
 function keysDeep(o,out=new Set()){if(o&&typeof o==='object'){for(const k of Object.keys(o)){out.add(k);keysDeep(o[k],out)}}return out}
 function noLeak(P){const ks=keysDeep(P);for(const k of SECRET_KEYS)assert.ok(!ks.has(k),'state içinde gizli alan: '+k)}
 
@@ -465,7 +465,7 @@ test('hızlı ifade: doğrulama, metinler, 8 sn bekleme, gün başına 4, tekill
     assert.deepStrictEqual(G.hizli(R,'u1',{k:'koru',d:1,n:'a0'}).kod,'gecersiz','gece hızlı ifade yok');
     G.advance(R);assert.strictEqual(R.P.phase,'talk');
     const r1=G.hizli(R,'u1',{k:'rol',rol:'doktor',d:1,n:'a1'});assert.deepStrictEqual(r1,{ok:true});
-    const son=R.P.chat[R.P.chat.length-1];assert.deepStrictEqual({id:son.id,t:son.t,hizli:son.hizli,d:son.d},{id:'u1',t:'🗣️ Rolüm: Doktor',hizli:'rol',d:1});
+    const son=R.P.chat[R.P.chat.length-1];assert.deepStrictEqual({id:son.id,t:son.t,kisa:son.kisa,d:son.d},{id:'u1',t:'🗣️ Rolüm: Doktor',kisa:'rol',d:1});
     const n=R.P.chat.length;assert.strictEqual(G.hizli(R,'u1',{k:'rol',rol:'doktor',d:1,n:'a1'}).kod,'tekrar');assert.strictEqual(R.P.chat.length,n,'aynı anahtar ikinci kez işlenmez');
     const b=G.hizli(R,'u1',{k:'koru',d:1,n:'a2'});assert.strictEqual(b.kod,'bekle');assert.ok(b.kalan>=1&&b.kalan<=8,'kalan sn: '+b.kalan);
     t+=9000;assert.strictEqual(G.hizli(R,'u1',{k:'koru',d:1,n:'a2'}).ok,true);assert.strictEqual(R.P.chat[R.P.chat.length-1].t,'🛡️ Beni koruyun!');
