@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
 # Supabase'in dış kapısı: Caddy parçası /etc/caddy/games/supabase.caddy. Yalnız API yolları geçer
-# (/auth, /rest, /realtime, /storage); Studio (/) ve pg-meta (/pg) dışarıdan 404 alır. Şifreyle giriş ve şifre kurtarma 403 (Plan 6: şifre yok).
+# (/auth, /rest, /realtime, /storage); Studio (/) ve pg-meta (/pg) dışarıdan 404 alır. Şifreyle giriş, şifre kurtarma, OTP/magiclink/resend ve PUT /user 403 (Plan 6–7); trusted_proxies ile gerçek IP GoTrue'ya ulaşır.
 # Kip kur.sh'nin yazdığı /etc/games/.sunucu.env'den okunur (KIP=tunel|https, TUNEL_PORT); dosya yoksa https.
 #
-#   sudo ./caddy.sh [--alan kasaba-api.munupixi.com] [--port 8000] [--yalnizca-yaz DOSYA]   (son seçenek: Caddy'ye dokunmadan üret)
+#   sudo ./caddy.sh [--alan kasaba-api.munupixi.com] [--port 8000] [--signup-kapali] [--yalnizca-yaz DOSYA]   (son seçenek: Caddy'ye dokunmadan üret)
+#   --signup-kapali: /auth/v1/signup da 403 (anonim giriş oyun sunucusunun /hesap/anonim ucundan; yalnız canlı bu sürüme geçince aç — eski istemci doğrudan /signup kullanır)
 set -euo pipefail
-ALAN=kasaba-api.munupixi.com; PORT=8000; YALNIZCA=""
+ALAN=kasaba-api.munupixi.com; PORT=8000; YALNIZCA=""; SIGNUP_KAPALI=0
 AYAR="${KG_AYAR_KOK:-/etc/games}/.sunucu.env"; CADDY_KOK="${KG_CADDY_KOK:-/etc/caddy}"
 while [ $# -gt 0 ]; do case "$1" in
   --alan) ALAN="${2:-}";shift 2;;
   --port) PORT="${2:-}";shift 2;;
   --yalnizca-yaz) YALNIZCA="${2:-}";shift 2;;
+  --signup-kapali) SIGNUP_KAPALI=1;shift;;
   *) echo "Bilinmeyen seçenek: $1" >&2;exit 1;;
 esac; done
 bilgi(){ printf '\033[1;32m==>\033[0m %s\n' "$*"; }
@@ -20,6 +22,13 @@ KIP="${KIP:-}"; TUNEL_PORT="${TUNEL_PORT:-8080}"
 if [ -z "$KIP" ] && [ -f "$AYAR" ]; then KIP="$(sed -n 's/^KIP=//p' "$AYAR" | head -1)"; TUNEL_PORT="$(sed -n 's/^TUNEL_PORT=//p' "$AYAR" | head -1)"; TUNEL_PORT="${TUNEL_PORT:-8080}"; fi
 KIP="${KIP:-https}"
 
+SIGNUP_PARCA=""
+if [ "$SIGNUP_KAPALI" = 1 ]; then SIGNUP_PARCA="	# anonim giriş de oyun sunucusundan (/hesap/anonim): e-postalı kayıt hiçbir yoldan açılamaz
+	@signup path /auth/v1/signup
+	handle @signup {
+		respond 403
+	}
+"; fi
 if [ "$KIP" = tunel ]; then BASLIK="http://$ALAN:$TUNEL_PORT {
 	bind 127.0.0.1"; else BASLIK="$ALAN {"; fi
 PARCA="# db/caddy.sh yazar: Supabase dış kapısı (kip $KIP). Yalnız API yolları; Studio ve pg-meta dışarı kapalı.
@@ -33,7 +42,9 @@ $BASLIK
 		expression \`{http.request.uri.query} == 'grant_type=refresh_token'\`
 	}
 	handle @tokenYenile {
-		reverse_proxy 127.0.0.1:$PORT
+		reverse_proxy 127.0.0.1:$PORT {
+			trusted_proxies private_ranges
+		}
 	}
 	@tokenDiger path /auth/v1/token
 	handle @tokenDiger {
@@ -43,9 +54,23 @@ $BASLIK
 	handle @kurtar {
 		respond 403
 	}
-	@api path /auth/* /rest/* /realtime/* /storage/*
+	# Plan 7: mail üreten uçlar ve e-posta değiştirme dışarıdan kapalı; kod istekleri oyun sunucusunun /eposta/kod ucundan (Turnstile + tavanlar)
+	@mailUc path /auth/v1/otp /auth/v1/magiclink /auth/v1/resend
+	handle @mailUc {
+		respond 403
+	}
+	@userYaz {
+		path /auth/v1/user
+		method PUT
+	}
+	handle @userYaz {
+		respond 403
+	}
+$SIGNUP_PARCA	@api path /auth/* /rest/* /realtime/* /storage/*
 	handle @api {
-		reverse_proxy 127.0.0.1:$PORT
+		reverse_proxy 127.0.0.1:$PORT {
+			trusted_proxies private_ranges
+		}
 	}
 	handle {
 		respond 404
