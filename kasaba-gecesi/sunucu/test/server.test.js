@@ -302,3 +302,31 @@ test('skor: iptal sayılmaz; rövanşta birikir; ad değişir; ev sahibi devri k
   assert.ok(cs[1].P.skor.every(s=>s.oynadi===2),'devir skoru korur');
   for(const c of cs.slice(1))await c.close();
 });
+
+// ---------- Paket 1a: ölçüm olayları ----------
+test('ölçüm olayları kayıt yuvasına gider, maç damgası taşır, içerik taşımaz',async()=>{
+  const alinan=[];const sahte={kuyrukla:(room,ol)=>{alinan.push(...ol)},kapat(){}};
+  const s2=createServer({quiet:true,tickMs:50,kayit:sahte});await new Promise(r=>s2.server.listen(0,'127.0.0.1',r));
+  const b2='127.0.0.1:'+s2.server.address().port;
+  try{
+    const {host,cs,room}=await odaKur('ol',4,b2);const R=()=>s2.rooms.get(room).game;
+    host.send({t:'start'});await Promise.all(cs.map(c=>c.until(c=>c.P.phase==='night'&&c.priv.role)));const g1=host.P.gameId;
+    await cs[3].close();await host.until(c=>!c.P.online.includes(cs[3].me));
+    const geri=client('ol3','O3',{room},b2);await geri.until(c=>c.priv&&c.priv.role);await host.until(c=>c.P.online.includes(geri.me));
+    hizliBitir(R());await Promise.all([host,cs[1],cs[2],geri].map(c=>c.until(c=>c.P.phase==='end')));
+    host.send({t:'gordum'});host.send({t:'gordum'});cs[1].send({t:'hazir',v:true});await host.until(c=>c.P.hazir.length===1);
+    for(const c of [cs[2],geri])c.send({t:'hazir',v:true});await host.until(c=>c.P.hazir.length===3);
+    host.send({t:'start',rovans:true});await Promise.all([host,cs[1],cs[2],geri].map(c=>c.until(c=>c.P.phase==='night'&&c.P.gameId!==g1)));
+    await bekle(150);
+    const tur=t=>alinan.filter(e=>e.tur===t);
+    assert.ok(alinan.every(e=>'oyun' in e),'her olay oyun damgası taşır');
+    assert.deepStrictEqual(tur('kopus').map(e=>[e.veri.kim,e.veri.gun,e.veri.faz,e.veri.olu,e.oyun]),[[cs[3].me,1,'night',false,g1]]);
+    assert.deepStrictEqual(tur('dondu').map(e=>[e.veri.kim,e.oyun]),[[geri.me,g1]]);
+    assert.deepStrictEqual(tur('son_ekran_goruldu').map(e=>[e.veri.kim,e.oyun]),[[host.me,g1]],'gordum tekil');
+    assert.deepStrictEqual(tur('hazir').map(e=>[e.veri.kim,e.veri.v,e.oyun]),[[cs[1].me,true,g1],[cs[2].me,true,g1],[geri.me,true,g1]]);
+    const rb=tur('rovans_basladi');assert.strictEqual(rb.length,1);assert.strictEqual(rb[0].veri.onceki,g1);assert.deepStrictEqual(rb[0].veri.oyuncular.sort(),[host,cs[1],cs[2],geri].map(c=>c.me).sort());
+    const bas=tur('baslangic');assert.strictEqual(bas.length,2);assert.strictEqual(bas[1].veri.rovans,true);assert.strictEqual(bas[1].veri.onceki,g1);assert.strictEqual(bas[1].oyun,host.P.gameId);
+    for(const e of [...tur('kopus'),...tur('dondu'),...tur('son_ekran_goruldu'),...tur('hazir'),...tur('rovans_basladi')]){const j=JSON.stringify(e.veri);for(const k of ['"rol"','"hedef"','"x"','"oy"','"guess"','"kill"'])assert.ok(!j.includes(k),'içerik taşımaz: '+j)}
+    for(const c of [host,cs[1],cs[2],geri])await c.close();
+  }finally{await new Promise(r=>s2.close(r))}
+});

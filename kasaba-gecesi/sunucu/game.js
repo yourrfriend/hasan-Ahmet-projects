@@ -105,11 +105,13 @@ function sysChat(R,t){pushChat(R,{sys:true,t})}
 // Olay günlüğü (R.log): hikâye, özet ve istatistiğin tek kaynağı. Gizlidir, P'ye girmez; sunucu her yayında boşaltır.
 // Oyuncular açık kimlikle (P.players[].id) geçer. Olay türleri ve alanları: docs/superpowers/specs/…gecmis-design.md §5.4
 // R.log sunucuya giden kuyruktur (her yayında boşaltılır); R.gameLog bu oyunun tam günlüğüdür (özet ve "senin payın" buradan).
-function logEv(R,tur,veri){const e={sira:++R.logSeq,gun:R.P.day||0,faz:R.P.phase,tur,veri};R.log.push(e);R.gameLog.push(e)}
+function logEv(R,tur,veri){const e={sira:++R.logSeq,gun:R.P.day||0,faz:R.P.phase,tur,veri,oyun:R.P.gameId||null};R.log.push(e);R.gameLog.push(e)}
+// Ölçüm olayları (sunucu yazar: son_ekran_goruldu, hazir, rovans_basladi, kopus, dondu); içerik taşımaz, günlükle aynı yoldan kayda gider
+function olay(R,tur,veri){logEv(R,tur,veri)}
 
 // ---------- Oyun akışı ----------
 // lobby: [{id,name,color,hat}] (oda sırasıyla). En az 4, en çok 12 kişi.
-function startGame(R,lobby){
+function startGame(R,lobby,ek){ // ek: {rovans:true, onceki:gameId} rövanşta
   const players=lobby.slice();if(players.length<4||players.length>12)return false;
   const counts=autoSetup(players.length);
   const bag=[];for(const e of SETUP)for(let i=0;i<(counts[e.id]||0);i++)bag.push({key:e.key,team:e.team});shuffle(bag);
@@ -120,7 +122,7 @@ function startGame(R,lobby){
   R.P={phase:'night',day:1,ends:clock()+settings.night*1000+6000,chat:[],dead:[],voted:[],settings,gameId:clock(),morning:null,evening:null,provoked:null,
      players:players.map(p=>({id:p.id,name:p.name,alive:true,color:p.color,hat:p.hat})),
      roleList:bag.map(r=>({n:roleLabel(r),team:r.team})).sort((a,b)=>a.team.localeCompare(b.team))};
-  logEv(R,'baslangic',{ayarlar:settings,roller:R.P.roleList,oyuncular:players.map(p=>({id:p.id,ad:p.name,renk:p.color,sapka:p.hat}))});
+  logEv(R,'baslangic',{ayarlar:settings,roller:R.P.roleList,oyuncular:players.map(p=>({id:p.id,ad:p.name,renk:p.color,sapka:p.hat})),...(ek&&ek.rovans?{rovans:true,onceki:ek.onceki}:{})});
   return true;
 }
 function setPhase(R,ph){
@@ -407,6 +409,6 @@ function privFor(R,id){
 }
 
 return{ROLES,SETUP,COLORS,HATS,DEFAULT_SETTINGS,DAGILIM,roleLabel,autoSetup,cleanSettings,setClock,
-  lobbyState,createGame,startGame,setPhase,advance,tick,resolveNight,resolveVote,checkWin,kazananlar,gazeteFor,GAZETE_EN_COK,endToLobby,
+  lobbyState,createGame,startGame,setPhase,advance,tick,resolveNight,resolveVote,checkWin,kazananlar,gazeteFor,GAZETE_EN_COK,endToLobby,olay,
   act,vote,chat,deadChat,privFor,pl,alivePlayers,inGame};
 });

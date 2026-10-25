@@ -60,7 +60,7 @@ function createServer(opts={}){
 
   // ---------- oda yardımcıları ----------
   function newRoom(code,hostId){
-    const room={code,hostId,game:G.createGame(),members:new Map(),lastActive:Date.now(),hostGoneSince:null,emptySince:null,flushT:null,lastPriv:new Map(),hazir:new Set(),skor:new Map(),skorIslenen:new Set()}; // hazir: rövanşa hazır üyeler (yalnız oyun sonunda); skor: oda oturumu (pubId → {ad,oynadi,kazandi})
+    const room={code,hostId,game:G.createGame(),members:new Map(),lastActive:Date.now(),hostGoneSince:null,emptySince:null,flushT:null,lastPriv:new Map(),hazir:new Set(),skor:new Map(),skorIslenen:new Set(),gorduler:new Set()}; // hazir: rövanşa hazır üyeler (yalnız oyun sonunda); skor: oda oturumu (pubId → {ad,oynadi,kazandi})
     rooms.set(code,room);log('oda açıldı',code);return room;
   }
   const online=m=>m.socks.size>0;
@@ -115,6 +115,8 @@ function createServer(opts={}){
     const m=room.members.get(ws.uid);if(!m)return;
     m.socks.delete(ws);
     if(!online(m)){
+      const R=room.game,oy=G.inGame(R)&&(R.P.players||[]).find(p=>p.id===ws.uid);
+      if(oy)G.olay(R,'kopus',{kim:ws.uid,gun:R.P.day,faz:R.P.phase,olu:!oy.alive}); // ölçüm: oyundaki oyuncu koptu
       if(ws.uid===room.hostId)room.hostGoneSince=Date.now();
       if(!anyOnline(room))room.emptySince=Date.now();
     }
@@ -143,6 +145,7 @@ function createServer(opts={}){
     if(ws.room)detach(ws);
     ws.uid=uid;ws.room=room;ws.chatSeen=0;room.emptySince=null;
     let mem=room.members.get(uid);
+    if(mem&&!online(mem)&&G.inGame(room.game)&&(room.game.P.players||[]).some(p=>p.id===uid))G.olay(room.game,'dondu',{kim:uid}); // ölçüm: kopan oyuncu döndü
     if(!mem){mem={name:'',color:null,hat:'none',socks:new Set()};room.members.set(uid,mem)}
     applyLook(room,uid,mem,m);
     mem.socks.add(ws);
@@ -174,11 +177,13 @@ function createServer(opts={}){
         if(m.settings)R.settings=G.cleanSettings(m.settings);
         const liste=rovans?lobbyOf(room).filter(p=>p.id===uid||room.hazir.has(p.id)):lobbyOf(room);
         if(rovans&&(liste.length<4||liste.length>12)){send(ws,{t:'err',m:'Rövanş için 4–12 hazır ve bağlı oyuncu gerekir (şu an '+liste.length+').',code:'soft'});break}
-        if(G.startGame(R,liste)){room.hazir.clear();room.lastPriv.clear();log(rovans?'rövanş başladı':'oyun başladı',room.code,R.P.players.length+' kişi');flush(room)}
+        const onceki=R.P.gameId;if(rovans)G.olay(R,'rovans_basladi',{onceki,oyuncular:liste.map(p=>p.id)});
+        if(G.startGame(R,liste,rovans?{rovans:true,onceki}:null)){room.hazir.clear();room.gorduler.clear();room.lastPriv.clear();log(rovans?'rövanş başladı':'oyun başladı',room.code,R.P.players.length+' kişi');flush(room)}
         else send(ws,{t:'err',m:'Başlamak için 4–12 oyuncu gerekir.',code:'soft'});
         break}
       case 'cancel':if(isHost(ws)&&R.P.phase!=='lobby'){skorIsle(room);G.endToLobby(R);room.hazir.clear();flush(room)}break;
-      case 'hazir':if(R.P.phase==='end'&&room.members.has(uid)){if(m.v)room.hazir.add(uid);else room.hazir.delete(uid);schedule(room)}break;
+      case 'hazir':if(R.P.phase==='end'&&room.members.has(uid)){const v=!!m.v;if(v!==room.hazir.has(uid)){if(v)room.hazir.add(uid);else room.hazir.delete(uid);G.olay(R,'hazir',{kim:uid,v})}schedule(room)}break;
+      case 'gordum':if(R.P.phase==='end'&&room.members.has(uid)&&!room.gorduler.has(uid)){room.gorduler.add(uid);G.olay(R,'son_ekran_goruldu',{kim:uid});schedule(room)}break; // ölçüm: son ekran görüldü (kişi başı bir kez)
       case 'close':if(isHost(ws))deleteRoom(room,'Ev sahibi odayı kapattı.');break;
       case 'act':G.act(R,uid,m);break; // gece hamlesi gizli: kimseye yayın yok
       case 'vote':if(G.vote(R,uid,m.v,m.d,m.g))schedule(room);break;
