@@ -1,5 +1,5 @@
 # Kasaba Gecesi: Supabase yalnız yerelde dinler (dış kapı Caddy + Cloudflare Tunnel, bkz. caddy.sh);
-# anonim kullanıcı ve kimlik bağlama (Google'ı sonradan aynı hesaba ekleme) açık.
+# anonim kullanıcı ve kimlik bağlama (e-postayı sonradan aynı hesaba ekleme) açık.
 # kur-supabase.sh bu dosyayı /opt/supabase-kasaba içine kopyalar ve COMPOSE_FILE'a ekler.
 services:
   api-gw:
@@ -12,3 +12,11 @@ services:
   auth:
     environment:
       GOTRUE_SECURITY_MANUAL_LINKING_ENABLED: "true"
+      # e-posta kodu (Plan 6): 6 haneli, 15 dk; GoTrue mail göndermez, Send Email kancası oyun sunucusuna verir (kur-supabase.sh .env'e yazar)
+      GOTRUE_MAILER_OTP_EXP: ${MAILER_OTP_EXP:-900}
+      GOTRUE_MAILER_OTP_LENGTH: ${MAILER_OTP_LENGTH:-6}
+      GOTRUE_SMTP_MAX_FREQUENCY: 60s
+      GOTRUE_RATE_LIMIT_EMAIL_SENT: "60"
+      GOTRUE_HOOK_SEND_EMAIL_ENABLED: ${HOOK_SEND_EMAIL_ENABLED:-false}
+      GOTRUE_HOOK_SEND_EMAIL_URI: ${HOOK_SEND_EMAIL_URI:-}
+      GOTRUE_HOOK_SEND_EMAIL_SECRETS: ${HOOK_SEND_EMAIL_SECRETS:-}

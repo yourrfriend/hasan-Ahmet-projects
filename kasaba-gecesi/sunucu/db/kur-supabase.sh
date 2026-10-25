@@ -2,6 +2,11 @@
 # Kasaba Gecesi için ayrı, kendi sunucuda Supabase kurulumu (Supabase'in resmi docker/ paketi).
 #
 #   sudo ./kur-supabase.sh [--dizin /root/supabase-kasaba] [--alan kasaba-api.munupixi.com] [--site https://kasaba.munupixi.com]
+#                          [--kanca kasaba.munupixi.com] [--kanca-sir 'v1,whsec_…']
+#
+# E-posta (Plan 6): GoTrue mail göndermez; "Send Email" kancasıyla kodu https://KANCA/eposta/kanca adresine (oyun sunucusu) verir,
+# mail oradan Resend ile gider. Kanca sırrı .env'de HOOK_SEND_EMAIL_SECRETS olarak durur (yoksa üretilir, varsa korunur);
+# AYNI değer o oyun kurulumunun /etc/games/<AD>.env dosyasına EPOSTA_KANCA_SIRRI= olarak elle yazılır (betik sonunda hatırlatır).
 #
 # Dizin /root altında: ionos'ta Docker snap paketidir; snap'in compose istemcisi /opt'u hiç, /home altında da .env gibi gizli dosyaları okuyamaz.
 # Tekrar çalıştırılabilir: paket varsa yeniden indirmez, ayarları yeniden yazar, yığını (konteynerleri yeniden
@@ -14,10 +19,14 @@ DIZIN=/root/supabase-kasaba
 ALAN=kasaba-api.munupixi.com
 SITE=https://kasaba.munupixi.com
 EK_YONLENDIRME=https://kasaba-test.munupixi.com
+KANCA_ALAN=kasaba.munupixi.com
+KANCA_SIR=
 while [ $# -gt 0 ]; do case "$1" in
   --dizin) DIZIN="${2:-}";shift 2;;
   --alan) ALAN="${2:-}";shift 2;;
   --site) SITE="${2:-}";shift 2;;
+  --kanca) KANCA_ALAN="${2:-}";shift 2;;
+  --kanca-sir) KANCA_SIR="${2:-}";shift 2;;
   *) echo "Bilinmeyen seçenek: $1" >&2;exit 1;;
 esac; done
 
@@ -60,12 +69,21 @@ ayar SITE_URL "$SITE"
 ayar ADDITIONAL_REDIRECT_URLS "$EK_YONLENDIRME"
 ayar JWT_EXPIRY 604800
 ayar ENABLE_ANONYMOUS_USERS true
-ayar ENABLE_EMAIL_SIGNUP false
+ayar ENABLE_EMAIL_SIGNUP true     # e-posta ile kod (OTP) için gerekli; kayıt üretimi istemcide shouldCreateUser:false ile engellenir
 ayar ENABLE_EMAIL_AUTOCONFIRM false
 ayar ENABLE_PHONE_SIGNUP false
 ayar DISABLE_SIGNUP false
 ayar STUDIO_DEFAULT_PROJECT "Kasaba Gecesi"
 ayar STUDIO_DEFAULT_ORGANIZATION munupixi
+# ---------- e-posta kodu ve kanca (Plan 6) ----------
+ayar MAILER_OTP_EXP 900
+ayar MAILER_OTP_LENGTH 6
+ayar HOOK_SEND_EMAIL_ENABLED true
+ayar HOOK_SEND_EMAIL_URI "https://$KANCA_ALAN/eposta/kanca"
+if [ -z "$KANCA_SIR" ]; then KANCA_SIR="$(grep '^HOOK_SEND_EMAIL_SECRETS=' .env | cut -d= -f2- || true)"; fi
+if [ -z "$KANCA_SIR" ]; then KANCA_SIR="v1,whsec_$(openssl rand -base64 32)"; bilgi "Kanca sırrı üretildi"; fi
+case "$KANCA_SIR" in v1,whsec_*) ;; *) hata "--kanca-sir 'v1,whsec_<base64>' biçiminde olmalı";; esac
+ayar HOOK_SEND_EMAIL_SECRETS "$KANCA_SIR"
 for k in SUPABASE_PUBLISHABLE_KEY SUPABASE_SECRET_KEY JWT_SECRET POSTGRES_PASSWORD; do
   [ -n "$(grep "^$k=" .env | cut -d= -f2-)" ] || hata ".env içinde $k boş; sh utils/generate-keys.sh ve sh utils/add-new-auth-keys.sh --update-env çalıştır."
 done
@@ -91,6 +109,8 @@ fi
 
 echo
 bilgi "Hazır: $DIZIN (Supabase $(sed -n "s/^ref=//p" .supabase-version 2>/dev/null || echo "?"))"
+bilgi "E-posta kancası: https://$KANCA_ALAN/eposta/kanca · sır: ${KANCA_SIR:0:12}… (tamamı: grep HOOK_SEND_EMAIL_SECRETS $DIZIN/.env)"
+bilgi "Oyun sunucusunda /etc/games/<AD>.env içine yaz: EPOSTA_KANCA_SIRRI=<aynı sır>  RESEND_API_KEY=<Resend gönderim anahtarı>; sonra systemctl restart game@<AD>"
 echo "   Dinlenen portlar:"; ss -tln | awk '{print $4}' | grep -E ':(8000|5432|6543)$' | sed 's/^/     /'
 echo "   Dış kapı:        sudo $BURASI/caddy.sh   (https://$ALAN/auth/v1/health)"
 echo "   Studio:          ssh -L 8000:127.0.0.1:8000 SUNUCU → http://localhost:8000  (kullanıcı/şifre: cd $DIZIN && sh run.sh secrets)"
