@@ -368,11 +368,11 @@ test('IP başına sınır: ev sahipliği odası ve eşzamanlı soket',async()=>{
 // ---------- Plan 3: kimlik ----------
 const get=(b,p)=>new Promise((res,rej)=>http.get('http://'+b+p,r=>{let s='';r.on('data',d=>s+=d);r.on('end',()=>res({s:r.statusCode,b:s,h:r.headers}))}).on('error',rej));
 test('/ayar.json yalnız açık ayarları döner; ayarsızken kayıt kapalı; /sayfa/supabase.js sunulur',async()=>{
-  const a=await get(base,'/ayar.json');assert.strictEqual(a.s,200);assert.deepStrictEqual(JSON.parse(a.b),{url:null,anonKey:null,kurulum:null,kayit:false,eposta:false});
+  const a=await get(base,'/ayar.json');assert.strictEqual(a.s,200);assert.deepStrictEqual(JSON.parse(a.b),{url:null,anonKey:null,kurulum:null,kayit:false,eposta:false,turnstile:null});
   const s2=createServer({quiet:true,tickMs:50,jwksAlma:false,ayar:{url:'https://x.example',anonKey:'anon-abc',serviceKey:'srv-gizli',jwtSecret:'jwt-gizli',kurulum:'kasaba-test'}});
   await new Promise(r=>s2.server.listen(0,'127.0.0.1',r));const b2='127.0.0.1:'+s2.server.address().port;
   try{
-    const r=await get(b2,'/ayar.json');assert.deepStrictEqual(JSON.parse(r.b),{url:'https://x.example',anonKey:'anon-abc',kurulum:'kasaba-test',kayit:true,eposta:false});
+    const r=await get(b2,'/ayar.json');assert.deepStrictEqual(JSON.parse(r.b),{url:'https://x.example',anonKey:'anon-abc',kurulum:'kasaba-test',kayit:true,eposta:false,turnstile:null});
     assert.ok(!r.b.includes('srv-gizli')&&!r.b.includes('jwt-gizli'),'gizli anahtarlar /ayar.json\'da geçmez');
     const js=await get(b2,'/sayfa/supabase.js');assert.strictEqual(js.s,200);assert.match(js.h['content-type'],/javascript/);assert.match(js.b,/createClient/);
     assert.strictEqual((await get(b2,'/sayfa/../sunucu/server.js')).s,404);assert.strictEqual((await get(b2,'/sayfa/yok.js')).s,404);
@@ -520,7 +520,7 @@ test('kanca: imzalı GoTrue isteği mail gönderir (200 {}); aynı webhook-id te
     assert.strictEqual((await postJ(base,'/eposta/kanca',govde,kotu)).s,401);
     assert.strictEqual((await postJ(base,'/',govde,{})).s,405,'diğer POST yolları 405 kalır');
     const ayar=JSON.parse((await getH(base,'/ayar.json')).b);assert.strictEqual(ayar.eposta,true);assert.strictEqual(ayar.kancaSirri,undefined,'sır /ayar.json\'a girmez');
-    const sag=JSON.parse((await getH(base,'/saglik')).b);assert.deepStrictEqual(sag.eposta,{gonderilen:1,hata:0,atlanan:0,sinir:0});
+    const sag=JSON.parse((await getH(base,'/saglik')).b);assert.deepStrictEqual(sag.eposta,{gonderilen:1,hata:0,atlanan:0,sinir:0,kota:0});
     const buyuk='{"a":"'+'x'.repeat(70000)+'"}';const d=await postJ(base,'/eposta/kanca',buyuk,H.imzala({sir:SIR,id:'msg_c',ts:Math.floor(Date.now()/1000),govde:buyuk}));assert.strictEqual(d.s,413);
   }finally{await new Promise(r=>srv.close(r))}
   const s2=createServer({quiet:true,jwksAlma:false,ayar:{url:'http://127.0.0.1:1',anonKey:'anon',serviceKey:'srv',jwtSecret:'x',kurulum:'t'},eposta});
@@ -565,6 +565,51 @@ test('kanca: başarısız gönderim önbelleklenmez (GoTrue yeniden deneyince ma
     const [g6,h6]=yuk('c@ornek.com','msg_c6');const r6=await postJ(base,'/eposta/kanca',g6,h6);assert.strictEqual(r6.s,500);assert.strictEqual(mailler.filter(m=>m.to==='c@ornek.com').length,5,'6. mail gitmez');
     const sag=JSON.parse((await getH(base,'/saglik')).b);assert.strictEqual(sag.eposta.sinir,1);
   }finally{await new Promise(r=>srv.close(r))}
+});
+test('/eposta/kod ve /hesap/anonim: Turnstile + tavanlar + yerel GoTrue; /ayar.json turnstile; kanca günlük tavanı; /saglik kod',async()=>{
+  const rest=await taklitRest();const o3=rest.url.replace('http://','');const ts=[];let tsCevap=()=>({success:true,action:'kod_bagla',hostname:'x.test'});
+  const turnstileFetch=async(u,o)=>{ts.push({u,body:String(o.body)});return {ok:true,status:200,json:async()=>tsCevap(String(o.body))}};
+  const mailler=[];const eposta={kodMaili:require('../eposta.js').kodMaili,sendTransactionalEmail:async m=>{mailler.push(m);return {ok:true,id:'e'}}};
+  const SIR='v1,whsec_'+Buffer.from('kanca').toString('base64');
+  const srv=createServer({quiet:true,jwksAlma:false,eposta,turnstileFetch,kayit:{kuyrukla(){},profil(){},kapat(){},sayac:{}},ayar:{url:'http://127.0.0.1:1',anonKey:'anon',serviceKey:'srv',jwtSecret:'x',kurulum:'t',kancaSirri:SIR,kancaGunluk:2,turnstileSite:'site',turnstileSecret:'sir',turnstileHostnames:['x.test'],icUrl:rest.url,kodGunluk:5,kodSaatlik:5}});
+  await new Promise(r=>srv.server.listen(0,'127.0.0.1',r));const base='127.0.0.1:'+srv.server.address().port;
+  const ANON='aaaaaaaa-0000-4000-8000-00000000000a';const tok=(o={})=>Kimlik.imzala({sub:ANON,exp:Math.floor(Date.now()/1000)+3600,is_anonymous:o.anon??true,...(o.email?{email:o.email}:{})},'x');
+  const kod=(g,h)=>postJ(base,'/eposta/kod',JSON.stringify(g),h);
+  try{
+    assert.strictEqual(JSON.parse((await getH(base,'/ayar.json')).b).turnstile,'site');
+    // bağla: PUT /auth/v1/user kullanıcının token'ıyla
+    let r=await kod({tur:'bagla',email:'Ben@Ornek.com',turnstile:'t1',token:tok()});assert.strictEqual(r.s,200,r.b);assert.deepStrictEqual(JSON.parse(r.b),{ok:true});
+    let g=rest.istekler.filter(i=>i.yol.startsWith('/auth/v1/user'));assert.strictEqual(g.length,1);assert.strictEqual(g[0].yontem,'PUT');assert.deepStrictEqual(g[0].govde,{email:'ben@ornek.com'});
+    assert.match(ts[0].body,/^secret=sir&response=t1&remoteip=/);
+    // Turnstile başarısız → 403, GoTrue'ya istek yok, sayaç artmaz (IP penceresi dolmadan denenir)
+    { const n=rest.istekler.length;tsCevap=()=>({success:false,'error-codes':['invalid-input-response']});
+      r=await kod({tur:'gir',email:'c@ornek.com',turnstile:'t6'});assert.strictEqual(r.s,403);assert.strictEqual(JSON.parse(r.b).error,'turnstile');assert.strictEqual(rest.istekler.length,n);
+      tsCevap=()=>({success:true,action:'kod_bagla',hostname:'x.test'}); }
+    r=await kod({tur:'bagla',email:'a@b.c',turnstile:'t2',token:tok({anon:false,email:'a@b.c'})});assert.strictEqual(r.s,400);assert.strictEqual(JSON.parse(r.b).error,'zaten_bagli');
+    r=await kod({tur:'bagla',email:'a@b.c',turnstile:'t3'});assert.strictEqual(r.s,401);
+    // gir: POST /auth/v1/otp create_user:false; kayıtlı olmayan adres GoTrue 422'si aynen
+    tsCevap=()=>({success:true,action:'kod_gir',hostname:'x.test'});
+    r=await kod({tur:'gir',email:'ben@ornek.com',turnstile:'t4'});assert.strictEqual(r.s,200);const otp=rest.istekler.filter(i=>i.yol.startsWith('/auth/v1/otp'));assert.deepStrictEqual(otp[0].govde,{email:'ben@ornek.com',create_user:false});
+    r=await kod({tur:'gir',email:'yok@ornek.com',turnstile:'t5'});assert.strictEqual(r.s,422);assert.strictEqual(JSON.parse(r.b).error_code,'otp_disabled');
+    // aynı IP: işaretli istekler t1 (bağla), t4, t5 (gir) = 3 — 10 dk'da 3 sınırı: 4. işaretli istek 429
+    r=await kod({tur:'gir',email:'d@ornek.com',turnstile:'t7'});assert.strictEqual(r.s,429,r.b);const j=JSON.parse(r.b);assert.strictEqual(j.error,'limit');assert.ok(j.sureSn>0);
+    const sag=JSON.parse((await getH(base,'/saglik')).b);assert.ok(sag.kod&&sag.kod.istek>=3&&sag.kod.turnstile_red===1&&sag.kod.ip_sinir===1,JSON.stringify(sag.kod));
+    // anonim: yerel signup {} → oturum aynen; 11. → 429
+    r=await postJ(base,'/hesap/anonim','');assert.strictEqual(r.s,200);assert.strictEqual(JSON.parse(r.b).access_token,'t-anon');const sg=rest.istekler.filter(i=>i.yol.startsWith('/auth/v1/signup'));assert.strictEqual(sg.length,1);assert.deepStrictEqual(sg[0].govde,{});
+    for(let i=0;i<9;i++)assert.strictEqual((await postJ(base,'/hesap/anonim','')).s,200);
+    assert.strictEqual((await postJ(base,'/hesap/anonim','')).s,429);
+    // kanca günlük tavanı 2: 3. mail 500
+    const yuk=(i)=>{const govde=JSON.stringify({user:{id:'u',email:'k'+i+'@ornek.com'},email_data:{token:'123456',email_action_type:'magiclink'}});return [govde,H.imzala({sir:SIR,id:'kg'+i,ts:Math.floor(Date.now()/1000),govde})]};
+    for(let i=0;i<2;i++){const [gv,h]=yuk(i);assert.strictEqual((await postJ(base,'/eposta/kanca',gv,h)).s,200)}
+    const [gv,h]=yuk(2);assert.strictEqual((await postJ(base,'/eposta/kanca',gv,h)).s,500);assert.strictEqual(mailler.length,2);assert.strictEqual(JSON.parse((await getH(base,'/saglik')).b).eposta.kota,1);
+  }finally{await new Promise(r=>srv.close(r));await rest.kapat()}
+  // ayarsız: turnstileSecret yok → 503 turnstile_ayarsiz; icUrl yok → 503 ic
+  const s2=createServer({quiet:true,jwksAlma:false,ayar:{url:'http://127.0.0.1:1',anonKey:'anon',serviceKey:'srv',jwtSecret:'x',kurulum:'t',kancaSirri:'v1,whsec_YQ==',icUrl:'http://127.0.0.1:1'}});
+  await new Promise(r=>s2.server.listen(0,'127.0.0.1',r));const b2='127.0.0.1:'+s2.server.address().port;
+  try{const r=await postJ(b2,'/eposta/kod',JSON.stringify({tur:'gir',email:'a@b.c',turnstile:'t'}));assert.strictEqual(r.s,503);assert.strictEqual(JSON.parse(r.b).error,'turnstile_ayarsiz')}finally{await new Promise(r=>s2.close(r))}
+  const s3=createServer({quiet:true,jwksAlma:false,ayar:{url:'http://127.0.0.1:1',anonKey:'anon',serviceKey:'srv',jwtSecret:'x',kurulum:'t',kancaSirri:'v1,whsec_YQ==',turnstileSecret:'sir'}});
+  await new Promise(r=>s3.server.listen(0,'127.0.0.1',r));const b3='127.0.0.1:'+s3.server.address().port;
+  try{assert.strictEqual(JSON.parse((await postJ(b3,'/eposta/kod',JSON.stringify({tur:'gir',email:'a@b.c',turnstile:'t'}))).b).error,'ic');assert.strictEqual((await postJ(b3,'/hesap/anonim','')).s,503)}finally{await new Promise(r=>s3.close(r))}
 });
 const getH=(b,p,h)=>new Promise((res,rej)=>http.get('http://'+b+p,{headers:h||{}},r=>{let s='';r.on('data',d=>s+=d);r.on('end',()=>res({s:r.statusCode,b:s,h:r.headers}))}).on('error',rej));
 test('statik dosya önbelleği: sürümsüz /sayfa/* ve game.js no-cache + ETag (304); ?v= ile uzun önbellek; html sayfalarda __V__ sürümle dolar',async()=>{

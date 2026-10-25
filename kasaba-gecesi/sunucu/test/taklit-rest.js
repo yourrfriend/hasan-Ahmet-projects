@@ -8,6 +8,10 @@ function taklitRest(){const T={kasabalar:[],kasaba_uyeleri:[],oyunlar:[],oyun_oy
     const kayit={yol:req.url,tablo,yontem:req.method,prefer:req.headers.prefer||'',govde};istekler.push(kayit);
     const h=hata(kayit);if(h){res.writeHead(h);return res.end(JSON.stringify({message:'taklit hata '+h}))}
     const yaz=(d,kod=200)=>{res.writeHead(kod,{'Content-Type':'application/json'});res.end(JSON.stringify(d))};
+    // Plan 7: GoTrue yerel uçları — anonim signup (gövde {}), e-postalı signup 422, PUT /user (Authorization gerekir), POST /otp (create_user:false; yok@… → 422)
+    if(req.method==='POST'&&u.pathname==='/auth/v1/signup'){if(govde&&(govde.email||govde.phone))return yaz({code:422,error_code:'signup_disabled',msg:'Signups not allowed for this instance'},422);return yaz({access_token:'t-anon',token_type:'bearer',expires_in:3600,refresh_token:'r-anon',user:{id:'aaaaaaaa-0000-4000-8000-0000000000aa',is_anonymous:true}})}
+    if(req.method==='PUT'&&u.pathname==='/auth/v1/user'){if(!req.headers.authorization)return yaz({code:401,error_code:'no_authorization',msg:'no'},401);return yaz({id:'u',new_email:govde&&govde.email})}
+    if(req.method==='POST'&&u.pathname==='/auth/v1/otp'){if(govde&&govde.create_user===false&&/^yok@/.test(govde.email||''))return yaz({code:422,error_code:'otp_disabled',msg:'Signups not allowed for otp'},422);return yaz({})}
     // Plan 6: RPC hesap_birlestir (204) ve GoTrue admin kullanıcı silme (200) — yalnız kaydedilir; hata() ile durum kodu verilebilir
     if(req.method==='POST'&&u.pathname==='/rest/v1/rpc/hesap_birlestir'){res.writeHead(204);return res.end()}
     if(req.method==='DELETE'&&/^\/auth\/v1\/admin\/users\/[0-9a-f-]{36}$/.test(u.pathname)){return yaz({id:u.pathname.split('/').pop()})}

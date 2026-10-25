@@ -11,6 +11,7 @@ const Kayit=require('./kayit.js');
 const Kimlik=require('./kimlik.js');
 const Hesap=require('./hesap.js');
 const Eposta=require('./eposta.js');
+const Kod=require('./kod.js');
 
 const ROOM_TTL_MS=+process.env.ROOM_TTL_MS||2*60*60*1000;   // bu kadar süre mesaj gelmezse oda silinir
 const HOST_GRACE_MS=+process.env.HOST_GRACE_MS||10*60*1000; // ev sahibi bu kadar dönmezse yetki devredilir
@@ -41,7 +42,10 @@ function createServer(opts={}){
   const ipSoketler=new Map(),ipKurmalar=new Map(); // ip → açık soket sayısı; ip → son bir dakikadaki oda kurma zamanları
   const ipOdalar=ip=>[...rooms.values()].filter(r=>r.ip===ip).length;
   // Supabase ayarı (env ya da opts.ayar): url/anonKey istemciye /ayar.json ile gider; serviceKey ve jwtSecret yalnız sunucuda
-  const ayar=opts.ayar||{url:process.env.SUPABASE_URL||null,anonKey:process.env.SUPABASE_ANON_KEY||null,serviceKey:process.env.SUPABASE_SERVICE_KEY||null,jwtSecret:process.env.SUPABASE_JWT_SECRET||null,jwks:process.env.SUPABASE_JWT_JWKS||null,kurulum:process.env.KG_KURULUM||null,kancaSirri:process.env.EPOSTA_KANCA_SIRRI||null};
+  const ayar=opts.ayar||{url:process.env.SUPABASE_URL||null,anonKey:process.env.SUPABASE_ANON_KEY||null,serviceKey:process.env.SUPABASE_SERVICE_KEY||null,jwtSecret:process.env.SUPABASE_JWT_SECRET||null,jwks:process.env.SUPABASE_JWT_JWKS||null,kurulum:process.env.KG_KURULUM||null,kancaSirri:process.env.EPOSTA_KANCA_SIRRI||null,
+    // Plan 7: Turnstile, GoTrue yerel adresi, kod tavanları
+    turnstileSite:process.env.TURNSTILE_SITE||null,turnstileSecret:process.env.TURNSTILE_SECRET||null,turnstileHostnames:(process.env.TURNSTILE_HOSTNAMES||process.env.ALAN||'').split(',').map(x=>x.trim()).filter(Boolean),
+    icUrl:process.env.SUPABASE_IC_URL||null,kodGunluk:+process.env.KOD_GUNLUK||80,kodSaatlik:+process.env.KOD_SAATLIK||30,kancaGunluk:+process.env.KANCA_GUNLUK||90};
   // Token doğrulama anahtarları: HS256 için jwtSecret; ES256/RS256 için JWKS — env'den (JSON ya da base64) ya da Supabase'in açık
   // JWKS uç noktasından (açık anahtarlar; gizli değil). Çekim başarısızsa artan aralıkla yeniden denenir (sunucu Supabase'den önce
   // açılabilir); bilinmeyen kid gelince (anahtar dönmüş) en çok dakikada bir yeniden çekilir. Anahtar yokken herkes misafirdir.
@@ -60,9 +64,10 @@ function createServer(opts={}){
   // token'ın kid'i elimizdeki JWKS'te yoksa (anahtar döndü) yeniden çek; dakikada en çok bir kez
   function kidBilinmiyor(token){const p=String(token).split('.');if(p.length!==3)return false;let h;try{h=JSON.parse(Buffer.from(p[0],'base64url').toString('utf8'))}catch(e){return false}
     if(!h||!['ES256','RS256'].includes(h.alg)||!h.kid)return false;return !(dogrulama.jwks&&dogrulama.jwks.keys.some(k=>k.kid===h.kid))}
-  const ayarAcik=()=>({url:ayar.url||null,anonKey:ayar.anonKey||null,kurulum:ayar.kurulum||null,kayit:!!(ayar.url&&ayar.serviceKey),eposta:!!(ayar.url&&ayar.serviceKey&&ayar.kancaSirri)}); // eposta: bu kurulum GoTrue kancasının hedefi (sır var) → istemcide bağla/gir düğmeleri
+  const ayarAcik=()=>({url:ayar.url||null,anonKey:ayar.anonKey||null,kurulum:ayar.kurulum||null,kayit:!!(ayar.url&&ayar.serviceKey),eposta:!!(ayar.url&&ayar.serviceKey&&ayar.kancaSirri),turnstile:ayar.turnstileSite||null}); // eposta: bu kurulum GoTrue kancasının hedefi (sır var) → istemcide bağla/gir düğmeleri; turnstile: site anahtarı (gizli değil)
   // E-posta (Plan 6): GoTrue "Send Email" kancası → tek gönderim fonksiyonu. Sır yoksa uç kapalı (404). webhook-id ile 10 dk tekilleştirme (GoTrue yeniden dener).
-  const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata:0,atlanan:0,sinir:0};const kancaGorulen=new Map();const kancaAlici=new Map();const KANCA_ALICI_SAAT=opts.kancaAliciSaat||5;
+    // kota: kanca günlük tavanı (KANCA_GUNLUK); kancaGun: son 24 saatin gönderim zamanları
+const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata:0,atlanan:0,sinir:0,kota:0};const kancaGun=[];const kancaGorulen=new Map();const kancaAlici=new Map();const KANCA_ALICI_SAAT=opts.kancaAliciSaat||5;
   function govdeOku(req,sinir){return new Promise((res,rej)=>{let b='';let asim=false;req.on('data',d=>{if(asim)return;b+=d;if(b.length>sinir){asim=true;rej(Object.assign(new Error('büyük'),{kod:413}))}});req.on('end',()=>{if(!asim)res(b)});req.on('error',rej)})}
   async function kancaUcu(req,res){
     const json=(d,b)=>{res.writeHead(d,{'Content-Type':'application/json'});res.end(JSON.stringify(b))};
@@ -80,6 +85,8 @@ function createServer(opts={}){
         const c=Hesap.kancaYukunuCoz(yuk);
         // alıcı başına saatte en çok 5 kod maili (anon anahtarla herkes kod isteyebilir; Resend kotası ve gönderici itibarı)
         if(c.alici){const l=(kancaAlici.get(c.alici)||[]).filter(t=>simdi-t<3600000);if(l.length>=KANCA_ALICI_SAAT){epostaSayac.sinir++;log('kanca sınır',Hesap.maskele(c.alici));return {durum:500,govde:{error:{http_code:500,message:'e-posta gönderilemedi'}}}}l.push(simdi);kancaAlici.set(c.alici,l)}
+        // kanca günlük tavanı (tek boğaz; iki kurulum birlikte Resend'in günlük 100'ünü aşmasın)
+        if(c.alici){while(kancaGun.length&&simdi-kancaGun[0]>=86400000)kancaGun.shift();if(kancaGun.length>=ayar.kancaGunluk){epostaSayac.kota++;log('UYARI kanca günlük tavan doldu');return {durum:500,govde:{error:{http_code:500,message:'e-posta gönderilemedi'}}}}kancaGun.push(simdi)}
         // sayfa: kurulumun kendi adresi (ALAN, kur.sh'nin env'i) — maildeki tek link
         const r=await Hesap.kancaIsle({yuk,eposta,sayac:epostaSayac,sayfa:process.env.ALAN?'https://'+process.env.ALAN+'/':undefined});
         log('kanca',c.tur||'atlandi',c.alici?Hesap.maskele(c.alici):'-',r.durum);return r})()};
@@ -107,6 +114,49 @@ function createServer(opts={}){
     if(req.headers['if-none-match']===etag){res.writeHead(304,{ETag:etag,'Cache-Control':cc});return res.end()}
     res.writeHead(200,{'Content-Type':tip,'Cache-Control':cc,ETag:etag});res.end(req.method==='HEAD'?undefined:buf);
   }
+  // Kod istekleri ve anonim kimlik (Plan 7): mail üreten tek herkese açık giriş burası. Turnstile + tavanlar; GoTrue'ya yalnız yerel adresten.
+  const tavan=Kod.tavanlar({saat:ayar.kodSaatlik,gun:ayar.kodGunluk});const kodSayac={gonderildi:0,turnstile_red:0};
+  const icFetch=opts.icFetch||((u,o)=>fetch(u,o)),turnstileFetch=opts.turnstileFetch||((u,o)=>fetch(u,o));
+  const tavanTemizle=setInterval(()=>tavan.temizle(),600000);if(tavanTemizle.unref)tavanTemizle.unref();
+  if(ayar.url&&ayar.serviceKey&&ayar.kancaSirri&&!ayar.icUrl)log('UYARI: SUPABASE_IC_URL yok; /eposta/kod ve /hesap/anonim 503 döner');
+  const icKok=()=>String(ayar.icUrl||'').replace(/\/+$/,'');
+  async function icIstek(yontem,yol,govde,ekBaslik){const r=await icFetch(icKok()+yol,{method:yontem,headers:{apikey:ayar.anonKey||'','Content-Type':'application/json',...(ekBaslik||{})},body:govde===undefined?undefined:JSON.stringify(govde),signal:AbortSignal.timeout(10000)});let j=null;try{j=await r.json()}catch(e){}return {durum:r.status,govde:j}}
+  async function kodUcu(req,res){
+    const json=(d,b)=>{res.writeHead(d,{'Content-Type':'application/json'});res.end(JSON.stringify(b))};
+    if(!ayarAcik().eposta){res.writeHead(404);return res.end('yok')}
+    let g;try{g=JSON.parse(await govdeOku(req,8*1024))}catch(e){return json(400,{error:'gecersiz_govde'})}
+    const tur=g&&g.tur,email=String(g&&g.email||'').trim().toLowerCase();
+    if(!(tur==='bagla'||tur==='gir')||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>254)return json(400,{error:'gecersiz_govde'});
+    if(!ayar.turnstileSecret)return json(503,{error:'turnstile_ayarsiz'});
+    if(!ayar.icUrl)return json(503,{error:'ic'});
+    const ip=ipOf(req);const k=tavan.kontrol({ip,adres:email});
+    if(!k.ok&&k.neden==='ip')return json(429,{error:'limit',sureSn:k.sureSn});
+    const t=await Kod.turnstileDogrula({secret:ayar.turnstileSecret,response:g.turnstile,remoteip:ip,action:'kod_'+tur,hostnames:ayar.turnstileHostnames,fetch:turnstileFetch});
+    if(!t.ok){kodSayac.turnstile_red++;log('kod turnstile red',t.neden);return json(403,{error:'turnstile',neden:t.neden})}
+    if(!k.ok)return json(k.neden==='kota'?503:429,{error:k.neden==='kota'?'kota':'limit',sureSn:k.sureSn});
+    let sonuc;
+    if(tur==='bagla'){
+      if(typeof g.token!=='string'||!g.token)return json(401,{error:'token'});
+      const kim=Kimlik.dogrula(g.token,dogrulama);if(!kim||kim.suresiDolmus)return json(401,{error:'token'});
+      if(kim.eposta)return json(400,{error:'zaten_bagli'});
+      tavan.isaretle({ip,adres:email});
+      try{sonuc=await icIstek('PUT','/auth/v1/user',{email},{Authorization:'Bearer '+g.token})}catch(e){return json(503,{error:'ic'})}
+    }else{
+      tavan.isaretle({ip,adres:email});
+      try{sonuc=await icIstek('POST','/auth/v1/otp',{email,create_user:false})}catch(e){return json(503,{error:'ic'})}
+    }
+    log('kod',tur,Hesap.maskele(email),sonuc.durum);
+    if(sonuc.durum>=200&&sonuc.durum<300){kodSayac.gonderildi++;return json(200,{ok:true})}
+    const b=sonuc.govde||{};return json(sonuc.durum>=400&&sonuc.durum<600?sonuc.durum:502,{error:'gotrue',error_code:b.error_code||b.code||null,msg:b.msg||b.message||null});
+  }
+  async function anonimUcu(req,res){
+    const json=(d,b)=>{res.writeHead(d,{'Content-Type':'application/json'});res.end(JSON.stringify(b))};
+    if(!(ayar.url&&ayar.anonKey)){res.writeHead(404);return res.end('yok')}
+    if(!ayar.icUrl)return json(503,{error:'ic'});
+    const a=tavan.anonimKontrol(ipOf(req));if(!a.ok)return json(429,{error:'limit',sureSn:a.sureSn});
+    let sonuc;try{sonuc=await icIstek('POST','/auth/v1/signup',{})}catch(e){return json(503,{error:'ic'})}
+    return json(sonuc.durum,sonuc.govde||{});
+  }
   // Hesap birleştirme (Plan 6): ikinci cihazda e-postayla girince o cihazın anonim geçmişi hesaba taşınır. Yalnız kayıt açıkken; IP başına dakikada 5.
   const hesapFetch=opts.hesapFetch||((u,o)=>fetch(u,o));const birlestirmeSayac={ok:0,hata:0};const ipBirlestirme=new Map();
   async function birlestirUcu(req,res){
@@ -121,8 +171,10 @@ function createServer(opts={}){
   }
   const server=http.createServer((req,res)=>{
     const url=(req.url||'/').split('?')[0],surumlu=/[?&]v=/.test(req.url||'');
-    if(req.method==='POST'&&url==='/eposta/kanca'){kancaUcu(req,res).catch(()=>{res.writeHead(500);res.end()});return}
+    if(req.method==='POST'&&url==='/eposta/kanca'){kancaUcu(req,res).catch(e=>{log("kanca hata",e&&e.message);res.writeHead(500);res.end()});return}
     if(req.method==='POST'&&url==='/hesap/birlestir'){birlestirUcu(req,res).catch(()=>{res.writeHead(500);res.end()});return}
+    if(req.method==='POST'&&url==='/eposta/kod'){kodUcu(req,res).catch(()=>{res.writeHead(500);res.end()});return}
+    if(req.method==='POST'&&url==='/hesap/anonim'){anonimUcu(req,res).catch(()=>{res.writeHead(500);res.end()});return}
     if(req.method!=='GET'&&req.method!=='HEAD'){res.writeHead(405);return res.end()}
     if(url==='/'||url==='/index.html'){
       fs.readFile(INDEX,(err,buf)=>{
@@ -152,7 +204,7 @@ function createServer(opts={}){
         res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-cache'});res.end(req.method==='HEAD'?undefined:buf.toString('utf8').split('__V__').join(SURUM_V));
       });return;
     }
-    if(url==='/saglik'){const k=kayit.sayac||{};res.writeHead(200,{'Content-Type':'application/json'});return res.end(JSON.stringify({ok:true,rooms:rooms.size,surum:process.env.KG_SURUM||null,kayit:{kuyruk:k.kuyruk||0,yazilan:k.yazilan||0,hata:k.hata||0,dusen:k.dusen||0},eposta:{...epostaSayac},birlestirme:{...birlestirmeSayac}}))} // kayıt, e-posta ve birleştirme sayaçları: yalnız sayılar
+    if(url==='/saglik'){const k=kayit.sayac||{};res.writeHead(200,{'Content-Type':'application/json'});return res.end(JSON.stringify({ok:true,rooms:rooms.size,surum:process.env.KG_SURUM||null,kayit:{kuyruk:k.kuyruk||0,yazilan:k.yazilan||0,hata:k.hata||0,dusen:k.dusen||0},eposta:{...epostaSayac},birlestirme:{...birlestirmeSayac},kod:{...tavan.sayac,...kodSayac}}))} // kayıt, e-posta, birleştirme ve kod sayaçları: yalnız sayılar
     res.writeHead(404,{'Content-Type':'text/plain; charset=utf-8'});res.end('Bulunamadı');
   });
 
