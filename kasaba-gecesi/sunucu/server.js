@@ -8,6 +8,7 @@ const crypto=require('crypto');
 const {WebSocketServer}=require('ws');
 const G=require('./game.js');
 const Kayit=require('./kayit.js');
+const Kimlik=require('./kimlik.js');
 
 const ROOM_TTL_MS=+process.env.ROOM_TTL_MS||2*60*60*1000;   // bu kadar süre mesaj gelmezse oda silinir
 const HOST_GRACE_MS=+process.env.HOST_GRACE_MS||10*60*1000; // ev sahibi bu kadar dönmezse yetki devredilir
@@ -146,7 +147,10 @@ function createServer(opts={}){
 
   // ---------- mesajlar ----------
   function onJoin(ws,m){
-    const key=cleanUid(m.uid);if(!key)return send(ws,{t:'err',m:'Geçersiz oyuncu kimliği.',code:'bad'});
+    // kimlik: geçerli imzalı Supabase token'ı varsa sub (uuid) → 'sb:<uuid>' (kayıtlı); yoksa istemcinin gizli anahtarı (misafir).
+    // Süresi dolmuş ama imzası doğru token da kimlik verir (koltuk kaybolmasın; tasarım §5.2). uuid yayınlara girmez: pubId hash'tir.
+    const k=ayar.jwtSecret&&typeof m.token==='string'?Kimlik.dogrula(m.token,ayar.jwtSecret):null;
+    const key=k?'sb:'+k.sub:cleanUid(m.uid);if(!key)return send(ws,{t:'err',m:'Geçersiz oyuncu kimliği.',code:'bad'});
     const uid=pubId(key);
     let code=cleanCode(m.room);let room=code&&rooms.get(code);
     // ev sahibi eski kodunu getirdi ama oda artık başkasının (eskisi kapanmış, kod yeniden dağıtılmış):
@@ -167,13 +171,14 @@ function createServer(opts={}){
     ws.uid=uid;ws.room=room;ws.chatSeen=0;room.emptySince=null;
     let mem=room.members.get(uid);
     if(mem&&!online(mem)&&G.inGame(room.game)&&(room.game.P.players||[]).some(p=>p.id===uid))G.olay(room.game,'dondu',{kim:uid}); // ölçüm: kopan oyuncu döndü
-    if(!mem){mem={name:'',color:null,hat:'none',socks:new Set()};room.members.set(uid,mem)}
+    if(!mem){mem={name:'',color:null,hat:'none',socks:new Set(),uye:null};room.members.set(uid,mem)}
+    mem.uye=k?k.sub:mem.uye||null; // kayıtlı oyuncunun kalıcı kimliği (profil yazımı için); yayınlanmaz
     applyLook(room,uid,mem,m);
     mem.socks.add(ws);
     if(uid===room.hostId){room.hostGoneSince=null;if(m.settings&&room.game.P.phase==='lobby')room.game.settings=G.cleanSettings(m.settings)}
     room.lastActive=Date.now();
     // yeni bağlanana açık kimliği ve hemen tam durum; diğerlerine lobi değişikliği
-    send(ws,{t:'you',id:uid});
+    send(ws,{t:'you',id:uid,kayitli:!!k});
     sendRaw(ws,stateMsg(room));sendChat(ws,room);sendPriv(room,uid,true);
     schedule(room);
   }

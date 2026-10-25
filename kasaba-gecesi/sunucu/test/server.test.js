@@ -22,7 +22,7 @@ function client(uid,name,join,b=base){
     send:m=>ws.send(JSON.stringify(m)),
     until(f,ms=3000){return new Promise((res,rej)=>{const t0=Date.now();const iv=setInterval(()=>{if(f(c)){clearInterval(iv);res(c)}else if(Date.now()-t0>ms){clearInterval(iv);rej(new Error(uid+' beklenen duruma gelmedi: '+f.toString().slice(0,120)+' · phase='+(c.P&&c.P.phase)+' errs='+JSON.stringify(c.errs)))}},10)})},
     close(){return new Promise(r=>{if(ws.readyState>=2)return r();ws.once('close',r);ws.close()})}}; // sunucu kapattıysa beklemeden döner
-  ws.on('message',d=>{const m=JSON.parse(d);if(m.t==='state'){c.P=m.P;c.states++;c.raw=String(d)}else if(m.t==='you')c.me=m.id;else if(m.t==='chat')c.chat.push(...m.a);else if(m.t==='priv'){c.priv=m.d;c.privN++}else if(m.t==='err')c.errs.push(m)});
+  ws.on('message',d=>{const m=JSON.parse(d);if(m.t==='state'){c.P=m.P;c.states++;c.raw=String(d)}else if(m.t==='you'){c.me=m.id;c.kayitli=!!m.kayitli}else if(m.t==='chat')c.chat.push(...m.a);else if(m.t==='priv'){c.priv=m.d;c.privN++}else if(m.t==='err')c.errs.push(m)});
   ws.on('open',()=>c.send({t:'join',uid,name,color:G.COLORS[0],hat:'cap',...join}));
   return c;
 }
@@ -376,4 +376,33 @@ test('/ayar.json yalnız açık ayarları döner; ayarsızken kayıt kapalı; /s
     const js=await get(b2,'/sayfa/supabase.js');assert.strictEqual(js.s,200);assert.match(js.h['content-type'],/javascript/);assert.match(js.b,/createClient/);
     assert.strictEqual((await get(b2,'/sayfa/../sunucu/server.js')).s,404);assert.strictEqual((await get(b2,'/sayfa/yok.js')).s,404);
   }finally{await new Promise(r=>s2.close(r))}
+});
+
+const Kimlik=require('../kimlik.js');const crypto=require('crypto');
+const pubIdOf=key=>crypto.createHash('sha256').update('kg:'+key).digest('base64url').slice(0,12);
+test('join{token}: geçerli/süresi dolmuş token kimliği sub\'dan verir; sahte token misafir; secret yoksa token yok sayılır',async()=>{
+  const GIZLI='test-jwt-gizli';const SUB='11111111-2222-4333-8444-555555555555';const simdi=Math.floor(Date.now()/1000);
+  const s2=createServer({quiet:true,tickMs:50,ayar:{url:'https://x.example',anonKey:'a',serviceKey:'s',jwtSecret:GIZLI,kurulum:'t'}});
+  await new Promise(r=>s2.server.listen(0,'127.0.0.1',r));const b2='127.0.0.1:'+s2.server.address().port;const acik=[];
+  try{
+    const tok=Kimlik.imzala({sub:SUB,exp:simdi+3600,role:'authenticated',is_anonymous:true},GIZLI);
+    const a=client('tk0','A',{host:true,token:tok},b2);await a.until(c=>c.P&&c.P.room);acik.push(a);const room=a.P.room;
+    assert.strictEqual(a.me,pubIdOf('sb:'+SUB),'kimlik token sub\'ından türer');assert.strictEqual(a.kayitli,true);
+    assert.ok(!a.raw.includes(SUB),'uuid yayınlarda geçmez');
+    // aynı token, başka kg_uid → aynı açık kimlik (ikinci sekme)
+    const a2=client('baska-uid','A',{room,token:tok},b2);await a2.until(c=>c.me);acik.push(a2);assert.strictEqual(a2.me,a.me);
+    // sahte imza → misafir (kg_uid yolu), hata yok
+    const sahte=Kimlik.imzala({sub:SUB,exp:simdi+3600},'yanlis');
+    const g=client('tk1','G',{room,token:sahte},b2);await g.until(c=>c.me);acik.push(g);assert.strictEqual(g.me,pubIdOf('tk1'));assert.strictEqual(g.kayitli,false);assert.deepStrictEqual(g.errs,[]);
+    // oyun sürerken kop, süresi dolmuş token'la dön → aynı koltuk
+    const cs=['tk2','tk3'].map(u=>client(u,u,{room},b2));acik.push(...cs);await a.until(c=>c.P.lobby.length===4);
+    a.send({t:'start'});await Promise.all([a,g,...cs].map(c=>c.until(c=>c.P.phase==='night'&&c.priv.role)));const rol=a.priv.role.label;
+    await a.close();await a2.close();await g.until(c=>!c.P.online.includes(a.me));
+    const eski=Kimlik.imzala({sub:SUB,exp:simdi-100,role:'authenticated'},GIZLI);
+    const d=client('yeni-cihaz','A',{room,token:eski},b2);await d.until(c=>c.priv&&c.priv.role);acik.push(d);
+    assert.strictEqual(d.me,a.me);assert.strictEqual(d.priv.role.label,rol,'süresi dolmuş token koltuğu geri verir');assert.strictEqual(d.kayitli,true);
+  }finally{for(const c of acik)await c.close();await new Promise(r=>s2.close(r))}
+  // jwtSecret yok (varsayılan sunucu): token yok sayılır
+  const tok2=Kimlik.imzala({sub:SUB,exp:simdi+3600},GIZLI);
+  const e=client('tk9','E',{host:true,token:tok2});await e.until(c=>c.P&&c.P.room);assert.strictEqual(e.me,pubIdOf('tk9'));assert.strictEqual(e.kayitli,false);await e.close();
 });
