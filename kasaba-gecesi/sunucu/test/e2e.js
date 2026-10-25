@@ -25,7 +25,7 @@ const step=t=>console.log('•',t);
   try{
     step('kimlik: Supabase ayarsızken misafir, not yok; ulaşılmaz Supabase ile 2 sn içinde misafir ve "Misafir" notu');
     { const ayar=await (await fetch(base+'ayar.json')).json();assert.deepStrictEqual(ayar,{url:null,anonKey:null,kurulum:null,kayit:false});
-      const s3=createServer({quiet:true,tickMs:100,ayar:{url:'http://127.0.0.1:1',anonKey:'anon',serviceKey:'srv',jwtSecret:'x',kurulum:'e2e'}});
+      const s3=createServer({quiet:true,tickMs:100,jwksAlma:false,ayar:{url:'http://127.0.0.1:1',anonKey:'anon',serviceKey:'srv',jwtSecret:'x',kurulum:'e2e'}});
       await new Promise(r=>s3.server.listen(0,'127.0.0.1',r));const base3='http://127.0.0.1:'+s3.server.address().port+'/';
       const c3=await newCtx();const p3=await open(c3,'Kimlik',base3);const t0=Date.now();
       await p3.waitForSelector('.kimlik-notu',{timeout:5000});assert.match(await p3.textContent('.kimlik-notu'),/Misafir/);

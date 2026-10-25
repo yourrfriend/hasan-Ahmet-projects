@@ -27,3 +27,23 @@ test('yanlış anahtar, alg none, sub uuid değil, bozuk biçim → null (fırla
 test('imzala (test yardımcısı) ile dogrula uyumlu',()=>{
   const t=K.imzala({sub:SUB,exp:simdi+5},GIZLI);assert.strictEqual(K.dogrula(t,GIZLI).sub,SUB);
 });
+
+// ES256 / RS256 (Supabase self-hosted JWKS ile imzalar); kid eşleşir, imza doğrulanır
+const ec=crypto.generateKeyPairSync('ec',{namedCurve:'P-256'});const rsa=crypto.generateKeyPairSync('rsa',{modulusLength:2048});
+const jwk=(pair,kid,alg)=>({...pair.publicKey.export({format:'jwk'}),kid,alg,use:'sig'});
+const JWKS={keys:[jwk(ec,'kid-ec','ES256'),jwk(rsa,'kid-rsa','RS256')]};
+const yapAsim=(payload,kid,alg,priv)=>{const h=b64({alg,typ:'JWT',kid}),p=b64(payload);const data=h+'.'+p;
+  const sig=alg==='ES256'?crypto.sign('sha256',Buffer.from(data),{key:priv,dsaEncoding:'ieee-p1363'}):crypto.sign('sha256',Buffer.from(data),priv);
+  return data+'.'+sig.toString('base64url')};
+test('ES256 token JWKS ile doğrulanır; yanlış anahtar/kid/alg reddedilir; HS256 yine secret ile',()=>{
+  const t=yapAsim({sub:SUB,exp:simdi+60,is_anonymous:true},'kid-ec','ES256',ec.privateKey);
+  assert.deepStrictEqual(K.dogrula(t,{jwks:JWKS}),{sub:SUB,exp:simdi+60,suresiDolmus:false,anonim:true});
+  assert.strictEqual(K.dogrula(t,{secret:GIZLI}),null,'jwks yoksa ES256 doğrulanamaz');
+  const baska=crypto.generateKeyPairSync('ec',{namedCurve:'P-256'});
+  assert.strictEqual(K.dogrula(yapAsim({sub:SUB,exp:simdi+60},'kid-ec','ES256',baska.privateKey),{jwks:JWKS}),null,'başka anahtarla imza');
+  assert.strictEqual(K.dogrula(yapAsim({sub:SUB,exp:simdi+60},'kid-yok','ES256',ec.privateKey),{jwks:JWKS}),null,'bilinmeyen kid');
+  assert.strictEqual(K.dogrula(yapAsim({sub:SUB,exp:simdi+60},'kid-ec','RS256',ec.privateKey).replace(/^[^.]+/,b64({alg:'RS256',typ:'JWT',kid:'kid-ec'})),{jwks:JWKS}),null,'alg ile anahtar türü uyuşmaz');
+  const r=yapAsim({sub:SUB,exp:simdi+60},'kid-rsa','RS256',rsa.privateKey);assert.strictEqual(K.dogrula(r,{jwks:JWKS}).sub,SUB);
+  const hs=yap({sub:SUB,exp:simdi+60},GIZLI);assert.strictEqual(K.dogrula(hs,{secret:GIZLI,jwks:JWKS}).sub,SUB);assert.strictEqual(K.dogrula(hs,{jwks:JWKS}),null,'secret yoksa HS256 doğrulanamaz');
+  assert.strictEqual(K.dogrula(hs,GIZLI).sub,SUB,'eski çağrı biçimi (string secret) çalışır');
+});

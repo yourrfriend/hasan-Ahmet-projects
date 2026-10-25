@@ -368,7 +368,7 @@ test('IP başına sınır: ev sahipliği odası ve eşzamanlı soket',async()=>{
 const get=(b,p)=>new Promise((res,rej)=>http.get('http://'+b+p,r=>{let s='';r.on('data',d=>s+=d);r.on('end',()=>res({s:r.statusCode,b:s,h:r.headers}))}).on('error',rej));
 test('/ayar.json yalnız açık ayarları döner; ayarsızken kayıt kapalı; /sayfa/supabase.js sunulur',async()=>{
   const a=await get(base,'/ayar.json');assert.strictEqual(a.s,200);assert.deepStrictEqual(JSON.parse(a.b),{url:null,anonKey:null,kurulum:null,kayit:false});
-  const s2=createServer({quiet:true,tickMs:50,ayar:{url:'https://x.example',anonKey:'anon-abc',serviceKey:'srv-gizli',jwtSecret:'jwt-gizli',kurulum:'kasaba-test'}});
+  const s2=createServer({quiet:true,tickMs:50,jwksAlma:false,ayar:{url:'https://x.example',anonKey:'anon-abc',serviceKey:'srv-gizli',jwtSecret:'jwt-gizli',kurulum:'kasaba-test'}});
   await new Promise(r=>s2.server.listen(0,'127.0.0.1',r));const b2='127.0.0.1:'+s2.server.address().port;
   try{
     const r=await get(b2,'/ayar.json');assert.deepStrictEqual(JSON.parse(r.b),{url:'https://x.example',anonKey:'anon-abc',kurulum:'kasaba-test',kayit:true});
@@ -382,7 +382,7 @@ const Kimlik=require('../kimlik.js');const crypto=require('crypto');
 const pubIdOf=key=>crypto.createHash('sha256').update('kg:'+key).digest('base64url').slice(0,12);
 test('join{token}: geçerli/süresi dolmuş token kimliği sub\'dan verir; sahte token misafir; secret yoksa token yok sayılır',async()=>{
   const GIZLI='test-jwt-gizli';const SUB='11111111-2222-4333-8444-555555555555';const simdi=Math.floor(Date.now()/1000);
-  const s2=createServer({quiet:true,tickMs:50,ayar:{url:'https://x.example',anonKey:'a',serviceKey:'s',jwtSecret:GIZLI,kurulum:'t'}});
+  const s2=createServer({quiet:true,tickMs:50,jwksAlma:false,ayar:{url:'https://x.example',anonKey:'a',serviceKey:'s',jwtSecret:GIZLI,kurulum:'t'}});
   await new Promise(r=>s2.server.listen(0,'127.0.0.1',r));const b2='127.0.0.1:'+s2.server.address().port;const acik=[];
   try{
     const tok=Kimlik.imzala({sub:SUB,exp:simdi+3600,role:'authenticated',is_anonymous:true},GIZLI);
@@ -410,7 +410,7 @@ test('join{token}: geçerli/süresi dolmuş token kimliği sub\'dan verir; sahte
 test('kayıtlı oyuncunun adı/rengi değişince kayit.profil çağrılır; misafirde çağrılmaz',async()=>{
   const GIZLI='p-gizli';const SUB='22222222-3333-4444-8555-666666666666';const cagri=[];
   const sahte={kuyrukla(){},profil:(uye,v)=>cagri.push([uye,v]),kapat(){},sayac:{}};
-  const s2=createServer({quiet:true,tickMs:50,kayit:sahte,ayar:{url:'https://x',anonKey:'a',serviceKey:'s',jwtSecret:GIZLI,kurulum:'t'}});
+  const s2=createServer({quiet:true,tickMs:50,jwksAlma:false,kayit:sahte,ayar:{url:'https://x',anonKey:'a',serviceKey:'s',jwtSecret:GIZLI,kurulum:'t'}});
   await new Promise(r=>s2.server.listen(0,'127.0.0.1',r));const b2='127.0.0.1:'+s2.server.address().port;
   try{
     const tok=Kimlik.imzala({sub:SUB,exp:Math.floor(Date.now()/1000)+600},GIZLI);
@@ -422,4 +422,15 @@ test('kayıtlı oyuncunun adı/rengi değişince kayit.profil çağrılır; misa
     assert.strictEqual(cagri.length,n,'misafir için profil yazılmaz');
     await a.close();await g.close();
   }finally{await new Promise(r=>s2.close(r))}
+});
+
+test('join{token}: ES256 token sunucuya verilen JWKS ile doğrulanır (self-hosted Supabase)',async()=>{
+  const ec=crypto.generateKeyPairSync('ec',{namedCurve:'P-256'});const SUB='33333333-4444-4555-8666-777777777777';
+  const jwks={keys:[{...ec.publicKey.export({format:'jwk'}),kid:'k1',alg:'ES256',use:'sig'}]};
+  const b64=o=>Buffer.from(JSON.stringify(o)).toString('base64url');const data=b64({alg:'ES256',typ:'JWT',kid:'k1'})+'.'+b64({sub:SUB,exp:Math.floor(Date.now()/1000)+60,is_anonymous:true});
+  const tok=data+'.'+crypto.sign('sha256',Buffer.from(data),{key:ec.privateKey,dsaEncoding:'ieee-p1363'}).toString('base64url');
+  const s2=createServer({quiet:true,tickMs:50,jwksAlma:false,ayar:{url:'https://x',anonKey:'a',serviceKey:'s',jwks:Buffer.from(JSON.stringify(jwks)).toString('base64'),kurulum:'t'}}); // base64 metin: env'den geldiği biçim
+  await new Promise(r=>s2.server.listen(0,'127.0.0.1',r));const b2='127.0.0.1:'+s2.server.address().port;
+  try{const a=client('es0','A',{host:true,token:tok},b2);await a.until(c=>c.P&&c.P.room);assert.strictEqual(a.kayitli,true);assert.strictEqual(a.me,pubIdOf('sb:'+SUB));await a.close()}
+  finally{await new Promise(r=>s2.close(r))}
 });
