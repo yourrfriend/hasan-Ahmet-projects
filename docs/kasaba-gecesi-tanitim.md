@@ -33,7 +33,7 @@ ve oylamayla biri kasabadan gönderilir. Hainler saklanmaya, masumlar hainleri b
 - Oyun biri kazanana kadar gece–gündüz sürer. Sonda herkesin gerçek rolü açıklanır, gecelere göre özet ve "Tekrar
   oyna" vardır.
 
-Ev sahibi süreleri (15 sn – 10 dk) ayarlayabilir, rolleri otomatik bırakabilir ya da elle seçebilir. Telefon
+Ev sahibi süreleri (15 sn – 10 dk) ayarlayabilir; roller her maçta otomatik ve rastgele dağıtılır (elle seçim yok). Telefon
 uyursa ya da tarayıcıdan çıkılırsa oyuncu aynı linkle döner, rolü yerindedir; ev sahibi kaybolursa ev sahipliği
 başka birine geçer, oyun durmaz.
 
@@ -94,7 +94,8 @@ ayarlandı: tek hain bile ilk gecelerde yeterince tehlikelidir; iki hain küçü
 
 - Canlıda ve oynanıyor (kasaba.munupixi.com); deneme sürümü ayrı adreste.
 - Tüm yukarıdaki roller, gece yürüyüşü ve 17 rol hareketi, kalıcı gece izleri (tuzak, kelepçe, mum, dinamit),
-  kopan oyuncu rozeti, telefonda yatay düzen, oyun sonu özeti.
+  kopan oyuncu rozeti, telefonda yatay düzen, oyun sonu özeti; **Kasabada Bu Gece** gazetesi (en çok 3 kart, yalnız
+  gerçek olaylardan), **rövanş** (hazır sayacı, aynı odada yeni maç), **Bu Akşam** skoru (oyuncu başına kazanılan/oynanan).
 - Yapımda: **oyuncu geçmişi** — herkes kayıt olmadan tanınır, oyunlar ve roller saklanır, "kasaba" adlı grup sayfası,
   gece gece anlatılan oyun hikâyesi, en çok kazanan/kaybeden tabloları; istenirse Google ile bağlama.
   Ayrıca evlerin yeni çizimi (bej duvar, koyu çatı, baca, tabela).

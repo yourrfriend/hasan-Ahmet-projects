@@ -36,6 +36,12 @@ Eşikler `npm run denge` ile ölçüldü (her kişi sayısı için 2000 oyun, ba
 
 **Kurallar:** her hain kendi başına öldürür, yardımcı hainler gece ya yeteneğini kullanır ya öldürür; hainler birbirini tanır ama yazışamaz ve gece birbirini göremez. Polis, Seri Katil'i ve Bombacı'yı tutamaz (ikiye düşünce oyun kilitlenmesin diye). Oylar gizlidir; sonunda yalnızca toplamlar açıklanır. Ölen oyuncular kendi aralarında yazışabilir.
 
+### Oyun sonu: gazete, rövanş, bu akşamın skoru
+
+- **🗞️ Kasabada Bu Gece:** en çok 3 kart, yalnız oyunun gerçek olaylarından (Deli ifşası, Doktor'un önlediği saldırı, yelek, tuzak, Polis, Hırsız, Büyücü, patlama, Hortlak intikamı; yer kalırsa oyunu bitiren olay). Aynı oyun hep aynı kartları üretir; uydurma yok.
+- **Rövanş:** son ekranda "Rövanşa hazırım" / "Vazgeç"; "N kişiden M'si hazır". Ev sahibi yalnız hazır **ve bağlı** 4–12 oyuncuyla "Rövanşı başlat" diyebilir (kendisi hazır sayılır); hazır olmayanlar odada bekler, süren maça girmez. "Lobiye dön" eski akıştır.
+- **Bu akşam:** oda açık kaldığı sürece oyuncu başına kazanılan/oynanan maç (ör. `Ece 2/3`). Yarım kalan (iptal) maç sayılmaz; kopan oyuncu da paydada. Sunucu yeniden başlarsa tablo sıfırlanır (odalar bellekte).
+
 ### Sunucu kurulumu
 
 Gerekenler: Ubuntu ya da Debian bir VPS (SSH ile sen girersin) ve bir alan adı. Her oyun ve her sürüm kendi alt alan adında yayınlanır (`kasaba.munupixi.com`, `kasaba-test.munupixi.com`). Adlar tek seviyelidir: Cloudflare'in ücretsiz sertifikası `a.b.munupixi.com` gibi iki seviyeli adları kapsamaz.
