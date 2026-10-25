@@ -325,3 +325,38 @@ test('privFor.planted dinamit konan evlerin listesidir',()=>{
   assert.deepStrictEqual(G.privFor(R,'u0').planted,['u2','u3']);
   assert.deepStrictEqual(G.privFor(R,'u1').planted,[]);
 });
+
+// ---------- Paket 1a: kazananlar listesi ----------
+test('kazananlar: takım zaferi ölüleri kapsar; hırsız yeni takımıyla; deli masum; hayatta kalan ve hortlak eklenir; kimse yoksa boş',()=>{
+  const bitir=R=>{assert.strictEqual(R.P.phase,'end');const k=R.P.winner.kazananlar;assert.ok(Array.isArray(k));for(const id of k)assert.ok(R.P.players.some(p=>p.id===id),'kazanan oyuncu olmalı: '+id);
+    const b=R.log[R.log.length-1];assert.strictEqual(b.tur,'bitis');assert.deepStrictEqual(b.veri.kazananlar,k);return k.slice().sort()};
+  // masumlar kazanır: gece ölen masum (u4) da kazanır
+  let R=fixed(['hain','doktor','masum','masum','masum']);
+  G.act(R,'u0',{kill:'u4'});G.advance(R);assert.ok(!G.pl(R,'u4').alive);
+  G.advance(R);for(const id of ['u1','u2','u3'])G.vote(R,id,'u0');G.vote(R,'u0','skip');
+  assert.deepStrictEqual(bitir(R),['u1','u2','u3','u4']);
+  // hainler kazanır: iki hain
+  R=fixed(['hain','hain','masum','masum']);G.act(R,'u0',{kill:'u2'});G.advance(R);
+  assert.deepStrictEqual(bitir(R),['u0','u1']);
+  // hırsız doktoru çalar (artık masum tarafı), sonra masumlar kazanır → hırsız listede
+  R=fixed(['hirsiz','hain','doktor','masum','masum','masum','masum']);
+  G.act(R,'u0',{ab:'u2'});G.advance(R);assert.strictEqual(R.g.roles.u0.team,'inn');
+  G.advance(R);for(const id of ['u0','u3','u4','u5','u6'])G.vote(R,id,'u1');G.vote(R,'u1','skip');
+  assert.ok(bitir(R).includes('u0'));assert.ok(!bitir(R).includes('u1'));
+  // deli masum zaferinde listede, hain zaferinde değil; hayatta kalan sağsa hain zaferinde de listede
+  R=fixed(['hain','deli','masum','masum','hayatta']);R.g.roles.u1.mad='doktor';
+  G.act(R,'u0',{kill:'u2'});G.advance(R);G.advance(R);for(const id of ['u1','u3','u4'])G.vote(R,id,'u0');G.vote(R,'u0','skip');
+  assert.deepStrictEqual(bitir(R),['u1','u2','u3','u4']);
+  R=fixed(['hain','deli','masum','hayatta']);R.g.roles.u1.mad='doktor';
+  G.act(R,'u0',{kill:'u2'});G.advance(R); // 1 hain, 1 deli(masum), 1 hayatta → hain ≥ diğerleri(1) → hainler
+  assert.deepStrictEqual(bitir(R),['u0','u3']);
+  // hortlak asılır (kazanır), oyun sonra masumlarla biter → hortlak listede
+  R=fixed(['hain','hortlak','masum','masum','masum','masum']);
+  G.advance(R);G.advance(R);for(const id of ['u0','u2','u3','u4'])G.vote(R,id,'u1');G.vote(R,'u1','skip');G.vote(R,'u5','skip');
+  assert.ok(!G.pl(R,'u1').alive);assert.deepStrictEqual(R.g.hauntWins,['u1']);
+  G.advance(R);G.advance(R);for(const id of ['u2','u3','u4','u5'])G.vote(R,id,'u0');G.vote(R,'u0','skip');
+  assert.ok(bitir(R).includes('u1'));
+  // kimse kazanamadı: herkes ölü
+  R=fixed(['hain','masum','masum','masum']);for(const id of ['u0','u1','u2','u3'])G.pl(R,id).alive=false;G.advance(R);
+  assert.deepStrictEqual(bitir(R),[]);
+});

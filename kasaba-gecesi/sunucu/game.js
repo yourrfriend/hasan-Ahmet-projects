@@ -273,6 +273,18 @@ function resolveVote(R){
   logEv(R,'gunduz_sonuc',{asilan:out,rol_goruntu:E.out?E.out.role:null,toplamlar:tally,cekimser:skip,provoke:prov}); // tek tek oylar yazılmaz
   if(checkWin(R))return;setPhase(R,'night');
 }
+// Kazanan oyuncular (tek kaynak; skor ve gazete yeniden hesaplamaz): takım zaferinde o takımın tüm katılımcıları
+// (ölü/kopuk dahil; takım oyun sonundaki roldür, Deli masumdur), tarafsız zaferinde kişi; sağ Hayatta Kalan ve
+// asılmış Hortlaklar her zaman eklenir. "Kimse kazanamadı" → boş.
+function kazananlar(R,w){
+  const g=R.g,ids=R.P.players.map(p=>p.id);const team=id=>g.roles[id].mad?'inn':g.roles[id].team;
+  const k=new Set();
+  if(w.team==='inn'||w.team==='imp')for(const id of ids)if(team(id)===w.team)k.add(id);
+  else if(w.team==='neu'&&w.who)k.add(w.who);
+  for(const p of alivePlayers(R))if(g.roles[p.id].key==='hayatta')k.add(p.id);
+  for(const id of g.hauntWins)k.add(id);
+  return ids.filter(id=>k.has(id));
+}
 function checkWin(R){
   const P=R.P,g=R.g;const al=alivePlayers(R).map(p=>p.id);
   const team=id=>g.roles[id].team,key=id=>g.roles[id].key;
@@ -286,9 +298,10 @@ function checkWin(R){
   if(!w)return false;
   P.phase='end';P.ends=null;
   P.winner={...w,survivors:al.filter(id=>key(id)==='hayatta').map(id=>nameOf(R,id)),haunters:g.hauntWins.map(id=>nameOf(R,id))};
+  P.winner.kazananlar=kazananlar(R,w);
   P.reveal=P.players.map(p=>({id:p.id,name:p.name,role:roleLabel(shownRole(R,p.id))+(g.roles[p.id].mad?' (aslında Deli)':g.roles[p.id].orig?' (Hırsız çaldı)':''),team:g.roles[p.id].mad?'inn':g.roles[p.id].team,alive:p.alive}));
   P.ozet=ozetFor(R);
-  logEv(R,'bitis',{kazanan:w.team,kazanan_metin:w.t,sag_kalanlar:P.winner.survivors,hortlak_kazananlar:P.winner.haunters,acilis:P.reveal});
+  logEv(R,'bitis',{kazanan:w.team,kazanan_metin:w.t,kazananlar:P.winner.kazananlar,sag_kalanlar:P.winner.survivors,hortlak_kazananlar:P.winner.haunters,acilis:P.reveal});
   return true;
 }
 // Maç özeti (herkese açık, yalnız oyun bitince): kazanan ve her oyuncunun rolü/akıbeti, oyun günlüğünden.
@@ -353,6 +366,6 @@ function privFor(R,id){
 }
 
 return{ROLES,SETUP,COLORS,HATS,DEFAULT_SETTINGS,DAGILIM,roleLabel,autoSetup,cleanSettings,setClock,
-  lobbyState,createGame,startGame,setPhase,advance,tick,resolveNight,resolveVote,checkWin,endToLobby,
+  lobbyState,createGame,startGame,setPhase,advance,tick,resolveNight,resolveVote,checkWin,kazananlar,endToLobby,
   act,vote,chat,deadChat,privFor,pl,alivePlayers,inGame};
 });
