@@ -515,6 +515,9 @@ test('statik dosya önbelleği: sürümsüz /sayfa/* ve game.js no-cache + ETag 
     const u='aaaaaaaa-0000-4000-8000-000000000009';
     for(const yol of ['/oyun/'+u,'/kasaba/'+u]){const o=await getH(base,yol);assert.ok(!o.b.includes('__V__'),yol+' __V__ kalmamalı');assert.match(o.b,/\/sayfa\/ortak\.js\?v=[A-Za-z0-9._-]+"/,yol+' betikler sürümlü');assert.match(o.b,/\/sayfa\/ortak\.css\?v=/)}
     const i=await getH(base,'/');assert.match(i.b,/sayfa\/supabase\.js\?v='\+KG_VER/,'index.html supabase.js sürümlü yükler');
+    assert.match(i.b,/src="sunucu\/game\.js\?v=[A-Za-z0-9._-]+"/,'index.html game.js sürümlü (Cloudflare .js dosyalarına 4 sa tarayıcı önbelleği uyguluyor)');assert.ok(!i.b.includes('__V__'));
+    for(const yol of ['/oyun/'+u,'/kasaba/'+u])assert.match((await getH(base,yol)).b,/\/sunucu\/game\.js\?v=[A-Za-z0-9._-]+"/,yol+' game.js sürümlü');
+    const gv=await getH(base,'/sunucu/game.js?v=abc');assert.strictEqual(gv.s,200);assert.match(gv.h['cache-control']||'',/max-age=31536000/,'sürümlü game.js → uzun önbellek');
   }finally{await new Promise(r=>srv.close(r))}
 });
 test('geçmiş sayfaları: /oyun/<uuid> ve /kasaba/<uuid> html döner; geçersiz kimlik 404; /sayfa/*.css sunulur',async()=>{

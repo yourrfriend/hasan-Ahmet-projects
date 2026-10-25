@@ -84,13 +84,13 @@ function createServer(opts={}){
     if(url==='/'||url==='/index.html'){
       fs.readFile(INDEX,(err,buf)=>{
         if(err){res.writeHead(500);return res.end('index.html okunamadı')}
-        res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-cache'});res.end(req.method==='HEAD'?undefined:buf);
+        res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-cache'});res.end(req.method==='HEAD'?undefined:buf.toString('utf8').split('__V__').join(SURUM_V));
       });return;
     }
     if(url==='/sunucu/game.js'){
       fs.readFile(GAME_JS,(err,buf)=>{
         if(err){res.writeHead(500);return res.end('game.js okunamadı')}
-        statik(req,res,buf,'text/javascript; charset=utf-8',false);
+        statik(req,res,buf,'text/javascript; charset=utf-8',surumlu);
       });return;
     }
     if(url==='/ayar.json'){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-cache'});return res.end(JSON.stringify(ayarAcik()))}

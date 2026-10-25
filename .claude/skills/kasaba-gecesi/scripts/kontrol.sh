@@ -26,7 +26,7 @@ const src=fs.readFileSync(process.argv[2],"utf8");const w={};
 new Function("window","globalThis","module",src).call(w,w,w,undefined);
 for(const k of ["ROLES","SETUP","COLORS","HATS","roleLabel"])if(!w.KG_GAME||!w.KG_GAME[k]){console.error("KG_GAME."+k+" yok");process.exit(1)}
 const s=fs.readFileSync(process.argv[1],"utf8");
-if(!/<script src="sunucu\/game\.js"><\/script>/.test(s)){console.error("index.html sunucu/game.js dosyasını yüklemiyor");process.exit(1)}
+if(!/<script src="sunucu\/game\.js(\?v=[^"]*)?"><\/script>/.test(s)){console.error("index.html sunucu/game.js dosyasını yüklemiyor");process.exit(1)}
 if(/^const (ROLES|SETUP|COLORS)=/m.test(s)){console.error("index.html içinde sabitlerin kopyası var; tek kaynak sunucu/game.js");process.exit(1)}
 ' "$OYUN/index.html" "$SUNUCU/game.js" || hata "sunucu/game.js tarayıcı yüklemesi ya da index.html bağlantısı bozuk"
 tamam "sabitler tek kaynaktan (sunucu/game.js) geliyor"
