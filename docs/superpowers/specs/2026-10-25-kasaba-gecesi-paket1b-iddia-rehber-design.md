@@ -117,3 +117,10 @@ Mimari aynı (kurallar `game.js`, oda `server.js`, tek dosya istemci; gizli `R.g
 - Panel/çekmece CSS'i (mevcut `.ov`, `.pill`, `.custom` dili); rol ızgarasının telefon düzeni.
 - `ipucu` cümlelerinin son hali (kısa, Türkçe, "neyi kanıtlamaz" vurgusu).
 - `err soft` metinlerinin son sözcükleri.
+
+## 7. Denetleyici soruları ve inşaatçı kararları
+
+1. Gazete karşılaştırması **anahtar + takım** (`roleLabel`): hain Polis "Rolüm: Polis" derse kart "o sırada rolü Polis (Hain) idi" der; `gercek_takim` bunun için yazılır.
+2. Çoklu iddia: aynı rolün tekrarı tek iddia sayılır; farklı roller "önce X, sonra Y olduğunu söyledi" diye sıralanır ve **son iddia kendi anındaki rolle** karşılaştırılır ("doğruydu" ya da "o sırada rolü Z idi"). Hırsız Gün 1 "Hırsız", çaldıktan sonra "Doktor" derse: "önce Hırsız, sonra Doktor olduğunu söyledi; doğruydu."
+3. Rehber çekmecesi oyun içindeki "📖 Nasıl oynanır" kaplamasının **yerine geçer** (⚙️ menüsündeki madde çekmeceyi açar); giriş sayfasındaki `rulesPanel` olduğu gibi kalır. Lobide `P.settings` yoksa süre bölümü gösterilmez.
+4. `R.g.hizli` sayaçları `SECRET_KEYS`'e eklenir; `err soft` istemcide sohbet kutusu üstünde 3 sn gösterilir.
