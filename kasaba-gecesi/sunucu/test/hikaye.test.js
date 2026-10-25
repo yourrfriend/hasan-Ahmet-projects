@@ -28,8 +28,8 @@ test('hikâye: gece hamleleri, sonuç, iddia, oylar, bitiş; ölçüm olayları 
     assert.match(m,/Oyuncu1 öldü \(Doktor\)/);assert.match(m,/Masumlar kazandı!/);
     assert.ok(!/hazir|son_ekran_goruldu|Beni koruyun|🛡️/.test(m),'ölçüm/hızlı olaylar hikâyeye girmez');
     // bilinmeyen tur sessiz; bilinmeyen pub_id → ?; süren oyun (rol null) → ad yalnız
-    const h2=hikaye([...R.gameLog,{sira:101,gun:3,faz:'talk',tur:'bilinmeyen',veri:{}}],oyuncular(R).map(o=>({...o,rol_key:null,takim:null})).slice(0,4),G.ROLES);const m2=duz(h2);
-    assert.match(m2,/Oyuncu0 Oyuncu4'ün evine girdi/);assert.ok(!/\(Hain\)/.test(m2.split('☀️ Gün 1')[0]),'rol null → etiket yok');assert.match(m2,/\?/);
+    const h2=hikaye([...R.gameLog,{sira:101,gun:3,faz:'talk',tur:'bilinmeyen',veri:{}},{sira:102,gun:3,faz:'night',tur:'gece_hamle',veri:{kim:'u0',tur:'kill',hedef:'yok',tahmin:null}}],oyuncular(R).map(o=>({...o,rol_key:null,takim:null})),G.ROLES);const m2=duz(h2);
+    assert.match(m2,/Oyuncu0 Oyuncu4'ün evine girdi/);assert.ok(!/\(Hain\)/.test(m2.split('☀️ Gün 1')[0]),'rol null → etiket yok');assert.match(m2,/Oyuncu0 \?'in evine girdi/,'bilinmeyen oyuncu → ?');
   }finally{G.setClock()}
 });
 test('hikâye: iptal ve özel olaylar (tuzak, tutma, hırsız, yıldırım, patlama, hortlak, yelek)',()=>{
