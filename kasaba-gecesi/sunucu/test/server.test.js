@@ -528,6 +528,25 @@ test('kanca: imzalı GoTrue isteği mail gönderir (200 {}); aynı webhook-id te
   try{assert.strictEqual((await postJ(b2,'/eposta/kanca','{}',{})).s,404);assert.strictEqual(JSON.parse((await getH(b2,'/ayar.json')).b).eposta,false)}
   finally{await new Promise(r=>s2.close(r))}
 });
+test('/hesap/birlestir: iki taze token → RPC + admin silme (taklit); eski süresi dolmuş 401; kayıt kapalıda 404; IP başına dakikada 5',async()=>{
+  const rest=await taklitRest();const ESKI='aaaaaaaa-0000-4000-8000-00000000000a',YENI='aaaaaaaa-0000-4000-8000-00000000000b';
+  const tok=(sub,{exp=3600,anon=true,email}={})=>Kimlik.imzala({sub,exp:Math.floor(Date.now()/1000)+exp,is_anonymous:anon,...(email?{email}:{})},'x');
+  const srv=createServer({quiet:true,jwksAlma:false,kayit:{kuyrukla(){},profil(){},kapat(){},sayac:{}},ayar:{url:rest.url,anonKey:'anon',serviceKey:'srv',jwtSecret:'x',kurulum:'t'}});
+  await new Promise(r=>srv.server.listen(0,'127.0.0.1',r));const base='127.0.0.1:'+srv.server.address().port;
+  try{
+    const a=await postJ(base,'/hesap/birlestir',JSON.stringify({eski:tok(ESKI),yeni:tok(YENI,{anon:false,email:'a@b.c'})}));
+    assert.strictEqual(a.s,200,a.b);assert.deepStrictEqual(JSON.parse(a.b),{ok:true});
+    const yollar=rest.istekler.map(i=>i.yontem+' '+i.yol);assert.deepStrictEqual(yollar,['POST /rest/v1/rpc/hesap_birlestir','DELETE /auth/v1/admin/users/'+ESKI]);
+    assert.deepStrictEqual(rest.istekler[0].govde,{eski:ESKI,yeni:YENI});
+    const b=await postJ(base,'/hesap/birlestir',JSON.stringify({eski:tok(ESKI,{exp:-5}),yeni:tok(YENI,{anon:false,email:'a@b.c'})}));assert.strictEqual(b.s,401);assert.strictEqual(JSON.parse(b.b).error,'eski_suresi_dolmus');
+    assert.strictEqual((await postJ(base,'/hesap/birlestir','{bozuk')).s,400);
+    for(let i=0;i<3;i++)await postJ(base,'/hesap/birlestir','{}');
+    const son=await postJ(base,'/hesap/birlestir','{}');assert.strictEqual(son.s,429,'6. istek aynı IP → 429');
+    const sag=JSON.parse((await getH(base,'/saglik')).b);assert.deepStrictEqual(sag.birlestirme,{ok:1,hata:6}); // 401, 400 ×4, 429 (limit de hata sayılır)
+  }finally{await new Promise(r=>srv.close(r));await rest.kapat()}
+  const s2=createServer({quiet:true});await new Promise(r=>s2.server.listen(0,'127.0.0.1',r));const b2='127.0.0.1:'+s2.server.address().port;
+  try{assert.strictEqual((await postJ(b2,'/hesap/birlestir','{}')).s,404)}finally{await new Promise(r=>s2.close(r))}
+});
 const getH=(b,p,h)=>new Promise((res,rej)=>http.get('http://'+b+p,{headers:h||{}},r=>{let s='';r.on('data',d=>s+=d);r.on('end',()=>res({s:r.statusCode,b:s,h:r.headers}))}).on('error',rej));
 test('statik dosya önbelleği: sürümsüz /sayfa/* ve game.js no-cache + ETag (304); ?v= ile uzun önbellek; html sayfalarda __V__ sürümle dolar',async()=>{
   const srv=createServer({quiet:true});await new Promise(r=>srv.server.listen(0,'127.0.0.1',r));const base='127.0.0.1:'+srv.server.address().port;

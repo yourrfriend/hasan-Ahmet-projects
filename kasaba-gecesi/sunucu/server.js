@@ -96,9 +96,22 @@ function createServer(opts={}){
     if(req.headers['if-none-match']===etag){res.writeHead(304,{ETag:etag,'Cache-Control':cc});return res.end()}
     res.writeHead(200,{'Content-Type':tip,'Cache-Control':cc,ETag:etag});res.end(req.method==='HEAD'?undefined:buf);
   }
+  // Hesap birleştirme (Plan 6): ikinci cihazda e-postayla girince o cihazın anonim geçmişi hesaba taşınır. Yalnız kayıt açıkken; IP başına dakikada 5.
+  const hesapFetch=opts.hesapFetch||((u,o)=>fetch(u,o));const birlestirmeSayac={ok:0,hata:0};const ipBirlestirme=new Map();
+  async function birlestirUcu(req,res){
+    const json=(d,b)=>{res.writeHead(d,{'Content-Type':'application/json'});res.end(JSON.stringify(b))};
+    if(!(ayar.url&&ayar.serviceKey)){res.writeHead(404);return res.end('yok')}
+    const ip=ipOf(req),simdi=Date.now();const son=(ipBirlestirme.get(ip)||[]).filter(t=>simdi-t<60000);
+    if(son.length>=5){birlestirmeSayac.hata++;return json(429,{error:'limit'})}son.push(simdi);ipBirlestirme.set(ip,son);
+    let govde;try{govde=JSON.parse(await govdeOku(req,8*1024))}catch(e){birlestirmeSayac.hata++;return json(400,{error:'gecersiz_govde'})}
+    const r=await Hesap.birlestir(govde,{dogrula:t=>Kimlik.dogrula(t,dogrulama),url:ayar.url,serviceKey:ayar.serviceKey,fetch:hesapFetch});
+    if(r.durum===200)birlestirmeSayac.ok++;else birlestirmeSayac.hata++;
+    log('birlestir',r.durum,r.govde.error||r.govde.uyari||'ok');return json(r.durum,r.govde);
+  }
   const server=http.createServer((req,res)=>{
     const url=(req.url||'/').split('?')[0],surumlu=/[?&]v=/.test(req.url||'');
     if(req.method==='POST'&&url==='/eposta/kanca'){kancaUcu(req,res).catch(()=>{res.writeHead(500);res.end()});return}
+    if(req.method==='POST'&&url==='/hesap/birlestir'){birlestirUcu(req,res).catch(()=>{res.writeHead(500);res.end()});return}
     if(req.method!=='GET'&&req.method!=='HEAD'){res.writeHead(405);return res.end()}
     if(url==='/'||url==='/index.html'){
       fs.readFile(INDEX,(err,buf)=>{
@@ -128,7 +141,7 @@ function createServer(opts={}){
         res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-cache'});res.end(req.method==='HEAD'?undefined:buf.toString('utf8').split('__V__').join(SURUM_V));
       });return;
     }
-    if(url==='/saglik'){const k=kayit.sayac||{};res.writeHead(200,{'Content-Type':'application/json'});return res.end(JSON.stringify({ok:true,rooms:rooms.size,surum:process.env.KG_SURUM||null,kayit:{kuyruk:k.kuyruk||0,yazilan:k.yazilan||0,hata:k.hata||0,dusen:k.dusen||0},eposta:{...epostaSayac}}))} // kayıt ve e-posta sayaçları: yalnız sayılar
+    if(url==='/saglik'){const k=kayit.sayac||{};res.writeHead(200,{'Content-Type':'application/json'});return res.end(JSON.stringify({ok:true,rooms:rooms.size,surum:process.env.KG_SURUM||null,kayit:{kuyruk:k.kuyruk||0,yazilan:k.yazilan||0,hata:k.hata||0,dusen:k.dusen||0},eposta:{...epostaSayac},birlestirme:{...birlestirmeSayac}}))} // kayıt, e-posta ve birleştirme sayaçları: yalnız sayılar
     res.writeHead(404,{'Content-Type':'text/plain; charset=utf-8'});res.end('Bulunamadı');
   });
 

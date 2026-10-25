@@ -8,6 +8,9 @@ function taklitRest(){const T={kasabalar:[],kasaba_uyeleri:[],oyunlar:[],oyun_oy
     const kayit={yol:req.url,tablo,yontem:req.method,prefer:req.headers.prefer||'',govde};istekler.push(kayit);
     const h=hata(kayit);if(h){res.writeHead(h);return res.end(JSON.stringify({message:'taklit hata '+h}))}
     const yaz=(d,kod=200)=>{res.writeHead(kod,{'Content-Type':'application/json'});res.end(JSON.stringify(d))};
+    // Plan 6: RPC hesap_birlestir (204) ve GoTrue admin kullanıcı silme (200) — yalnız kaydedilir; hata() ile durum kodu verilebilir
+    if(req.method==='POST'&&u.pathname==='/rest/v1/rpc/hesap_birlestir'){res.writeHead(204);return res.end()}
+    if(req.method==='DELETE'&&/^\/auth\/v1\/admin\/users\/[0-9a-f-]{36}$/.test(u.pathname)){return yaz({id:u.pathname.split('/').pop()})}
     if(!T[tablo]){res.writeHead(404);return res.end()}
     if(req.method==='GET'){let rows=T[tablo];for(const [k,v] of u.searchParams)if(k!=='select'&&k!=='limit'&&v.startsWith('eq.'))rows=rows.filter(r=>String(r[k])===v.slice(3));return yaz(rows)}
     if(req.method==='POST'){const rows=Array.isArray(govde)?govde:[govde];const eklenen=[];for(const r of rows){const row={...r};if(tablo==='kasabalar'&&!row.id)row.id='kasaba-'+(++sayac);

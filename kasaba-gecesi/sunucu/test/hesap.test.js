@@ -47,3 +47,39 @@ test('kancaIsle: mail gider → 200 {}; sağlayıcı hatası → 500; bilinmeyen
 test('maskele: alıcı günlük için maskelenir',()=>{
   assert.strictEqual(H.maskele('baris@gmail.com'),'b***@gmail.com');assert.strictEqual(H.maskele('x'),'***');
 });
+
+// ---------- birleştirme ----------
+const Kimlik=require('../kimlik.js');
+const ESKI='aaaaaaaa-0000-4000-8000-00000000000a',YENI='aaaaaaaa-0000-4000-8000-00000000000b';
+const tok=(sub,{exp=3600,anon=true,email}={})=>Kimlik.imzala({sub,exp:Math.floor(Date.now()/1000)+exp,is_anonymous:anon,...(email?{email}:{})},'x');
+const sahteAg=(durumlar={})=>{const istekler=[];const f=async(url,o)=>{istekler.push({url,o});const d=/rpc/.test(url)?(durumlar.rpc??204):(durumlar.sil??200);return {status:d,ok:d>=200&&d<300,text:async()=>'',json:async()=>({})}};return {f,istekler}};
+const ortam=(ag)=>({dogrula:t=>Kimlik.dogrula(t,{secret:'x'}),url:'http://sb.test',serviceKey:'srv',fetch:ag.f});
+test('birlestir: taze anonim eski + e-postalı yeni → RPC ve admin silme sırayla; başarı',async()=>{
+  const ag=sahteAg();const r=await H.birlestir({eski:tok(ESKI),yeni:tok(YENI,{anon:false,email:'a@b.c'})},ortam(ag));
+  assert.deepStrictEqual(r,{durum:200,govde:{ok:true}});assert.strictEqual(ag.istekler.length,2);
+  assert.strictEqual(ag.istekler[0].url,'http://sb.test/rest/v1/rpc/hesap_birlestir');assert.strictEqual(ag.istekler[0].o.method,'POST');
+  assert.deepStrictEqual(JSON.parse(ag.istekler[0].o.body),{eski:ESKI,yeni:YENI});assert.strictEqual(ag.istekler[0].o.headers.apikey,'srv');assert.strictEqual(ag.istekler[0].o.headers.Authorization,'Bearer srv');
+  assert.strictEqual(ag.istekler[1].url,'http://sb.test/auth/v1/admin/users/'+ESKI);assert.strictEqual(ag.istekler[1].o.method,'DELETE');
+});
+test('birlestir: doğrulama hataları istek yapmadan döner',async()=>{
+  const ag=sahteAg();const o=ortam(ag);const yeni=tok(YENI,{anon:false,email:'a@b.c'});
+  assert.deepStrictEqual(await H.birlestir({eski:tok(ESKI,{exp:-10}),yeni},o),{durum:401,govde:{error:'eski_suresi_dolmus'}});
+  assert.deepStrictEqual(await H.birlestir({eski:tok(ESKI),yeni:tok(YENI,{exp:-10,anon:false,email:'a@b.c'})},o),{durum:401,govde:{error:'yeni_suresi_dolmus'}});
+  assert.deepStrictEqual(await H.birlestir({eski:'bozuk',yeni},o),{durum:401,govde:{error:'eski_gecersiz'}});
+  assert.deepStrictEqual(await H.birlestir({eski:tok(ESKI),yeni:'bozuk'},o),{durum:401,govde:{error:'yeni_gecersiz'}});
+  assert.deepStrictEqual(await H.birlestir({eski:tok(ESKI,{anon:false,email:'e@b.c'}),yeni},o),{durum:400,govde:{error:'eski_anonim_degil'}});
+  assert.deepStrictEqual(await H.birlestir({eski:tok(ESKI),yeni:tok(YENI)},o),{durum:400,govde:{error:'yeni_anonim'}});
+  assert.deepStrictEqual(await H.birlestir({eski:tok(ESKI),yeni:tok(ESKI,{anon:false,email:'a@b.c'})},o),{durum:400,govde:{error:'ayni_hesap'}});
+  assert.deepStrictEqual(await H.birlestir(null,o),{durum:400,govde:{error:'gecersiz_govde'}});
+  assert.strictEqual(ag.istekler.length,0);
+  // yeni: is_anonymous true ama email dolu → kabul (GoTrue bayrağı düşürmese de kilitlenmesin)
+  assert.strictEqual((await H.birlestir({eski:tok(ESKI),yeni:tok(YENI,{anon:true,email:'a@b.c'})},o)).durum,200);
+});
+test('birlestir: RPC hatası → 502 ve silme yok; silme hatası → 200 + uyarı',async()=>{
+  const ag=sahteAg({rpc:500});const r=await H.birlestir({eski:tok(ESKI),yeni:tok(YENI,{anon:false,email:'a@b.c'})},ortam(ag));
+  assert.deepStrictEqual(r,{durum:502,govde:{error:'rpc'}});assert.strictEqual(ag.istekler.length,1);
+  const ag2=sahteAg({sil:500});const r2=await H.birlestir({eski:tok(ESKI),yeni:tok(YENI,{anon:false,email:'a@b.c'})},ortam(ag2));
+  assert.deepStrictEqual(r2,{durum:200,govde:{ok:true,uyari:'eski kullanıcı silinemedi'}});assert.strictEqual(ag2.istekler.length,2);
+  const ag3=sahteAg();ag3.f=async()=>{throw new Error('ECONNREFUSED')};const r3=await H.birlestir({eski:tok(ESKI),yeni:tok(YENI,{anon:false,email:'a@b.c'})},ortam(ag3));
+  assert.strictEqual(r3.durum,502);
+});

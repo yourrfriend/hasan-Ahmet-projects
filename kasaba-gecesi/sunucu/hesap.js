@@ -4,6 +4,7 @@
 //   imzala({sir, id, ts, govde}) → headers   (testler ve araçlar için)
 //   kancaYukunuCoz(yuk) → {tur:'giris'|'baglama'|null, alici, kod}
 //   kancaIsle({yuk, eposta, sayac}) → {durum, govde}
+//   birlestir({eski,yeni}, {dogrula,url,serviceKey,fetch}) → {durum, govde}
 //   maskele(eposta) → 'b***@gmail.com'   (günlük için; kod ve token asla yazılmaz)
 const crypto=require('crypto');
 const ZAMAN_PAYI_MS=5*60*1000;
@@ -36,5 +37,22 @@ async function kancaIsle({yuk,eposta,sayac}){
   if(r&&r.ok){if(sayac)sayac.gonderilen=(sayac.gonderilen||0)+1;return {durum:200,govde:{}}}
   if(sayac)sayac.hata=(sayac.hata||0)+1;return {durum:500,govde:{error:{http_code:500,message:'e-posta gönderilemedi'}}};
 }
+// Birleştirme (tasarım §5.5): iki taze token → RPC hesap_birlestir (service_role) → eski anonim kullanıcı GoTrue admin API ile silinir.
+//   birlestir({eski, yeni}, {dogrula, url, serviceKey, fetch}) → {durum, govde}
+async function birlestir(govde,{dogrula,url,serviceKey,fetch:f,zamanAsimiMs=8000}){
+  if(!govde||typeof govde!=='object'||typeof govde.eski!=='string'||typeof govde.yeni!=='string')return {durum:400,govde:{error:'gecersiz_govde'}};
+  const e=dogrula(govde.eski);if(!e)return {durum:401,govde:{error:'eski_gecersiz'}};
+  const y=dogrula(govde.yeni);if(!y)return {durum:401,govde:{error:'yeni_gecersiz'}};
+  if(e.suresiDolmus)return {durum:401,govde:{error:'eski_suresi_dolmus'}};
+  if(y.suresiDolmus)return {durum:401,govde:{error:'yeni_suresi_dolmus'}};
+  if(!e.anonim)return {durum:400,govde:{error:'eski_anonim_degil'}};
+  if(y.anonim&&!y.eposta)return {durum:400,govde:{error:'yeni_anonim'}};
+  if(e.sub===y.sub)return {durum:400,govde:{error:'ayni_hesap'}};
+  const kok=String(url||'').replace(/\/+$/,'');const bas={apikey:serviceKey,Authorization:'Bearer '+serviceKey,'Content-Type':'application/json'};
+  const istek=async(yontem,yol,b)=>{try{const r=await f(kok+yol,{method:yontem,headers:bas,body:b===undefined?undefined:JSON.stringify(b),signal:AbortSignal.timeout(zamanAsimiMs)});return r.status>=200&&r.status<300}catch(x){return false}};
+  if(!await istek('POST','/rest/v1/rpc/hesap_birlestir',{eski:e.sub,yeni:y.sub}))return {durum:502,govde:{error:'rpc'}};
+  if(!await istek('DELETE','/auth/v1/admin/users/'+e.sub))return {durum:200,govde:{ok:true,uyari:'eski kullanıcı silinemedi'}};
+  return {durum:200,govde:{ok:true}};
+}
 function maskele(e){const m=/^(.)[^@]*(@.+)$/.exec(String(e||''));return m?m[1]+'***'+m[2]:'***'}
-module.exports={imzaDogrula,imzala,kancaYukunuCoz,kancaIsle,maskele};
+module.exports={imzaDogrula,imzala,kancaYukunuCoz,kancaIsle,birlestir,maskele};
