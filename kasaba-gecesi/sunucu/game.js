@@ -105,12 +105,18 @@ function sysChat(R,t){pushChat(R,{sys:true,t})}
 // Olay günlüğü (R.log): hikâye, özet ve istatistiğin tek kaynağı. Gizlidir, P'ye girmez; sunucu her yayında boşaltır.
 // Oyuncular açık kimlikle (P.players[].id) geçer. Olay türleri ve alanları: docs/superpowers/specs/…gecmis-design.md §5.4
 // R.log sunucuya giden kuyruktur (her yayında boşaltılır); R.gameLog bu oyunun tam günlüğüdür (özet ve "senin payın" buradan).
-function logEv(R,tur,veri){const e={sira:++R.logSeq,gun:R.P.day||0,faz:R.P.phase,tur,veri,oyun:R.P.gameId||null};R.log.push(e);R.gameLog.push(e)}
+function logEv(R,tur,veri){const e={sira:++R.logSeq,gun:R.P.day||0,faz:R.P.phase,tur,veri,oyun:R.P.gameId||null,oyunId:R.P.oyunId||null};R.log.push(e);R.gameLog.push(e)}
 // Ölçüm olayları (sunucu yazar: son_ekran_goruldu, hazir, rovans_basladi, kopus, dondu); içerik taşımaz, günlükle aynı yoldan kayda gider
-function olay(R,tur,veri){R.log.push({sira:++R.logSeq,gun:R.P.day||0,faz:R.P.phase,tur,veri,oyun:R.P.gameId||null})} // gameLog'a girmez (özet/gazete onu tarar)
+function olay(R,tur,veri){R.log.push({sira:++R.logSeq,gun:R.P.day||0,faz:R.P.phase,tur,veri,oyun:R.P.gameId||null,oyunId:R.P.oyunId||null})} // gameLog'a girmez (özet/gazete onu tarar)
 
 // ---------- Oyun akışı ----------
 // lobby: [{id,name,color,hat}] (oda sırasıyla). En az 4, en çok 12 kişi.
+// Maç kimliği (uuid v4): kayıt tablolarının anahtarı; herkese açıktır (Plan 5'te /oyun/<id>). Node ve tarayıcıda crypto.randomUUID var.
+function yeniOyunId(){const c=typeof crypto!=='undefined'?crypto:(typeof require==='function'?require('crypto'):null);return c&&c.randomUUID?c.randomUUID():'u-'+clock()+'-'+Math.random().toString(36).slice(2,10)}
+// Oyuncu başına kapanış alanları (bitis olayı → oyun_oyunculari): rol oyun sonundaki, Deli masum, Hırsız çaldıysa calinan_rol işareti
+function kapanisFor(R){const g=R.g;const olum={};
+  for(const e of R.gameLog){if(e.tur==='gece_sonuc')for(const o of e.veri.olenler)olum[o.kim]={gun:e.gun,sekil:o.sekil};else if(e.tur==='gunduz_sonuc'&&e.veri.asilan)olum[e.veri.asilan]={gun:e.gun,sekil:'asildi'}}
+  return R.P.players.map(p=>{const r=g.roles[p.id];return {id:p.id,rol_key:r.key,takim:r.mad?'inn':r.team,deli_gibi:r.mad||null,calinan_rol:r.orig||null,sag:!!p.alive,olum_gunu:olum[p.id]?olum[p.id].gun:null,olum_sekli:olum[p.id]?olum[p.id].sekil:null}})}
 function startGame(R,lobby,secenek){ // secenek: {rovans:true, onceki:gameId} rövanşta
   const players=lobby.slice();if(players.length<4||players.length>12)return false;
   const counts=autoSetup(players.length);
@@ -119,7 +125,7 @@ function startGame(R,lobby,secenek){ // secenek: {rovans:true, onceki:gameId} r�
   R.g={roles,acts:{},notes:{},dchat:[],votes:{},provoke:null,blame:null,clean:null,candle:{},haunt:null,hauntWins:[]};R.gameLog=[];
   players.forEach(p=>R.g.notes[p.id]=[]);
   const settings={...R.settings};
-  R.P={phase:'night',day:1,ends:clock()+settings.night*1000+6000,chat:[],dead:[],voted:[],settings,gameId:clock(),morning:null,evening:null,provoked:null,
+  R.P={phase:'night',day:1,ends:clock()+settings.night*1000+6000,chat:[],dead:[],voted:[],settings,gameId:clock(),oyunId:yeniOyunId(),morning:null,evening:null,provoked:null,
      players:players.map(p=>({id:p.id,name:p.name,alive:true,color:p.color,hat:p.hat})),
      roleList:bag.map(r=>({n:roleLabel(r),team:r.team})).sort((a,b)=>a.team.localeCompare(b.team))};
   logEv(R,'baslangic',{ayarlar:settings,roller:R.P.roleList,oyuncular:players.map(p=>({id:p.id,ad:p.name,renk:p.color,sapka:p.hat})),...(secenek&&secenek.rovans?{rovans:true,onceki:secenek.onceki}:{})});
@@ -304,7 +310,7 @@ function checkWin(R){
   P.gazete=gazeteFor(R);
   P.reveal=P.players.map(p=>({id:p.id,name:p.name,role:roleLabel(shownRole(R,p.id))+(g.roles[p.id].mad?' (aslında Deli)':g.roles[p.id].orig?' (Hırsız çaldı)':''),team:g.roles[p.id].mad?'inn':g.roles[p.id].team,alive:p.alive}));
   P.ozet=ozetFor(R);
-  logEv(R,'bitis',{kazanan:w.team,kazanan_metin:w.t,kazananlar:P.winner.kazananlar,sag_kalanlar:P.winner.survivors,hortlak_kazananlar:P.winner.haunters,acilis:P.reveal});
+  logEv(R,'bitis',{kazanan:w.team,kazanan_metin:w.t,kazananlar:P.winner.kazananlar,oyuncular:kapanisFor(R),sag_kalanlar:P.winner.survivors,hortlak_kazananlar:P.winner.haunters,acilis:P.reveal});
   return true;
 }
 // Maç özeti (herkese açık, yalnız oyun bitince): kazanan ve her oyuncunun rolü/akıbeti, oyun günlüğünden.

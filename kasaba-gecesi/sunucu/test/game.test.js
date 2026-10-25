@@ -435,3 +435,24 @@ test('inceleme: Türkçe ad ekleri ünlü uyumuna ve kaynaştırmaya uyar; gazet
   G.act(R,'u0',{kill:'u2'});G.act(R,'u1',{ab:'u2'});G.advance(R);for(const p of G.alivePlayers(R))if(p.id!=='u0')G.pl(R,p.id).alive=false;G.advance(R);G.advance(R);
   assert.match(R.P.gazete.map(k=>k.metin).join(' | '),/Kaya'nın tuzağı Ece'yi Can'ın kapısında yakaladı/);
 });
+
+// ---------- Plan 4: oyunId ve bitiş kapanış alanları ----------
+test('oyunId her maçta yeni uuid ve her günlük kaydında; bitis olayında oyuncu kapanış alanları',()=>{
+  let R=fixed(['hain','doktor','deli','masum','masum']);R.g.roles.u2.mad='doktor';
+  assert.match(R.P.oyunId,/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);const ilk=R.P.oyunId;
+  assert.ok(R.log.every(e=>e.oyunId===ilk),'her kayıt oyunId taşır');
+  G.act(R,'u0',{kill:'u4'});G.advance(R);G.advance(R);asil(R,'u0',['u1','u2','u3']); // gece 1 u4 ölür; gün 1 hain asılır → masumlar
+  assert.strictEqual(R.P.phase,'end');const b=R.log[R.log.length-1];assert.strictEqual(b.tur,'bitis');
+  const by=Object.fromEntries(b.veri.oyuncular.map(o=>[o.id,o]));
+  assert.deepStrictEqual(by.u0,{id:'u0',rol_key:'hain',takim:'imp',deli_gibi:null,calinan_rol:null,sag:false,olum_gunu:1,olum_sekli:'asildi'});
+  assert.deepStrictEqual(by.u4,{id:'u4',rol_key:'masum',takim:'inn',deli_gibi:null,calinan_rol:null,sag:false,olum_gunu:1,olum_sekli:'stab'});
+  assert.deepStrictEqual(by.u2,{id:'u2',rol_key:'deli',takim:'inn',deli_gibi:'doktor',calinan_rol:null,sag:true,olum_gunu:null,olum_sekli:null});
+  noLeak(R.P);
+  // hırsız doktoru çaldı: rol_key oyun sonundaki, calinan_rol 'hirsiz' işareti
+  R=fixed(['hirsiz','hain','doktor','masum','masum','masum','masum']);assert.notStrictEqual(R.P.oyunId,ilk);
+  G.act(R,'u0',{ab:'u2'});G.advance(R);G.advance(R);asil(R,'u1',['u0','u3','u4','u5','u6']);
+  assert.strictEqual(R.P.phase,'end');const o=Object.fromEntries(R.log[R.log.length-1].veri.oyuncular.map(o=>[o.id,o]));
+  assert.deepStrictEqual([o.u0.rol_key,o.u0.takim,o.u0.calinan_rol,o.u2.olum_sekli],['doktor','inn','hirsiz','vanish']);
+  // iptal olayı da oyunId taşır (P sıfırlanmadan yazılır)
+  R=fixed(['hain','masum','masum','masum']);const id3=R.P.oyunId;G.endToLobby(R);const son=R.log[R.log.length-1];assert.strictEqual(son.tur,'iptal');assert.strictEqual(son.oyunId,id3);
+});
