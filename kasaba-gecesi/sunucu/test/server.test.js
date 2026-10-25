@@ -268,3 +268,37 @@ test('rövanş: ev sahibi devri hazır bayraklarını korur; yeni ev sahibi baş
   assert.strictEqual(yeni.P.players.length,4);
   for(const c of cs.slice(1))await c.close();
 });
+
+// ---------- Paket 1a: Bu Akşamın Skoru ----------
+test('skor: maç bitince herkes oynadı, kazananlar kazandı; iki flush tek artış; kopuk oyuncu paydada; ölü kazanan sayılır',async()=>{
+  const {host,cs,room}=await odaKur('sk',4);const R=()=>srv.rooms.get(room).game;
+  host.send({t:'start'});await Promise.all(cs.map(c=>c.until(c=>c.P.phase==='night'&&c.priv.role)));
+  assert.deepStrictEqual(host.P.skor,[],'maç bitmeden skor boş');
+  await cs[3].close(); // kopuk ama oyunda: paydada kalır
+  hizliBitir(R()); // ilk iki oyuncu hain; son oyuncu (kopuk) ölür → hainler kazanır
+  await Promise.all(cs.slice(0,3).map(c=>c.until(c=>c.P.phase==='end'&&c.P.skor&&c.P.skor.length===4)));
+  const by=Object.fromEntries(host.P.skor.map(s=>[s.id,s]));
+  for(const c of cs)assert.deepStrictEqual([by[c.me].oynadi,by[c.me].kazandi],[1,R().P.winner.kazananlar.includes(c.me)?1:0],c.uid);
+  assert.strictEqual(host.P.skor.filter(s=>s.kazandi===1).length,2);
+  assert.deepStrictEqual(host.P.skor.map(s=>s.kazandi),[1,1,0,0],'kazandı azalan sıralı');
+  // ikinci flush (hazır mesajı yayın tetikler) skoru değiştirmez
+  host.send({t:'hazir',v:true});await host.until(c=>c.P.hazir.includes(host.me));
+  assert.deepStrictEqual(host.P.skor.map(s=>[s.oynadi,s.kazandi]),[[1,1],[1,1],[1,0],[1,0]]);
+  for(const c of cs.slice(0,3))await c.close();
+});
+
+test('skor: iptal sayılmaz; rövanşta birikir; ad değişir; ev sahibi devri korur',async()=>{
+  const {host,cs,room}=await odaKur('sl',4);const R=()=>srv.rooms.get(room).game;
+  host.send({t:'start'});await Promise.all(cs.map(c=>c.until(c=>c.P.phase==='night'&&c.priv.role)));
+  host.send({t:'cancel'});await host.until(c=>c.P.phase==='lobby');assert.deepStrictEqual(host.P.skor,[],'iptal skor işlemez');
+  host.send({t:'start'});await Promise.all(cs.map(c=>c.until(c=>c.P.phase==='night'&&c.priv.role)));
+  hizliBitir(R());await Promise.all(cs.map(c=>c.until(c=>c.P.phase==='end'&&c.P.skor.length===4)));
+  for(const c of cs)c.send({t:'hazir',v:true});await host.until(c=>c.P.hazir.length===4);
+  host.send({t:'start',rovans:true});await Promise.all(cs.map(c=>c.until(c=>c.P.phase==='night'&&c.P.skor.length===4)));
+  hizliBitir(R());await Promise.all(cs.map(c=>c.until(c=>c.P.phase==='end'&&c.P.skor.every(s=>s.oynadi===2))));
+  assert.strictEqual(host.P.skor.reduce((a,s)=>a+s.kazandi,0),4,'iki maçta ikişer kazanan');
+  cs[1].send({t:'look',name:'YeniAd'});await host.until(c=>c.P.skor.some(s=>s.id===cs[1].me&&s.ad==='YeniAd'));
+  await host.close();await cs[1].until(c=>c.P.hostId!==host.me,3000);
+  assert.ok(cs[1].P.skor.every(s=>s.oynadi===2),'devir skoru korur');
+  for(const c of cs.slice(1))await c.close();
+});
