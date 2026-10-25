@@ -140,7 +140,8 @@ HEDEF="$APP_KOK/$AD";YENI="$APP_KOK/.$AD.yeni";ESKI="$APP_KOK/.$AD.eski"
 bilgi "$AD: dosyalar hazırlanıyor ($SURUM, $COMMIT)"
 rm -rf "$YENI" "$ESKI";mkdir -p "$YENI/sunucu"
 install -m 644 "$OYUN/index.html" "$YENI/index.html"
-for f in server.js game.js kayit.js package.json package-lock.json; do [ -f "$OYUN/sunucu/$f" ] && install -m 644 "$OYUN/sunucu/$f" "$YENI/sunucu/" || true; done # eski sürümlerde kayit.js yok
+for f in server.js game.js kayit.js kimlik.js package.json package-lock.json; do [ -f "$OYUN/sunucu/$f" ] && install -m 644 "$OYUN/sunucu/$f" "$YENI/sunucu/" || true; done # eski sürümlerde kayit.js/kimlik.js yok
+if [ -d "$OYUN/sayfa" ]; then mkdir -p "$YENI/sayfa"; for f in "$OYUN"/sayfa/*.js; do [ -f "$f" ] && install -m 644 "$f" "$YENI/sayfa/" || true; done; fi # gömülü supabase-js ve sayfa betikleri
 # Caddy şablonu da sürümle birlikte durur: parça hep kurulu sürümün şablonundan üretilir (eski sürümlerde yoksa bu klasördeki)
 [ -f "$OYUN/sunucu/Caddyfile" ] && install -m 644 "$OYUN/sunucu/Caddyfile" "$YENI/sunucu/" || true
 (cd "$YENI/sunucu" && npm ci --omit=dev --no-audit --no-fund --loglevel=error)
@@ -170,7 +171,9 @@ NoNewPrivileges=yes
 WantedBy=multi-user.target
 EOF
 ENV_ESKI="$GECICI/env.eski";[ -f "$AYAR_KOK/$AD.env" ] && cp "$AYAR_KOK/$AD.env" "$ENV_ESKI"
-printf 'PORT=%s\nALAN=%s\nSURUM=%s\nCOMMIT=%s\nKG_SURUM=%s\n' "$PORT" "$ALAN" "$SURUM" "$COMMIT" "$SURUM@$COMMIT" > "$AYAR_KOK/$AD.env"
+# kur.sh'nin kendi satırları yeniden yazılır; elle eklenen satırlar (SUPABASE_URL/ANON_KEY/SERVICE_KEY/JWT_SECRET, MAX_* vb.) aynen korunur
+printf 'PORT=%s\nALAN=%s\nSURUM=%s\nCOMMIT=%s\nKG_SURUM=%s\nKG_KURULUM=%s\n' "$PORT" "$ALAN" "$SURUM" "$COMMIT" "$SURUM@$COMMIT" "$AD" > "$AYAR_KOK/$AD.env"
+if [ -f "$ENV_ESKI" ]; then grep -Ev '^(PORT|ALAN|SURUM|COMMIT|KG_SURUM|KG_KURULUM)=' "$ENV_ESKI" >> "$AYAR_KOK/$AD.env" || true; fi
 
 saglikli(){ for _ in $(seq 1 30); do curl -fsS "http://127.0.0.1:$PORT/saglik" >/dev/null 2>&1 && return 0; sleep 0.5; done; return 1; }
 systemctl daemon-reload
