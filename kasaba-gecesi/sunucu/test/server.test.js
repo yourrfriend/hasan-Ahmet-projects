@@ -19,7 +19,7 @@ function client(uid,name,join,b=base){
   // me: sunucunun verdiği açık kimlik (uid gizli anahtardır, state içinde geçmez); chat: parça parça gelen sohbet
   const c={ws,uid,me:null,P:null,priv:null,privN:0,errs:[],states:0,chat:[],
     send:m=>ws.send(JSON.stringify(m)),
-    until(f,ms=3000){return new Promise((res,rej)=>{const t0=Date.now();const iv=setInterval(()=>{if(f(c)){clearInterval(iv);res(c)}else if(Date.now()-t0>ms){clearInterval(iv);rej(new Error(uid+' beklenen duruma gelmedi'))}},10)})},
+    until(f,ms=3000){return new Promise((res,rej)=>{const t0=Date.now();const iv=setInterval(()=>{if(f(c)){clearInterval(iv);res(c)}else if(Date.now()-t0>ms){clearInterval(iv);rej(new Error(uid+' beklenen duruma gelmedi: '+f.toString().slice(0,120)+' · phase='+(c.P&&c.P.phase)+' errs='+JSON.stringify(c.errs)))}},10)})},
     close(){return new Promise(r=>{if(ws.readyState>=2)return r();ws.once('close',r);ws.close()})}}; // sunucu kapattıysa beklemeden döner
   ws.on('message',d=>{const m=JSON.parse(d);if(m.t==='state'){c.P=m.P;c.states++;c.raw=String(d)}else if(m.t==='you')c.me=m.id;else if(m.t==='chat')c.chat.push(...m.a);else if(m.t==='priv'){c.priv=m.d;c.privN++}else if(m.t==='err')c.errs.push(m)});
   ws.on('open',()=>c.send({t:'join',uid,name,color:G.COLORS[0],hat:'cap',...join}));
@@ -212,4 +212,59 @@ test('inceleme: oyun sürerken oda silinince günlük iptal ile biter',async()=>
     const turler=alinan.map(e=>e.tur);assert.strictEqual(turler[turler.length-1],'iptal','oda kapanınca son olay iptal olmalı: '+turler.join(','));
     for(const c of cs)await c.close();
   }finally{await new Promise(r=>s2.close(r))}
+});
+
+// ---------- Paket 1a: rövanş ----------
+// oyunu hızla bitirir: yarısı hain, biri son masumu öldürür → hain ≥ diğerleri → hainler kazanır (gece biter)
+function hizliBitir(R){const ids=R.P.players.map(p=>p.id);const h=Math.ceil(ids.length/2);ids.forEach((id,i)=>{R.g.roles[id]={key:i<h?'hain':'masum',team:i<h?'imp':'inn',mad:null,uses:{},vest:3,planted:[]}});
+  G.act(R,ids[0],{kill:ids[ids.length-1]});R.P.waited=true;R.P.ends=Date.now()-1}
+const bekle=ms=>new Promise(r=>setTimeout(r,ms));
+async function odaKur(pre,n,b=base){const host=client(pre+'0','Ev',{host:true},b);await host.until(c=>c.P&&c.P.room);const room=host.P.room;
+  const cs=[host];for(let i=1;i<n;i++)cs.push(client(pre+i,'O'+i,{room},b));await host.until(c=>c.P.lobby.length===n);return {host,cs,room}}
+
+test('rövanş: hazır yalnız oyun sonunda kabul edilir; sayaç state ile yayılır; vazgeç düşürür',async()=>{
+  const {host,cs,room}=await odaKur('rv',4);
+  host.send({t:'start'});await Promise.all(cs.map(c=>c.until(c=>c.P.phase==='night'&&c.priv.role)));
+  host.send({t:'hazir',v:true});await bekle(150);assert.deepStrictEqual(host.P.hazir,[],'gece hazır kabul edilmez');
+  hizliBitir(srv.rooms.get(room).game);await Promise.all(cs.map(c=>c.until(c=>c.P.phase==='end')));
+  cs[1].send({t:'hazir',v:true});await Promise.all(cs.map(c=>c.until(c=>c.P.hazir.includes(cs[1].me))));
+  cs[1].send({t:'hazir',v:false});await host.until(c=>!c.P.hazir.includes(cs[1].me));
+  for(const c of cs)await c.close();
+});
+
+test('rövanş: 3 hazırla başlamaz, 4 ile başlar; hazır olmayan ve kopuk oyuncu rol almaz; iki start tek maç',async()=>{
+  const {host,cs,room}=await odaKur('rw',6);const R=()=>srv.rooms.get(room).game;
+  host.send({t:'start'});await Promise.all(cs.map(c=>c.until(c=>c.P.phase==='night'&&c.priv.role)));
+  const ilkGameId=host.P.gameId;hizliBitir(R());await Promise.all(cs.map(c=>c.until(c=>c.P.phase==='end')));
+  cs[1].send({t:'hazir',v:true});cs[2].send({t:'hazir',v:true});await host.until(c=>c.P.hazir.length===2);
+  host.send({t:'start',rovans:true}); // ev sahibi hazır sayılır → 3: yetmez
+  await host.until(c=>c.errs.some(e=>e.code==='soft'&&/4–12 hazır/.test(e.m)));assert.strictEqual(host.P.phase,'end');
+  cs[4].send({t:'hazir',v:true});await host.until(c=>c.P.hazir.includes(cs[4].me));await cs[4].close(); // hazır ama kopuk: sayılmaz
+  await host.until(c=>!c.P.online.includes(cs[4].me));
+  cs[3].send({t:'hazir',v:true});await host.until(c=>c.P.hazir.includes(cs[3].me));
+  host.send({t:'start',rovans:true});
+  await Promise.all([host,cs[1],cs[2],cs[3]].map(c=>c.until(c=>c.P.phase==='night'&&c.priv.role)));
+  assert.notStrictEqual(host.P.gameId,ilkGameId);const yeniGameId=host.P.gameId;
+  assert.deepStrictEqual(host.P.players.map(p=>p.id).sort(),[host,cs[1],cs[2],cs[3]].map(c=>c.me).sort());
+  await cs[5].until(c=>c.P.phase==='night').catch(e=>{throw new Error(e.message+' phase='+cs[5].P.phase+' errs='+JSON.stringify(cs[5].errs)+' states='+cs[5].states+' ws='+cs[5].ws.readyState)});assert.strictEqual(cs[5].priv.role,null,'hazır olmayan rol almaz');
+  assert.deepStrictEqual(host.P.hazir,[],'yeni maçta hazır bayrakları sıfırlanır');
+  host.send({t:'start',rovans:true});await bekle(150);assert.strictEqual(host.P.phase,'night');assert.strictEqual(host.P.gameId,yeniGameId,'ikinci start maç üretmez');
+  // önceki maça ait gecikmiş hamle reddedilir (g = eski gameId)
+  cs[1].send({t:'act',kill:cs[2].me,d:1,g:ilkGameId});await bekle(100);assert.ok(!R().g.acts[cs[1].me],'eski maçın hamlesi işlenmemeli');
+  cs[1].send({t:'act',kill:cs[2].me,d:1,g:yeniGameId});await bekle(100);assert.ok(R().g.acts[cs[1].me]||R().g.roles[cs[1].me].team!=='imp','yeni maçın hamlesi işlenir');
+  for(const c of [host,cs[1],cs[2],cs[3],cs[5]])await c.close();
+});
+
+test('rövanş: ev sahibi devri hazır bayraklarını korur; yeni ev sahibi başlatır',async()=>{
+  const {host,cs,room}=await odaKur('rx',5);
+  host.send({t:'start'});await Promise.all(cs.map(c=>c.until(c=>c.P.phase==='night'&&c.priv.role)));
+  hizliBitir(srv.rooms.get(room).game);await Promise.all(cs.map(c=>c.until(c=>c.P.phase==='end')));
+  for(const c of cs.slice(1))c.send({t:'hazir',v:true});await host.until(c=>c.P.hazir.length===4);
+  await host.close();
+  await cs[1].until(c=>c.P.hostId!==host.me,3000);
+  assert.strictEqual(cs[1].P.hazir.length,4,'devir hazırları silmez');
+  const yeni=cs.find(c=>c.me===cs[1].P.hostId);yeni.send({t:'start',rovans:true});
+  await Promise.all(cs.slice(1).map(c=>c.until(c=>c.P.phase==='night'&&c.priv.role)));
+  assert.strictEqual(yeni.P.players.length,4);
+  for(const c of cs.slice(1))await c.close();
 });

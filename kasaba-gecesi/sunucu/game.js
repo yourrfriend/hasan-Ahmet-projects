@@ -369,15 +369,15 @@ const sid=v=>typeof v==='string'&&v.length<=24?v:null;
 // gece hamlesi: {kill, ab, guess, det, d?}
 function act(R,id,m){
   const P=R.P;if(!R.g||P.phase!=='night')return false;const me=pl(R,id);if(!me||!me.alive)return false;
-  if(m.d!=null&&m.d!==P.day)return false;
+  if(m.d!=null&&m.d!==P.day)return false;if(m.g!=null&&m.g!==P.gameId)return false; // başka maçın gecikmiş hamlesi
   const target=v=>{v=sid(v);return v&&pl(R,v)?v:null};
   R.g.acts[id]={kill:target(m.kill),ab:m.ab==='self'?'self':target(m.ab),guess:typeof m.guess==='string'&&has(ROLES,m.guess)?m.guess:null,det:!!m.det};
   return true;
 }
 // oy: 'skip' ya da yaşayan bir oyuncu. Herkes oy verince faz kendiliğinden geçer.
-function vote(R,id,v,d){
+function vote(R,id,v,d,gid){
   const P=R.P;if(!R.g||P.phase!=='vote')return false;const me=pl(R,id);if(!me||!me.alive)return false;
-  if(d!=null&&d!==P.day)return false;
+  if(d!=null&&d!==P.day)return false;if(gid!=null&&gid!==P.gameId)return false;
   v=sid(v);if(v!=='skip'){const t=v&&pl(R,v);if(!t||!t.alive)return false}
   R.g.votes[id]=v;P.voted=Object.keys(R.g.votes);
   if(alivePlayers(R).every(p=>R.g.votes[p.id]!==undefined))advance(R);

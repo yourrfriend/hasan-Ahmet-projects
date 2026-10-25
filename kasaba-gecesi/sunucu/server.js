@@ -55,14 +55,14 @@ function createServer(opts={}){
 
   // ---------- oda yardımcıları ----------
   function newRoom(code,hostId){
-    const room={code,hostId,game:G.createGame(),members:new Map(),lastActive:Date.now(),hostGoneSince:null,emptySince:null,flushT:null,lastPriv:new Map()};
+    const room={code,hostId,game:G.createGame(),members:new Map(),lastActive:Date.now(),hostGoneSince:null,emptySince:null,flushT:null,lastPriv:new Map(),hazir:new Set()}; // hazir: rövanşa hazır üyeler (yalnız oyun sonunda)
     rooms.set(code,room);log('oda açıldı',code);return room;
   }
   const online=m=>m.socks.size>0;
   const anyOnline=room=>[...room.members.values()].some(online);
   // oyunda olmayan (lobideki ya da izleyen) üye kopunca kaydı silinir; oyuncu dönebilsin diye kalır.
   // Lobiye dönüşte (iptal) ya da yeni oyunda eski oyuncular da buradan temizlenir.
-  function prune(room){const players=room.game.P.players||[];for(const [id,m] of room.members)if(!online(m)&&!players.some(p=>p.id===id)){room.members.delete(id);room.lastPriv.delete(id)}}
+  function prune(room){const players=room.game.P.players||[];for(const [id,m] of room.members)if(!online(m)&&!players.some(p=>p.id===id)){room.members.delete(id);room.lastPriv.delete(id);room.hazir.delete(id)}}
   // lobi: bağlı ve adı olan üyeler, ev sahibi önde; aynı rengi seçen ikinciye boş renk
   function lobbyOf(room){
     const list=[];
@@ -74,7 +74,7 @@ function createServer(opts={}){
   // sohbet state içinde gitmez; her sokete yalnız görmediği satırlar ayrıca yollanır (sendChat)
   // online: bağlı üyelerin açık kimlikleri; istemci kopuk oyuncuyu işaretler, gece sonu onları bekler
   const onlineIds=room=>[...room.members].filter(([,m])=>online(m)).map(([id])=>id);
-  function stateMsg(room){return JSON.stringify({t:'state',P:{...room.game.P,chat:undefined,lobby:lobbyOf(room),hostId:room.hostId,room:room.code,online:onlineIds(room)},now:Date.now()})}
+  function stateMsg(room){return JSON.stringify({t:'state',P:{...room.game.P,chat:undefined,lobby:lobbyOf(room),hostId:room.hostId,room:room.code,online:onlineIds(room),hazir:[...room.hazir]},now:Date.now()})}
   function sendRaw(ws,str){if(ws.readyState===1){try{ws.send(str)}catch(e){}}}
   function send(ws,obj){sendRaw(ws,JSON.stringify(obj))}
   function sendChat(ws,room){
@@ -161,16 +161,21 @@ function createServer(opts={}){
     switch(m.t){
       case 'look':{const mem=room.members.get(uid);if(mem){applyLook(mem,m);schedule(room)}break}
       case 'settings':if(isHost(ws)&&R.P.phase==='lobby')R.settings=G.cleanSettings(m);break;
-      case 'start':
-        if(!isHost(ws)||R.P.phase!=='lobby')break;
+      case 'start':{
+        // lobiden: bağlı herkes. Oyun sonundan rövanş (rovans:true): yalnız hazır ∧ bağlı üyeler; başlatan ev sahibi hazır sayılır
+        if(!isHost(ws))break;
+        const rovans=!!m.rovans&&R.P.phase==='end';if(!(R.P.phase==='lobby'||rovans))break;
         if(m.settings)R.settings=G.cleanSettings(m.settings);
-        if(G.startGame(R,lobbyOf(room))){room.lastPriv.clear();log('oyun başladı',room.code,R.P.players.length+' kişi');flush(room)}
+        const liste=rovans?lobbyOf(room).filter(p=>p.id===uid||room.hazir.has(p.id)):lobbyOf(room);
+        if(rovans&&(liste.length<4||liste.length>12)){send(ws,{t:'err',m:'Rövanş için 4–12 hazır ve bağlı oyuncu gerekir (şu an '+liste.length+').',code:'soft'});break}
+        if(G.startGame(R,liste)){room.hazir.clear();room.lastPriv.clear();log(rovans?'rövanş başladı':'oyun başladı',room.code,R.P.players.length+' kişi');flush(room)}
         else send(ws,{t:'err',m:'Başlamak için 4–12 oyuncu gerekir.',code:'soft'});
-        break;
-      case 'cancel':if(isHost(ws)&&R.P.phase!=='lobby'){G.endToLobby(R);flush(room)}break;
+        break}
+      case 'cancel':if(isHost(ws)&&R.P.phase!=='lobby'){G.endToLobby(R);room.hazir.clear();flush(room)}break;
+      case 'hazir':if(R.P.phase==='end'&&room.members.has(uid)){if(m.v)room.hazir.add(uid);else room.hazir.delete(uid);schedule(room)}break;
       case 'close':if(isHost(ws))deleteRoom(room,'Ev sahibi odayı kapattı.');break;
       case 'act':G.act(R,uid,m);break; // gece hamlesi gizli: kimseye yayın yok
-      case 'vote':if(G.vote(R,uid,m.v,m.d))schedule(room);break;
+      case 'vote':if(G.vote(R,uid,m.v,m.d,m.g))schedule(room);break;
       case 'msg':if(G.chat(R,uid,m.x))schedule(room);break;
       case 'dmsg':if(G.deadChat(R,uid,m.x))schedule(room);break;
     }
