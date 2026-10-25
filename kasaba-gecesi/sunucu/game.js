@@ -412,6 +412,31 @@ function chat(R,id,x){
   const t=String(x==null?'':x).slice(0,240);if(!t.trim())return false;
   pushChat(R,{id,t,d:P.day,ts:clock()});return true;
 }
+// Hızlı ifadeler (Paket 1b, tasarım §5.1): tartışmada tek dokunuşla; metni sunucu kurar, sohbete oyuncunun sözü olarak girer
+// (rozet yok). Rol iddiası gerçek rolle birlikte günlüğe yazılır (gazete "iddia ve gerçeklik"); diğerleri ölçüm (hedef yazılmaz).
+const HIZLI_BEKLE_MS=8000,HIZLI_GUN=4,HIZLI_ANAHTAR=20;
+const HIZLI_TUR={rol:'🗣️ Rolüm: {rol}',suphe:'🤨 {ad} hakkında şüphem var.',belirsiz:'🤷 Bu bilgi kesin değil.',koru:'🛡️ Beni koruyun!',aciklama:'📣 Bir açıklama yapacağım.'};
+function hizli(R,id,m){
+  const P=R.P,g=R.g;const yok={ok:false,kod:'gecersiz'};
+  if(!g||P.phase!=='talk'||!m||typeof m!=='object')return yok;const me=pl(R,id);if(!me||!me.alive)return yok;
+  if(m.d!==P.day||!has(HIZLI_TUR,m.k))return yok;
+  let rol=null,hedef=null;
+  if(m.k==='rol'){if(typeof m.rol!=='string'||!has(ROLES,m.rol))return yok;rol=m.rol}
+  if(m.k==='suphe'){hedef=sid(m.hedef);const h=hedef&&pl(R,hedef);if(!h||!h.alive||hedef===id)return yok}
+  const n=typeof m.n==='string'?m.n.slice(0,40):'';
+  g.hizli=g.hizli||{};const h=g.hizli[id]=g.hizli[id]||{gun:P.day,n:0,son:0,anahtarlar:[]};
+  if(h.gun!==P.day){h.gun=P.day;h.n=0}
+  if(n&&h.anahtarlar.includes(n))return {ok:false,kod:'tekrar'};
+  const simdi=clock();const kalanMs=HIZLI_BEKLE_MS-(simdi-h.son);
+  if(h.son&&kalanMs>0)return {ok:false,kod:'bekle',kalan:Math.ceil(kalanMs/1000)};
+  if(h.n>=HIZLI_GUN)return {ok:false,kod:'gun'};
+  h.n++;h.son=simdi;if(n){h.anahtarlar.push(n);if(h.anahtarlar.length>HIZLI_ANAHTAR)h.anahtarlar.shift()}
+  const t=HIZLI_TUR[m.k].replace('{rol}',rol?ROLES[rol].n:'').replace('{ad}',hedef?nameOf(R,hedef):'');
+  pushChat(R,{id,t,d:P.day,ts:simdi,hizli:m.k});
+  if(m.k==='rol'){const r=g.roles[id];logEv(R,'iddia',{kim:id,rol_iddia:rol,gercek_rol:r.key,gercek_takim:r.team,algilanan_rol:r.mad||null})}
+  else olay(R,'hizli',{kim:id,k:m.k});
+  return {ok:true};
+}
 function deadChat(R,id,x){
   if(!R.g)return false;const me=pl(R,id);if(!me||me.alive)return false;
   const t=String(x==null?'':x).slice(0,240);if(!t.trim())return false;
@@ -432,5 +457,5 @@ function privFor(R,id){
 
 return{ROLES,SETUP,COLORS,HATS,DEFAULT_SETTINGS,DAGILIM,roleLabel,autoSetup,cleanSettings,setClock,
   lobbyState,createGame,startGame,setPhase,advance,tick,resolveNight,resolveVote,checkWin,kazananlar,gazeteFor,GAZETE_EN_COK,ek,endToLobby,olay,
-  act,vote,chat,deadChat,privFor,pl,alivePlayers,inGame};
+  act,vote,chat,deadChat,hizli,HIZLI_BEKLE_MS,HIZLI_GUN,HIZLI_TUR,privFor,pl,alivePlayers,inGame};
 });

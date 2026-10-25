@@ -488,3 +488,16 @@ test('kayıt: kayıtlı ev sahibinin maçı taklit Supabase\'e yazılır; rövan
     for(const c of gs)await c.close();
   }finally{await new Promise(r=>s2.close(r));await t.kapat()}
 });
+
+// ---------- Paket 1b: hızlı ifade yolu ----------
+test('hızlı ifade: sohbete düşer, bekleme err soft, kopup dönen oyuncunun sayacı sürer',async()=>{
+  const {host,cs,room}=await odaKur('hz',4);const R=()=>srv.rooms.get(room).game;
+  host.send({t:'start'});await Promise.all(cs.map(c=>c.until(c=>c.P.phase==='night'&&c.priv.role)));
+  R().P.waited=true;R().P.ends=Date.now()-1;await Promise.all(cs.map(c=>c.until(c=>c.P.phase==='talk')));
+  cs[1].send({t:'hizli',k:'rol',rol:'doktor',d:1,n:'x1'});await host.until(c=>c.chat.some(m=>m.hizli==='rol'&&m.t==='🗣️ Rolüm: Doktor'&&m.id===cs[1].me));
+  cs[1].send({t:'hizli',k:'koru',d:1,n:'x2'});await cs[1].until(c=>c.errs.some(e=>e.code==='soft'&&/Biraz bekle/.test(e.m)));
+  await cs[1].close();const geri=client('hz1','O1',{room});await geri.until(c=>c.priv&&c.priv.role);
+  geri.send({t:'hizli',k:'koru',d:1,n:'x3'});await geri.until(c=>c.errs.some(e=>/Biraz bekle/.test(e.m)),3000);
+  assert.ok(!host.chat.some(m=>m.hizli==='koru'),'bekleme içinde ikinci ifade sohbete düşmez');
+  for(const c of [host,cs[2],cs[3],geri])await c.close();
+});

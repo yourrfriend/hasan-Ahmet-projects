@@ -456,3 +456,34 @@ test('oyunId her maçta yeni uuid ve her günlük kaydında; bitis olayında oyu
   // iptal olayı da oyunId taşır (P sıfırlanmadan yazılır)
   R=fixed(['hain','masum','masum','masum']);const id3=R.P.oyunId;G.endToLobby(R);const son=R.log[R.log.length-1];assert.strictEqual(son.tur,'iptal');assert.strictEqual(son.oyunId,id3);
 });
+
+// ---------- Paket 1b: hızlı ifadeler ----------
+test('hızlı ifade: doğrulama, metinler, 8 sn bekleme, gün başına 4, tekilleştirme, olaylar',()=>{
+  let t=1000;G.setClock(()=>t);
+  try{
+    const R=fixed(['hain','masum','deli','masum','masum']);R.g.roles.u2.mad='polis';
+    assert.deepStrictEqual(G.hizli(R,'u1',{k:'koru',d:1,n:'a0'}).kod,'gecersiz','gece hızlı ifade yok');
+    G.advance(R);assert.strictEqual(R.P.phase,'talk');
+    const r1=G.hizli(R,'u1',{k:'rol',rol:'doktor',d:1,n:'a1'});assert.deepStrictEqual(r1,{ok:true});
+    const son=R.P.chat[R.P.chat.length-1];assert.deepStrictEqual({id:son.id,t:son.t,hizli:son.hizli,d:son.d},{id:'u1',t:'🗣️ Rolüm: Doktor',hizli:'rol',d:1});
+    const n=R.P.chat.length;assert.strictEqual(G.hizli(R,'u1',{k:'rol',rol:'doktor',d:1,n:'a1'}).kod,'tekrar');assert.strictEqual(R.P.chat.length,n,'aynı anahtar ikinci kez işlenmez');
+    const b=G.hizli(R,'u1',{k:'koru',d:1,n:'a2'});assert.strictEqual(b.kod,'bekle');assert.ok(b.kalan>=1&&b.kalan<=8,'kalan sn: '+b.kalan);
+    t+=9000;assert.strictEqual(G.hizli(R,'u1',{k:'koru',d:1,n:'a2'}).ok,true);assert.strictEqual(R.P.chat[R.P.chat.length-1].t,'🛡️ Beni koruyun!');
+    for(const m of [{k:'x',d:1,n:'b1'},{k:'rol',rol:'yok',d:1,n:'b2'},{k:'suphe',hedef:'u1',d:1,n:'b3'},{k:'suphe',hedef:'u0',d:0,n:'b4'},{k:'suphe',d:1,n:'b5'}]){t+=9000;assert.strictEqual(G.hizli(R,'u1',m).kod,'gecersiz',JSON.stringify(m))}
+    t+=9000;assert.strictEqual(G.hizli(R,'u1',{k:'suphe',hedef:'u0',d:1,n:'c1'}).ok,true);assert.strictEqual(R.P.chat[R.P.chat.length-1].t,'🤨 Oyuncu0 hakkında şüphem var.');
+    t+=9000;assert.strictEqual(G.hizli(R,'u1',{k:'belirsiz',d:1,n:'c2'}).ok,true);assert.strictEqual(R.P.chat[R.P.chat.length-1].t,'🤷 Bu bilgi kesin değil.');
+    t+=9000;assert.strictEqual(G.hizli(R,'u1',{k:'aciklama',d:1,n:'c3'}).kod,'gun','gün başına 4');
+    // başka oyuncu etkilenmez; ölü oyuncu gönderemez
+    assert.strictEqual(G.hizli(R,'u3',{k:'aciklama',d:1,n:'d1'}).ok,true);assert.strictEqual(R.P.chat[R.P.chat.length-1].t,'📣 Bir açıklama yapacağım.');
+    G.pl(R,'u4').alive=false;assert.strictEqual(G.hizli(R,'u4',{k:'koru',d:1,n:'e1'}).kod,'gecersiz');
+    // deli rol iddiası: algilanan_rol dolu
+    assert.strictEqual(G.hizli(R,'u2',{k:'rol',rol:'polis',d:1,n:'f1'}).ok,true);
+    const iddialar=R.log.filter(e=>e.tur==='iddia').map(e=>e.veri);
+    assert.deepStrictEqual(iddialar,[{kim:'u1',rol_iddia:'doktor',gercek_rol:'masum',gercek_takim:'inn',algilanan_rol:null},{kim:'u2',rol_iddia:'polis',gercek_rol:'deli',gercek_takim:'inn',algilanan_rol:'polis'}]);
+    const hz=R.log.filter(e=>e.tur==='hizli').map(e=>e.veri);assert.deepStrictEqual(hz,[{kim:'u1',k:'koru'},{kim:'u1',k:'suphe'},{kim:'u1',k:'belirsiz'},{kim:'u3',k:'aciklama'}],'hedef yazılmaz');
+    noLeak(R.P);assert.ok(!JSON.stringify(R.P).includes('gercek_rol'));
+    // yeni gün: sayaç sıfır
+    G.advance(R);for(const p of G.alivePlayers(R))G.vote(R,p.id,'skip');assert.strictEqual(R.P.phase,'night');G.advance(R);assert.strictEqual(R.P.day,2);
+    t+=9000;assert.strictEqual(G.hizli(R,'u1',{k:'aciklama',d:2,n:'g1'}).ok,true);
+  }finally{G.setClock()}
+});

@@ -235,6 +235,7 @@ function createServer(opts={}){
       case 'act':G.act(R,uid,m);break; // gece hamlesi gizli: kimseye yayın yok
       case 'vote':if(G.vote(R,uid,m.v,m.d,m.g))schedule(room);break;
       case 'msg':if(G.chat(R,uid,m.x))schedule(room);break;
+      case 'hizli':{const r=G.hizli(R,uid,m);if(r.ok)schedule(room);else if(r.kod==='bekle')send(ws,{t:'err',m:'Biraz bekle ('+r.kalan+' sn).',code:'soft'});else if(r.kod==='gun')send(ws,{t:'err',m:'Bugünlük hızlı ifade hakkın bitti ('+G.HIZLI_GUN+').',code:'soft'});break}
       case 'dmsg':if(G.deadChat(R,uid,m.x))schedule(room);break;
     }
   }
