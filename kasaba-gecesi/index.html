@@ -171,7 +171,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 .endcard .w{font-family:var(--display);font-size:clamp(22px,3.4vw,34px);font-weight:900;text-align:center}
 .endcard .roll{display:grid;gap:4px}
 .endcard .gazete{text-align:left;background:#fff8e6;border:1px dashed #c9a86a;border-radius:10px;padding:6px 10px;font-size:clamp(11px,1.4vw,14px)}.endcard .gazete b{display:block;font-size:.8em;letter-spacing:.06em;opacity:.7;margin-bottom:2px}.endcard .gazete .kart{padding:2px 0}
-.lobby-skor{top:52px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.9);border-radius:12px;padding:4px 10px;max-width:min(92vw,560px)}
+.lobby-skor{left:10px;bottom:12px;justify-content:flex-start;background:rgba(255,255,255,.9);border-radius:12px;padding:4px 8px;max-width:36vw;font-size:clamp(10px,1.2vw,12px)} /* sol alt: davet çubuğu, ipucu ve Başlat düğmesiyle çakışmaz */
 .skor{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;align-items:center;font-size:clamp(11px,1.3vw,13px)}.skor b{font-size:.8em;letter-spacing:.06em;opacity:.7}.skor .cip{background:#f6efe0;border-radius:999px;padding:2px 10px;font-weight:700}
 .endcard .rovans{display:grid;gap:6px;justify-items:center}.endcard .rovans .cipler{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;font-size:clamp(10px,1.2vw,12px)}.endcard .rovans .cipler span{background:#f6efe0;border-radius:999px;padding:1px 8px}.endcard .rovans .cipler span.on{background:#d9f2d0}.endcard .rovans .cipler span.off{opacity:.55}.endcard .rovans .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}.endcard .rovans .hazir-sayac{font-weight:800}
 @media (max-height:450px){.endcard .gazete{padding:4px 8px}.endcard .rovans{gap:3px}.endcard .rovans .ok{padding:5px 12px}.endcard .ozet{grid-template-columns:1fr 1fr;gap:2px 6px}.endcard .ozet .satir{gap:6px}.endcard .w{font-size:clamp(15px,2.2vw,20px)}.endcard .payin{font-size:12px}}
@@ -207,7 +207,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 <div id="app"><div class="panel"><p class="muted">Yükleniyor…</p></div></div>
 <script>
 // Script daha başlamadan çökerse "Yükleniyor…" yerine hatayı göster (sürüm damgasıyla).
-window.KG_VER='2026-10-27d';
+window.KG_VER='2026-10-27e';
 window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ff6b6b"><p><b>Sayfa açılamadı.</b> Sürüm '+KG_VER+'</p><p class="small" style="word-break:break-all">'+String(e.message||e.error||e)+(e.filename?' @'+e.lineno:'')+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}});
 setTimeout(function(){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ffb347"><p><b>Sayfa yüklenemedi.</b> Sürüm '+KG_VER+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}},8000);
 </script>
