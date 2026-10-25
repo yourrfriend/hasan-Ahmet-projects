@@ -24,12 +24,13 @@ if [ "$KIP" = tunel ]; then BASLIK="http://$ALAN:$TUNEL_PORT {
 	bind 127.0.0.1"; else BASLIK="$ALAN {"; fi
 PARCA="# db/caddy.sh yazar: Supabase dış kapısı (kip $KIP). Yalnız API yolları; Studio ve pg-meta dışarı kapalı.
 $BASLIK
-	# Şifre yok (Plan 6): /auth/v1/token yalnız refresh_token ile geçer (izin listesi: sorgu bozuksa 'query' eşleşmez ve istek
-	# 403'e düşer — kapalı başarısız; 'grant_type=password' yasak listesi bozuk sorguyla aşılabiliyordu). Şifre kurtarma 403.
-	# Biri senin adresinle önceden şifreli hesap açsa bile o şifreyle giremez; sahibi kodla girer ve hesabı devralır.
+	# Şifre yok (Plan 6): /auth/v1/token yalnız ham sorgu dizesi tam olarak 'grant_type=refresh_token' ise geçer (supabase-js
+	# yenilemede başka parametre yollamaz). Tam eşitlik: 'query' eşleyicisi bozuk sorguda eşleşmiyor (yasak listesi fail-open) ve
+	# çift parametrede (grant_type=password&grant_type=refresh_token) herhangi biri eşleşince geçiriyordu; GoTrue ilk değeri okur.
+	# Şifre kurtarma 403. Biri senin adresinle önceden şifreli hesap açsa bile o şifreyle giremez; sahibi kodla girer ve hesabı devralır.
 	@tokenYenile {
 		path /auth/v1/token
-		query grant_type=refresh_token
+		expression \`{http.request.uri.query} == 'grant_type=refresh_token'\`
 	}
 	handle @tokenYenile {
 		reverse_proxy 127.0.0.1:$PORT
