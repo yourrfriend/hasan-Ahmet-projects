@@ -487,3 +487,32 @@ test('hızlı ifade: doğrulama, metinler, 8 sn bekleme, gün başına 4, tekill
     t+=9000;assert.strictEqual(G.hizli(R,'u1',{k:'aciklama',d:2,n:'g1'}).ok,true);
   }finally{G.setClock()}
 });
+
+test('gazete: iddia kartı — doğru/yanlış/çoklu iddia; Deli atlanır; Hırsız öncesi-sonrası; hain kopyası etiketi; sıra',()=>{
+  let t=1000;G.setClock(()=>t);const soyle=(R,id,rol)=>{t+=9000;assert.strictEqual(G.hizli(R,id,{k:'rol',rol,d:R.P.day,n:id+rol+R.P.day+t}).ok,true)};
+  try{
+    // yanlış ve doğru iddia; Deli atlanır
+    let R=fixed(['hain','masum','doktor','deli','masum','masum']);R.g.roles.u3.mad='doktor';
+    G.advance(R);soyle(R,'u1','doktor');soyle(R,'u2','doktor');soyle(R,'u3','doktor');
+    G.advance(R);asil(R,'u0',['u1','u2','u3','u4','u5']);assert.strictEqual(R.P.phase,'end');
+    let m=R.P.gazete.map(k=>k.tur+'|'+k.metin);
+    assert.match(m.join('\n'),/iddia\|🗣️ Gün 1: Oyuncu1 Doktor olduğunu söyledi; o sırada rolü Masum idi\./);
+    assert.match(m.join('\n'),/iddia\|🗣️ Gün 1: Oyuncu2 Doktor olduğunu söyledi; doğruydu\./);
+    assert.ok(!m.some(x=>/Oyuncu3 Doktor olduğunu söyledi/.test(x)),'Deli iddiası blöf sayılmaz');assert.strictEqual(m[0].split('|')[0],'deli');
+    assert.deepStrictEqual(m.map(x=>x.split('|')[0]),['deli','iddia','iddia']);
+    // çoklu iddia (hain: önce Masum sonra Doktor) ve hain kopyası etiketi
+    R=fixed(['hain','polis_h','masum','masum','masum','masum','masum']);
+    G.advance(R);soyle(R,'u0','masum');soyle(R,'u1','polis');G.advance(R);asil(R,'u2',['u0','u1','u3','u4']); // gün 1: u2 asılır
+    G.advance(R);soyle(R,'u0','doktor');G.advance(R);asil(R,'u0',['u1','u3','u4','u5','u6']); // gün 2: u0 asılır
+    G.act(R,'u1',{kill:'u3'});G.advance(R);G.advance(R);asil(R,'u1',['u4','u5','u6']);assert.strictEqual(R.P.phase,'end');
+    m=R.P.gazete.map(k=>k.metin).join('\n');
+    assert.match(m,/🗣️ Oyuncu0 önce Masum, sonra Doktor olduğunu söyledi; o sırada rolü Hain idi\./);
+    assert.match(m,/🗣️ Gün 1: Oyuncu1 Polis olduğunu söyledi; o sırada rolü Polis \(Hain\) idi\./);
+    // hırsız: çalmadan önce "Hırsız", çaldıktan sonra "Doktor" → ikisi de kendi anındaki rolle; son iddia doğru
+    R=fixed(['hirsiz','hain','doktor','masum','masum','masum','masum']);
+    G.advance(R);soyle(R,'u0','hirsiz');G.advance(R);asil(R,'u3',['u0','u1','u2','u4']);G.act(R,'u0',{ab:'u2'});G.advance(R);assert.strictEqual(R.g.roles.u0.key,'doktor');
+    soyle(R,'u0','doktor');G.advance(R);asil(R,'u1',['u0','u4','u5','u6']);assert.strictEqual(R.P.phase,'end');
+    m=R.P.gazete.map(k=>k.metin).join('\n');
+    assert.match(m,/🗣️ Oyuncu0 önce Hırsız, sonra Doktor olduğunu söyledi; doğruydu\./); // son iddia o anki rolle (çalınmış Doktor) eşleşir
+  }finally{G.setClock()}
+});

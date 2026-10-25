@@ -375,6 +375,18 @@ function gazeteFor(R){
       if(patlayan.length)ekle('mudahale',1,e.gun,[...new Set(patlayan.flatMap(o=>o.kimden||[]))],'🧨 '+G_+'dinamitler patladı; '+patlayan.map(o=>nm(o.kim)).join(', ')+' evleriyle uçtu.');
     }else if(e.tur==='gunduz_sonuc')sonGun=e;
   }
+  // iddia ve gerçeklik (Paket 1b §5.2): oyuncu başına rol iddiaları, iddia anındaki gerçek rolle karşılaştırılır; Deli'nin sandığı
+  // rolü söylemesi blöf sayılmaz (Deli kartı anlatır); niyet atfı yok. Öncelik 2 (deli → müdahale → iddia).
+  const iddialar=new Map();
+  for(const e of R.gameLog)if(e.tur==='iddia'){const v=e.veri;if(v.algilanan_rol&&v.rol_iddia===v.algilanan_rol)continue;(iddialar.get(v.kim)||iddialar.set(v.kim,[]).get(v.kim)).push({gun:e.gun,rol:v.rol_iddia,gercek:roleLabel({key:v.gercek_rol,team:v.gercek_takim})})}
+  for(const [kim,liste] of iddialar){
+    const son=liste[liste.length-1];const farkli=[...new Set(liste.map(x=>x.rol))];
+    const gercek=son.gercek===ROLES[son.rol].n?null:son.gercek;
+    const metin=farkli.length>1
+      ?'🗣️ '+nm(kim)+' önce '+farkli.slice(0,-1).map(r=>ROLES[r].n).join(', ')+', sonra '+ROLES[farkli[farkli.length-1]].n+' olduğunu söyledi; '+(gercek?'o sırada rolü '+gercek+' idi.':'doğruydu.')
+      :'🗣️ Gün '+son.gun+': '+nm(kim)+' '+ROLES[son.rol].n+' olduğunu söyledi; '+(gercek?'o sırada rolü '+gercek+' idi.':'doğruydu.');
+    ekle('iddia',2,son.gun,[kim],metin);
+  }
   // bitiş kartı: oyunu bitiren son olay (gündüz asılma ya da gece ölümleri)
   let bitis=null;const son=[sonGece,sonGun].filter(Boolean).sort((a,b)=>b.sira-a.sira)[0];
   if(son&&son.tur==='gunduz_sonuc'&&son.veri.asilan)bitis={tur:'bitis',ozne:[],metin:'⚖️ Gün '+son.gun+': kasaba '+ek(nm(son.veri.asilan),'i')+' gönderdi ve oyun bitti.'};
