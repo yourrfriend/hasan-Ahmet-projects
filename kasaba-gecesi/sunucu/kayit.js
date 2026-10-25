@@ -53,6 +53,7 @@ function olustur(opts={}){
       try{await isiYaz(is);kuyruk.shift();sayac.kuyruk-=is.olaylar.length;denemeNo=0}
       catch(e){sayac.hata++;
         if(e.durum&&e.durum>=400&&e.durum<500){log('yazım düştü',e.message);kuyruk.shift();sayac.kuyruk-=is.olaylar.length;sayac.dusen+=is.olaylar.length;denemeNo=0;continue}
+        if(kapali)return; // kapat() istek sürerken geldi: yeni zamanlayıcı kurma
         const ms=deneme[Math.min(denemeNo++,deneme.length-1)];log('yazılamadı, '+ms+' ms sonra tekrar:',e.message);
         await new Promise(r=>{zamanlayici=setTimeout(r,ms)});if(kapali)return;
       }
