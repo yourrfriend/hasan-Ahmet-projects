@@ -237,7 +237,11 @@ const step=t=>console.log('•',t);
       await rp.click('.rehber .kapat');assert.strictEqual(await rp.$('.rehber'),null);
       const kes=await rp.evaluate(()=>{const a=document.querySelector('.timerbox').getBoundingClientRect(),b=document.querySelector('.rehber-dugme').getBoundingClientRect();return !(a.right<=b.left||b.right<=a.left||a.bottom<=b.top||b.bottom<=a.top)});assert.strictEqual(kes,false,'📘 zamanlayıcıyı örtmemeli'); }
     let acted=0;const actors=[];
+    // Provokatör hamle yapmaz: kışkırtılan oyuncu oylamada +2 oy alır ve "herkes çekimser" oylamasında asılır; 4 kişide bu oyunu 1. günde
+    // bitirir, sonraki adımlar (kopan oyuncu döner…) süren oyun ister. (Kararsızlığın kök nedeni; 2026-10-25.)
+    const adi=new Map([[host,'Ev'],...Object.entries(pages).map(([n,q])=>[q,n])]);
     for(const p of all()){
+      if(/Provokatör/.test(roles[adi.get(p)]||''))continue;
       // gerçek tıklama, ekrandaki konuma: evin üstünü örten bir katman varsa (gece karartması, ipucu) burada yakalanır
       const at=await p.evaluate(()=>{if(!canTarget())return null;const t=P.players.find(x=>x.id!==myId);const g=scene.houses[t.id].g;if(!g.onclick)throw new Error('ev tıklanamıyor');const r=g.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}});
       if(!at)continue;
@@ -334,12 +338,15 @@ const step=t=>console.log('•',t);
       // Ev da yaşıyorsa onun yerine süre dolsun
       if(R.P.phase==='vote')roomOf().game.P.ends=Date.now()-1;
       await watcher.waitForFunction(()=>P.phase==='night'||P.phase==='end',null,{timeout:5000});
+      assert.strictEqual(await phase(watcher),'night','çekimser oylama oyunu bitirmemeli: '+JSON.stringify(roomOf().game.P.dead));
     }
 
     step('kopan oyuncu aynı linkle döner, rolü aynı');
     await pages.Can.close();
     pages.Can=await open(ctxs.Can,'Can',link);
-    await pages.Can.waitForSelector('.ov.mine',{timeout:10000});
+    try{await pages.Can.waitForSelector('.ov.mine',{timeout:10000})}
+    catch(e){const d=await pages.Can.evaluate(()=>({phase:P.phase,day:P.day,myId,rol:!!(priv&&priv.role),anim:anim.seq,ov:[...document.querySelectorAll('.ov')].map(x=>x.className),players:(P.players||[]).map(p=>p.id+':'+(p.alive?'a':'d')),online:P.online})).catch(x=>String(x));
+      const R0=roomOf().game;throw new Error('kopan oyuncu dönünce .ov.mine gelmedi; durum: '+JSON.stringify(d)+' sunucu fazı: '+R0.P.phase+' gün '+R0.P.day+' ölüler '+JSON.stringify(R0.P.dead)+' günlük: '+R0.gameLog.map(e=>e.tur+' g'+e.gun+' '+JSON.stringify(e.veri).slice(0,220)).join(' | '))}
     assert.strictEqual(await pages.Can.textContent('.ov.mine b'),roles.Can);
     assert.strictEqual(await pages.Can.evaluate(()=>myId),ids.Can);
 
