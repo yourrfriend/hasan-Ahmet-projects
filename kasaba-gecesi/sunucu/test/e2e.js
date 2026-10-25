@@ -180,8 +180,19 @@ const step=t=>console.log('•',t);
       for(let i=0;i<4&&R2.P.phase!=='end';i++){const ph=R2.P.phase;R2.P.waited=true;R2.P.ends=Date.now()-1;await watcher.waitForFunction(x=>P.phase!==x,ph,{timeout:5000})}
       for(const p of [host,...Object.values(pages)])await p.waitForFunction(()=>P.phase==='end'&&P.ozet&&document.querySelector('.endcard .ozet'),null,{timeout:8000});
       assert.strictEqual((await watcher.$$('.endcard .ozet > *')).length,4);
-      assert.strictEqual(await pages[newHostName].textContent('.endcard button.tekrar'),'Tekrar oyna');
-      await pages[newHostName].click('.endcard button.tekrar');
+      // gazete (varsa 1–3 kart), bu akşamın skoru (4 çip, N/1), rövanş bloğu
+      const gz=await watcher.$$('.endcard .gazete .kart');assert.ok(gz.length<=3,'gazete en çok 3 kart');
+      if(await watcher.$('.endcard .gazete'))assert.ok(gz.length>=1,'gazete kutusu varsa kart olmalı');
+      const skor=await watcher.$$eval('.endcard .skor .cip',a=>a.map(x=>x.textContent));assert.strictEqual(skor.length,4,'skor 4 oyuncu');assert.ok(skor.every(t=>/[01]\/1/.test(t)),skor.join('|'));
+      await watcher.click('.endcard button.hazir');
+      for(const p of Object.values(pages))await p.waitForFunction(()=>/4 kişiden 1'i hazır/.test((document.querySelector('.endcard .hazir-sayac')||{}).textContent||''),null,{timeout:4000});
+      assert.strictEqual(await pages[newHostName].$eval('.endcard button.rovans',b=>b.disabled),true,'1 hazırla rövanş başlamaz');
+      // telefon yatay: kart ekranı aşmaz
+      await watcher.setViewportSize({width:844,height:390});await watcher.waitForTimeout(400);
+      const r=await watcher.$eval('.endcard',e=>{const r=e.getBoundingClientRect();return{top:r.top,bottom:r.bottom}});assert.ok(r.top>=0&&r.bottom<=390,'endcard ekrana sığmalı: '+JSON.stringify(r));
+      await watcher.setViewportSize({width:900,height:520});
+      assert.strictEqual(await pages[newHostName].textContent('.endcard button.lobi'),'Lobiye dön');
+      await pages[newHostName].click('.endcard button.lobi');
       for(const p of [host,...Object.values(pages)])await p.waitForFunction(()=>P.phase==='lobby'&&!priv.role,null,{timeout:5000});
     }
 
