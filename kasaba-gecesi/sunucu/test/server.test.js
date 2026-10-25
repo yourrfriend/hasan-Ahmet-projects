@@ -663,7 +663,7 @@ test('join: kayıtlı oyuncunun rol geçmişi Supabase\'den tohumlanır; misafir
   const GIZLI='test-jwt-gizli';const simdi=Math.floor(Date.now()/1000);
   const SUB1='11111111-2222-4333-8444-555555555551',SUB2='11111111-2222-4333-8444-555555555552';
   const kadar=async(f,ms=3000)=>{const t0=Date.now();while(!f()&&Date.now()-t0<ms)await bekle(25);assert.ok(f(),'beklenen gelmedi')};
-  let gecikme=0;const sahte={kuyrukla(){},profil(){},kapat(){},sayac:{gecmisOkunan:3,gecmisHata:1},sonRoller:uye=>new Promise(r=>setTimeout(()=>r(uye===SUB1?[{key:'hain',team:'imp'}]:[]),gecikme))};
+  let coz=null;const sahte={kuyrukla(){},profil(){},kapat(){},sayac:{gecmisOkunan:3,gecmisHata:1},sonRoller:uye=>uye===SUB1?Promise.resolve([{key:'hain',team:'imp'}]):uye===SUB2?new Promise(r=>{coz=r}):Promise.resolve([])}; // SUB2: test elle çözer (geç gelen tohum)
   const s2=createServer({quiet:true,tickMs:50,jwksAlma:false,kayit:sahte,ayar:{url:'https://x.example',anonKey:'a',serviceKey:'s',jwtSecret:GIZLI,kurulum:'t'}});
   await new Promise(r=>s2.server.listen(0,'127.0.0.1',r));const b2='127.0.0.1:'+s2.server.address().port;const acik=[];
   try{
@@ -673,12 +673,13 @@ test('join: kayıtlı oyuncunun rol geçmişi Supabase\'den tohumlanır; misafir
     const g=client('rg1','G',{room},b2);await g.until(c=>c.me);acik.push(g);await bekle(100);assert.strictEqual(R.rolGecmisi[g.me],undefined,'misafir tohumlanmaz');
     const sg=await get(b2,'/saglik');const j=JSON.parse(sg.b);assert.deepStrictEqual(j.rolGecmisi,{okunan:3,hata:1});assert.deepStrictEqual(Object.keys(j.kayit).sort(),['dusen','hata','kuyruk','yazilan']);
     // gecikmeli tohum: o arada maç başlar → oda belleği (maçın rolü) kalır
-    gecikme=300;const tok2=Kimlik.imzala({sub:SUB2,exp:simdi+3600,role:'authenticated',is_anonymous:true},GIZLI);
+    const tok2=Kimlik.imzala({sub:SUB2,exp:simdi+3600,role:'authenticated',is_anonymous:true},GIZLI);
     const cs=[client('rg2','B',{room},b2),client('rg3','C',{room},b2),client('rg4','D',{room,token:tok2},b2)];acik.push(...cs);await a.until(c=>c.P.lobby.length===5);
-    const d=cs[2];assert.ok(!R.rolGecmisi[d.me],'tohum henüz gelmedi');
+    const d=cs[2];await kadar(()=>typeof coz==='function');assert.ok(!R.rolGecmisi[d.me],'tohum henüz gelmedi');
     a.send({t:'start'});await a.until(c=>c.P.phase==='night');
     assert.strictEqual(R.rolGecmisi[d.me].length,1,'maç belleği yazıldı');const rol=R.rolGecmisi[d.me][0];
-    await bekle(400);assert.deepStrictEqual(R.rolGecmisi[d.me],[rol],'geç gelen tohum oda belleğini ezmez');
+    coz([{key:'doktor',team:'inn'},{key:'polis',team:'inn'}]);await bekle(50);
+    assert.deepStrictEqual(R.rolGecmisi[d.me],[rol],'geç gelen (dolu) tohum oda belleğini ezmez');
     // sonRoller olmayan kayıt nesnesiyle join hata vermez
     const s3=createServer({quiet:true,tickMs:50,jwksAlma:false,kayit:{kuyrukla(){},profil(){},kapat(){}},ayar:{url:'https://x.example',anonKey:'a',serviceKey:'s',jwtSecret:GIZLI,kurulum:'t'}});
     await new Promise(r=>s3.server.listen(0,'127.0.0.1',r));const b3='127.0.0.1:'+s3.server.address().port;
