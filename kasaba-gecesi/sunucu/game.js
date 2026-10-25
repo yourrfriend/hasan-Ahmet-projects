@@ -299,6 +299,7 @@ function checkWin(R){
   P.phase='end';P.ends=null;
   P.winner={...w,survivors:al.filter(id=>key(id)==='hayatta').map(id=>nameOf(R,id)),haunters:g.hauntWins.map(id=>nameOf(R,id))};
   P.winner.kazananlar=kazananlar(R,w);
+  P.gazete=gazeteFor(R);
   P.reveal=P.players.map(p=>({id:p.id,name:p.name,role:roleLabel(shownRole(R,p.id))+(g.roles[p.id].mad?' (aslında Deli)':g.roles[p.id].orig?' (Hırsız çaldı)':''),team:g.roles[p.id].mad?'inn':g.roles[p.id].team,alive:p.alive}));
   P.ozet=ozetFor(R);
   logEv(R,'bitis',{kazanan:w.team,kazanan_metin:w.t,kazananlar:P.winner.kazananlar,sag_kalanlar:P.winner.survivors,hortlak_kazananlar:P.winner.haunters,acilis:P.reveal});
@@ -320,6 +321,46 @@ function payinFor(R,id){const nm=x=>nameOf(R,x);const o={oldurdu:[],kurtardi:[],
     for(const t of v.tuzak)if(t.kuran===id)o.yakaladi.push(nm(t.kim));
     for(const t of v.tutanlar||[])if(t.kim===id)o.tuttu.push(nm(t.hedef));
   }return o;
+}
+// ---------- Kasaba Gazetesi (yalnız bitmiş oyun; tasarım paket1 §5.2) ----------
+// En çok GAZETE_EN_COK kart, yalnız günlükteki gerçekleşmiş olaylardan, deterministik: adaylar (tür önceliği, gün,
+// kayıt sırası) ile sıralanır; aynı özne iki kartta olmaz; bitiş kartı yalnız yer kalırsa.
+const GAZETE_EN_COK=3;
+function gazeteFor(R){
+  const P=R.P,g=R.g,nm=id=>nameOf(R,id);const ad=[];let sira=0;
+  const ekle=(tur,oncelik,gun,ozne,metin)=>ad.push({tur,oncelik,gun,sira:sira++,ozne,metin});
+  for(const p of P.players)if(g.roles[p.id].mad)ekle('deli',0,0,[p.id],'🌀 '+nm(p.id)+" aslında Deli'ydi; kendisine "+ROLES[g.roles[p.id].mad].n+' rolü gösteriliyordu.');
+  let sonGece=null,sonGun=null;
+  for(const e of R.gameLog){
+    if(e.tur==='gece_sonuc'){const v=e.veri,G_='Gece '+e.gun+': ';sonGece=e;
+      for(const k of v.kurtaranlar||[])ekle('mudahale',1,e.gun,[k.kim],'💉 '+G_+nm(k.kim)+' bir saldırıyı önledi; '+nm(k.hedef)+' sağ çıktı.');
+      for(const id of v.yelek||[])ekle('mudahale',1,e.gun,[id],'🦺 '+G_+nm(id)+' yelek sayesinde saldırıdan sağ çıktı.');
+      const tuzaklar={};for(const t of v.tuzak||[]){const key=t.kuran+'>'+t.ev;(tuzaklar[key]=tuzaklar[key]||{kuran:t.kuran,ev:t.ev,kim:[]}).kim.push(t.kim)}
+      for(const t of Object.values(tuzaklar))ekle('mudahale',1,e.gun,[t.kuran],'🪤 '+G_+nm(t.kuran)+"'in tuzağı "+t.kim.map(nm).join(', ')+"'ı "+nm(t.ev)+"'nin kapısında yakaladı.");
+      for(const t of v.tutanlar||[])ekle('mudahale',1,e.gun,[t.kim],'👮 '+G_+'Polis '+nm(t.kim)+', '+nm(t.hedef)+"'ı evde tuttu.");
+      for(const o of v.olenler||[]){
+        if(o.sekil==='ghost'){const h=Object.keys(g.candle).find(x=>g.candle[x]===o.kim&&g.hauntWins.includes(x));if(h)ekle('mudahale',1,e.gun,[h],'🕯️ '+G_+nm(h)+' hayalet olarak döndü; '+nm(o.kim)+' mumun bedelini ödedi.')}
+      }
+      if(v.caldi)ekle('mudahale',1,e.gun,[v.caldi.hirsiz],'🎭 '+G_+nm(v.caldi.hirsiz)+' '+nm(v.caldi.kurban)+"'nin rolünü çaldı; artık "+v.caldi.yeni_rol+'.');
+      for(const o of v.olenler||[]){
+        if(o.sekil!=='bolt')continue;
+        if(o.kimden&&o.kimden.length)ekle('mudahale',1,e.gun,o.kimden.slice(),'⚡ '+G_+'Büyücü '+nm(o.kim)+"'nin rolünü doğru tahmin etti; yıldırım düştü.");
+        else ekle('mudahale',1,e.gun,[o.kim],'⚡ '+G_+'Büyücü yanlış tahmin etti; yıldırım kendine düştü.');
+      }
+      const patlayan=(v.olenler||[]).filter(o=>o.sekil==='bomb');
+      if(patlayan.length)ekle('mudahale',1,e.gun,[...new Set(patlayan.flatMap(o=>o.kimden||[]))],'🧨 '+G_+'dinamitler patladı; '+patlayan.map(o=>nm(o.kim)).join(', ')+' evleriyle uçtu.');
+    }else if(e.tur==='gunduz_sonuc')sonGun=e;
+  }
+  // bitiş kartı: oyunu bitiren son olay (gündüz asılma ya da gece ölümleri)
+  let bitis=null;const son=[sonGece,sonGun].filter(Boolean).sort((a,b)=>b.sira-a.sira)[0];
+  if(son&&son.tur==='gunduz_sonuc'&&son.veri.asilan)bitis={tur:'bitis',ozne:[],metin:'⚖️ Gün '+son.gun+': kasaba '+nm(son.veri.asilan)+"'ı gönderdi ve oyun bitti."};
+  else if(son&&son.tur==='gece_sonuc'&&son.veri.olenler.length)bitis={tur:'bitis',ozne:[],metin:'🌙 Gece '+son.gun+': '+son.veri.olenler.map(o=>nm(o.kim)).join(', ')+' öldü ve oyun bitti.'};
+  ad.sort((a,b)=>a.oncelik-b.oncelik||a.gun-b.gun||a.sira-b.sira);
+  const secilen=[],ozneler=new Set(),atlanan=[];
+  for(const a of ad){if(secilen.length>=GAZETE_EN_COK)break;if(a.ozne.some(o=>ozneler.has(o))){atlanan.push(a);continue}secilen.push(a);a.ozne.forEach(o=>ozneler.add(o))}
+  if(secilen.length<GAZETE_EN_COK&&bitis)secilen.push(bitis);
+  for(const a of atlanan){if(secilen.length>=GAZETE_EN_COK)break;secilen.push(a)} // yer kaldıysa aynı özne de olur
+  return secilen.map(k=>({tur:k.tur,ozne:k.ozne,metin:k.metin}));
 }
 function endToLobby(R){if(R.g&&['night','talk','vote'].includes(R.P.phase))logEv(R,'iptal',{gun:R.P.day,faz:R.P.phase});R.g=null;R.P=lobbyState()}
 
@@ -366,6 +407,6 @@ function privFor(R,id){
 }
 
 return{ROLES,SETUP,COLORS,HATS,DEFAULT_SETTINGS,DAGILIM,roleLabel,autoSetup,cleanSettings,setClock,
-  lobbyState,createGame,startGame,setPhase,advance,tick,resolveNight,resolveVote,checkWin,kazananlar,endToLobby,
+  lobbyState,createGame,startGame,setPhase,advance,tick,resolveNight,resolveVote,checkWin,kazananlar,gazeteFor,GAZETE_EN_COK,endToLobby,
   act,vote,chat,deadChat,privFor,pl,alivePlayers,inGame};
 });

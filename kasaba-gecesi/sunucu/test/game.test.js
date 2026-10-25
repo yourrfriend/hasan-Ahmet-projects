@@ -360,3 +360,63 @@ test('kazananlar: takım zaferi ölüleri kapsar; hırsız yeni takımıyla; del
   R=fixed(['hain','masum','masum','masum']);for(const id of ['u0','u1','u2','u3'])G.pl(R,id).alive=false;G.advance(R);
   assert.deepStrictEqual(bitir(R),[]);
 });
+
+// ---------- Paket 1a: Kasaba Gazetesi ----------
+const asil=(R,kim,oyverenler)=>{for(const id of oyverenler)G.vote(R,id,kim);for(const p of G.alivePlayers(R))if(!oyverenler.includes(p.id))G.vote(R,p.id,'skip')};
+test('gazete: deli kartı önce, doktor müdahalesi, en çok 3, deterministik; oyun sürerken yok',()=>{
+  const R=fixed(['hain','doktor','deli','masum','masum']);R.g.roles.u2.mad='polis';
+  G.act(R,'u0',{kill:'u3'});G.act(R,'u1',{ab:'u3'});G.advance(R);
+  assert.strictEqual(R.P.gazete,undefined,'oyun sürerken gazete yok');noLeak(R.P);
+  G.advance(R);asil(R,'u0',['u1','u2','u3','u4']);
+  assert.strictEqual(R.P.phase,'end');const gz=R.P.gazete;
+  assert.ok(Array.isArray(gz)&&gz.length>=2&&gz.length<=3,JSON.stringify(gz));
+  assert.strictEqual(gz[0].tur,'deli');assert.match(gz[0].metin,/Oyuncu2 aslında Deli'ydi; kendisine Polis rolü gösteriliyordu/);
+  assert.strictEqual(gz[1].tur,'mudahale');assert.match(gz[1].metin,/Gece 1: Oyuncu1 bir saldırıyı önledi; Oyuncu3 sağ çıktı/);
+  assert.deepStrictEqual(G.gazeteFor(R),G.gazeteFor(R));
+  for(const k of gz)assert.ok(!/kurtardı|MVP|kandırdı/.test(k.metin));
+});
+test('gazete: saldırı yoksa ya da doktor engellendiyse kart yok; aday yoksa yalnız bitiş kartı',()=>{
+  let R=fixed(['hain','doktor','masum','masum','masum']);
+  G.act(R,'u1',{ab:'u3'});G.advance(R);G.advance(R);asil(R,'u0',['u1','u2','u3','u4']); // saldırı yok
+  assert.ok(!R.P.gazete.some(k=>k.tur==='mudahale'),JSON.stringify(R.P.gazete));
+  assert.deepStrictEqual(R.P.gazete.map(k=>k.tur),['bitis']);assert.match(R.P.gazete[0].metin,/Gün 1: kasaba Oyuncu0'ı gönderdi ve oyun bitti/);
+  R=fixed(['hain','doktor','polis_h','masum','masum','masum']);
+  G.act(R,'u0',{kill:'u3'});G.act(R,'u1',{ab:'u3'});G.act(R,'u2',{ab:'u1'});G.advance(R); // hain polis doktoru tutar → u3 ölür
+  assert.ok(!G.pl(R,'u3').alive);G.advance(R);asil(R,'u0',['u1','u4','u5']);G.advance(R);G.advance(R);asil(R,'u2',['u1','u4','u5']);
+  assert.strictEqual(R.P.phase,'end');assert.ok(!R.P.gazete.some(k=>/önledi/.test(k.metin)),JSON.stringify(R.P.gazete));
+  // gece ölümle biten oyun: bitiş kartı gece metni
+  R=fixed(['hain','hain','masum','masum']);G.act(R,'u0',{kill:'u2'});G.advance(R);
+  assert.match(R.P.gazete.find(k=>k.tur==='bitis').metin,/Gece 1: Oyuncu2 öldü ve oyun bitti/);
+});
+test('gazete: yelek, tuzak, tutma, hırsız, yıldırım (iki yön), patlama, hortlak metinleri',()=>{
+  const son=R=>{for(const p of G.alivePlayers(R))if(R.g.roles[p.id].team!=='imp')G.pl(R,p.id).alive=false;G.advance(R);G.advance(R);assert.strictEqual(R.P.phase,'end');return R.P.gazete.map(k=>k.metin).join(' | ')};
+  let R=fixed(['hain','hayatta','masum','masum','masum']);G.act(R,'u0',{kill:'u1'});G.act(R,'u1',{ab:'self'});G.advance(R);
+  assert.match(son(R),/🦺 Gece 1: Oyuncu1 yelek sayesinde saldırıdan sağ çıktı/);
+  R=fixed(['hain','tuzakci','masum','masum','masum']);G.act(R,'u0',{kill:'u2'});G.act(R,'u1',{ab:'u2'});G.advance(R);
+  assert.match(son(R),/🪤 Gece 1: Oyuncu1'in tuzağı Oyuncu0'ı Oyuncu2'nin kapısında yakaladı/);
+  R=fixed(['hain','polis','masum','masum','masum']);G.act(R,'u1',{ab:'u0'});G.advance(R);
+  assert.match(son(R),/👮 Gece 1: Polis Oyuncu1, Oyuncu0'ı evde tuttu/);
+  R=fixed(['hirsiz','hain','doktor','masum','masum','masum','masum']);G.act(R,'u0',{ab:'u2'});G.advance(R);
+  assert.match(son(R),/🎭 Gece 1: Oyuncu0 Oyuncu2'nin rolünü çaldı; artık Doktor/);
+  R=fixed(['buyucu','hain','doktor','masum','masum','masum']);G.act(R,'u0',{ab:'u2',guess:'doktor'});G.advance(R);
+  assert.match(son(R),/⚡ Gece 1: Büyücü Oyuncu2'nin rolünü doğru tahmin etti; yıldırım düştü/);
+  R=fixed(['buyucu','hain','doktor','masum','masum','masum']);G.act(R,'u0',{ab:'u2',guess:'polis'});G.advance(R);
+  assert.match(son(R),/⚡ Gece 1: Büyücü yanlış tahmin etti; yıldırım kendine düştü/);
+  R=fixed(['bombaci','hain','masum','masum','masum','masum']);G.act(R,'u0',{ab:'u2'});G.advance(R);G.advance(R);G.advance(R);
+  G.act(R,'u0',{ab:'u3',det:true});G.advance(R); // gece 2: önceki dinamit patlar (u2)
+  assert.match(son(R),/🧨 Gece 2: dinamitler patladı; Oyuncu2, Oyuncu3 evleriyle uçtu/); // aynı gece koyulan da patlar
+  R=fixed(['hain','hortlak','masum','masum','masum','masum']);G.act(R,'u1',{ab:'u2'});G.advance(R);G.advance(R);asil(R,'u1',['u0','u2','u3','u4']);
+  G.advance(R);assert.ok(!G.pl(R,'u2').alive,'hayalet mum koyduğu kişiyi aldı');
+  assert.match(son(R),/🕯️ Gece 2: Oyuncu1 hayalet olarak döndü; Oyuncu2 mumun bedelini ödedi/);
+});
+test('gazete: aynı özne iki kartı kaplamaz; sıra tür → gün → kayıt',()=>{
+  const R=fixed(['hain','doktor','tuzakci','masum','masum','masum','masum']);
+  G.act(R,'u0',{kill:'u3'});G.act(R,'u1',{ab:'u3'});G.advance(R);G.advance(R);asil(R,'u4',['u0','u1','u2','u3']);   // gece 1 doktor önler; gün 1 u4 asılır
+  G.act(R,'u0',{kill:'u5'});G.act(R,'u1',{ab:'u5'});G.act(R,'u2',{ab:'u6'});G.advance(R);                      // gece 2 doktor önler, tuzak boş
+  G.advance(R);asil(R,'u6',['u0','u1','u2','u3']);
+  G.act(R,'u0',{kill:'u3'});G.act(R,'u2',{ab:'u3'});G.advance(R);                                                // gece 3 tuzak haini yakalar
+  G.advance(R);asil(R,'u0',['u1','u2','u3','u5']);assert.strictEqual(R.P.phase,'end');
+  const m=R.P.gazete.map(k=>k.metin);assert.strictEqual(m.length,3,m.join(' | '));
+  assert.match(m[0],/Gece 1: Oyuncu1 bir saldırıyı önledi/);assert.match(m[1],/Gece 3: Oyuncu2'in tuzağı/);assert.match(m[2],/Gün 3: kasaba Oyuncu0'ı gönderdi/);
+  assert.ok(!m.some(x=>/Gece 2: Oyuncu1/.test(x)),'doktorun ikinci kartı atlanır');
+});
