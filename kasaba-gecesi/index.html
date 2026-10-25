@@ -817,7 +817,8 @@ function renderLobbyUI(stage){
     b.onclick=()=>{myName=i.value.trim().slice(0,16);if(!myName)return;ls('kg_name',myName);sendHello();render()};i.onkeydown=e=>{if(e.key==='Enter')b.click()};c.append(i,b);stage.append(c);return}
   stage.append(el('div','ov count pill','👥 '+n+' / 12 oyuncu · en az 4'));
   if(P.skor&&P.skor.length){const sk=el('div','ov lobby-skor skor');sk.append(el('b',null,'BU AKŞAM'));P.skor.forEach(s=>sk.append(el('span','cip',s.ad+' '+s.kazandi+'/'+s.oynadi)));stage.append(sk)} // oturum skoru lobide de
-  if(isHost&&roomCode){const lb=el('div','ov lobbybar'); // oda kodu sunucudan gelmeden link çizilmez ("?oda=null" görünmesin)lb.append(document.createTextNode('Davet linki '));const code=el('code',null,inviteLink());const cb=el('button',null,'Linki kopyala');
+  // oda kodu sunucudan gelmeden davet çubuğu çizilmez ("?oda=null" görünmesin)
+  if(isHost&&roomCode){const lb=el('div','ov lobbybar');lb.append(document.createTextNode('Davet linki '));const code=el('code',null,inviteLink());const cb=el('button',null,'Linki kopyala');
     cb.onclick=()=>{navigator.clipboard.writeText(inviteLink()).then(()=>{cb.textContent='Kopyalandı ✓';setTimeout(()=>{cb.textContent='Linki kopyala'},1500)}).catch(()=>{prompt('Linki kopyala:',inviteLink())})};lb.append(code,cb);stage.append(lb)}
   else if(!ui.custom)stage.append(el('div','ov hint','Ev sahibinin oyunu başlatması bekleniyor… Karakterine dokunup rengini ve şapkanı değiştirebilirsin.'));
   if(isHost){
