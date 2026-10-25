@@ -34,6 +34,6 @@ Tasarım: `docs/superpowers/specs/2026-10-24-kasaba-gecesi-sahne-design.md`.
 - Oyunu başka asistanlara anlatan teknik olmayan tanıtım: `docs/kasaba-gecesi-tanitim.md`.
 
 ## Bilinen açık konular
-- Cloudflare hız sınırı kuralı var (2026-10-25): `kasaba*.munupixi.com/ws` IP başına 10 sn'de 40 WebSocket el sıkışması, aşınca 10 sn engel (oyun mesajları sayılmaz); API ile yönetilir (altyapı notu hafızada).
+- Cloudflare hız sınırı kuralı var (2026-10-25): `kasaba*.munupixi.com/ws` IP başına saniyede 3 (10 sn'de 30) WebSocket el sıkışması, aşınca 10 sn engel (oyun mesajları sayılmaz); API ile yönetilir (altyapı notu hafızada).
 - `munupixi.com` kök adresi 522 (188.119.45.227, bilinmeyen sunucu); oyunla ilgisi yok.
 - Simülasyonda 2+ hainli oyunlarda masum kazanma yüzdesi anlamsız (basit oyuncu); ölçü ilk gece ölüm ve süre.
