@@ -363,3 +363,17 @@ test('IP başına sınır: ev sahipliği odası ve eşzamanlı soket',async()=>{
     await new Promise(r=>setTimeout(r,300));assert.ok(s6.ws.readyState>=2||s6.errs.some(e=>e.code==='limit'),'sınırı aşan soket aynı IP için kabul edilmez');
   }finally{for(const c of acik)await c.close();await new Promise(r=>s2.close(r))}
 });
+
+// ---------- Plan 3: kimlik ----------
+const get=(b,p)=>new Promise((res,rej)=>http.get('http://'+b+p,r=>{let s='';r.on('data',d=>s+=d);r.on('end',()=>res({s:r.statusCode,b:s,h:r.headers}))}).on('error',rej));
+test('/ayar.json yalnız açık ayarları döner; ayarsızken kayıt kapalı; /sayfa/supabase.js sunulur',async()=>{
+  const a=await get(base,'/ayar.json');assert.strictEqual(a.s,200);assert.deepStrictEqual(JSON.parse(a.b),{url:null,anonKey:null,kurulum:null,kayit:false});
+  const s2=createServer({quiet:true,tickMs:50,ayar:{url:'https://x.example',anonKey:'anon-abc',serviceKey:'srv-gizli',jwtSecret:'jwt-gizli',kurulum:'kasaba-test'}});
+  await new Promise(r=>s2.server.listen(0,'127.0.0.1',r));const b2='127.0.0.1:'+s2.server.address().port;
+  try{
+    const r=await get(b2,'/ayar.json');assert.deepStrictEqual(JSON.parse(r.b),{url:'https://x.example',anonKey:'anon-abc',kurulum:'kasaba-test',kayit:true});
+    assert.ok(!r.b.includes('srv-gizli')&&!r.b.includes('jwt-gizli'),'gizli anahtarlar /ayar.json\'da geçmez');
+    const js=await get(b2,'/sayfa/supabase.js');assert.strictEqual(js.s,200);assert.match(js.h['content-type'],/javascript/);assert.match(js.b,/createClient/);
+    assert.strictEqual((await get(b2,'/sayfa/../sunucu/server.js')).s,404);assert.strictEqual((await get(b2,'/sayfa/yok.js')).s,404);
+  }finally{await new Promise(r=>s2.close(r))}
+});

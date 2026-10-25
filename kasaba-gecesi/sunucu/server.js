@@ -20,6 +20,7 @@ const IP_ODA_DAKIKA=+process.env.MAX_ROOMS_PER_IP_MIN||5; // dakikada oda kurma
 const MAX_SOCKS_PER_ROOM=40;
 const INDEX=path.join(__dirname,'..','index.html');
 const GAME_JS=path.join(__dirname,'game.js'); // istemci de yükler: sabitler tek yerde
+const SAYFA=path.join(__dirname,'..','sayfa'); // gömülü supabase-js (ve ileride sayfa betikleri); yalnız düz .js adları
 const CODE_CHARS='abcdefghjkmnpqrstuvwxyz23456789';
 // İstemcinin gönderdiği kimlik (kg_uid) gizli anahtardır; herkese açık durumda ondan türetilen
 // kısa bir kimlik gezer. Açık kimliği bilen başkasının yerine giremez, ev sahibi olamaz.
@@ -36,6 +37,9 @@ function createServer(opts={}){
   const ipOda=opts.ipOda||IP_ODA,ipSoket=opts.ipSoket||IP_SOKET,ipOdaDakika=opts.ipOdaDakika||IP_ODA_DAKIKA;
   const ipSoketler=new Map(),ipKurmalar=new Map(); // ip → açık soket sayısı; ip → son bir dakikadaki oda kurma zamanları
   const ipOdalar=ip=>[...rooms.values()].filter(r=>r.ip===ip).length;
+  // Supabase ayarı (env ya da opts.ayar): url/anonKey istemciye /ayar.json ile gider; serviceKey ve jwtSecret yalnız sunucuda
+  const ayar=opts.ayar||{url:process.env.SUPABASE_URL||null,anonKey:process.env.SUPABASE_ANON_KEY||null,serviceKey:process.env.SUPABASE_SERVICE_KEY||null,jwtSecret:process.env.SUPABASE_JWT_SECRET||null,kurulum:process.env.KG_KURULUM||null};
+  const ayarAcik=()=>({url:ayar.url||null,anonKey:ayar.anonKey||null,kurulum:ayar.kurulum||null,kayit:!!(ayar.url&&ayar.serviceKey)});
   const kayit=opts.kayit||Kayit.olustur({}); // olay günlüğünün gittiği yer (testler bellekte biriktiren bir sahte verir)
   // odanın biriken olaylarını kayıt yuvasına ver (R.log boşalır; R.gameLog oyunda kalır)
   function bosalt(room){const R=room.game;if(R.log.length)kayit.kuyrukla(room,R.log.splice(0))}
@@ -59,6 +63,13 @@ function createServer(opts={}){
       fs.readFile(GAME_JS,(err,buf)=>{
         if(err){res.writeHead(500);return res.end('game.js okunamadı')}
         res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-cache'});res.end(req.method==='HEAD'?undefined:buf);
+      });return;
+    }
+    if(url==='/ayar.json'){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-cache'});return res.end(JSON.stringify(ayarAcik()))}
+    if(/^\/sayfa\/[a-z0-9_-]+\.js$/.test(url)){
+      fs.readFile(path.join(SAYFA,url.slice(7)),(err,buf)=>{
+        if(err){res.writeHead(404);return res.end('yok')}
+        res.writeHead(200,{'Content-Type':'application/javascript; charset=utf-8','Cache-Control':'public, max-age=86400'});res.end(req.method==='HEAD'?undefined:buf);
       });return;
     }
     if(url==='/saglik'){res.writeHead(200,{'Content-Type':'application/json'});return res.end(JSON.stringify({ok:true,rooms:rooms.size,surum:process.env.KG_SURUM||null}))}
