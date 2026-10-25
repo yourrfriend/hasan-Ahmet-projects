@@ -10,9 +10,8 @@ Türkçe yazış; arayüz metinleri Türkçe ve kısa.
 
 ## Dallar
 - `main`: eski tek sayfalık sürüm (sunucu yok).
-- `sunucu`: eski canlı; `sahne` onu kapsar.
-- `sahne` (rol dağılımı, gece yürüyüşü/animasyon, evler): **canlı** (`kasaba.munupixi.com`, 2026-10-24); `/yayinla` buradan kurar.
-- `gecmis`: geçmiş/kullanıcı/Supabase projesi (6 plan).
+- `sunucu`, `sahne`: eski canlı dallar; `gecmis` ikisini de kapsar.
+- `gecmis` (geçmiş/kullanıcı/Supabase projesi + Paket 1a: gazete, rövanş, skor): **canlı** (`kasaba.munupixi.com`, 2026-10-25); `/yayinla` buradan kurar. Sahne Plan 3 (evler) de bu dalda yapılır.
 Her iş kendi dalında; PR en sonda. Yeni özellik önce `kasaba-test.munupixi.com`'a (`/yayinla kasaba-test <dal>`), kullanıcı dener, sonra canlı.
 
 ## Komutlar
