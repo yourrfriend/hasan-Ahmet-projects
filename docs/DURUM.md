@@ -1,9 +1,9 @@
 # İş durumu
 
-Son güncelleme: 2026-10-25 (akşam). Bu dosya oturumlar arası bağlam içindir; her plan bitişinde güncelle.
+Son güncelleme: 2026-10-25 (gece, canlıya geçiş sonrası). Bu dosya oturumlar arası bağlam içindir; her plan bitişinde güncelle.
 
 ## Canlı
-- `kasaba.munupixi.com` ← `gecmis@224752f` (ionos, tünel kipi; 2026-10-25, **kayıt açık**: `/etc/games/kasaba.env` SUPABASE_* + SUPABASE_JWT_JWKS). `kasaba-test.munupixi.com` ← `gecmis` HEAD (kayıt açık, **e-posta açık**: kasaba-test.env'de `RESEND_API_KEY` + `EPOSTA_KANCA_SIRRI`, GoTrue kancası `kasaba-test.munupixi.com/eposta/kanca`; Plan 5 + Plan 6; **canlıya alınmadı**).
+- `kasaba.munupixi.com` ← **`gecmis@4293262`** (ionos, tünel kipi; 2026-10-25 canlıya geçiş: Plan 5 sayfalar + Plan 6 e-posta kodu + Plan 7 Turnstile). `kasaba.env`: SUPABASE_* + JWKS + `RESEND_API_KEY`, `EPOSTA_KANCA_SIRRI`, `TURNSTILE_SITE/SECRET`, `SUPABASE_IC_URL` (önceki hali `kasaba.env.onceki`). GoTrue kancası artık **`kasaba.munupixi.com/eposta/kanca`**; dış kapıda `caddy.sh --signup-kapali` uygulandı (`/signup`, `/otp`, `/magiclink`, `/resend`, `/recover`, `PUT /user`, `token?grant_type=password` 403 doğrulandı; `refresh_token` 400, health 200, `/hesap/anonim` + RLS sorgusu 200). `kasaba-test.munupixi.com` ← `gecmis@973a9a5` (kayıt açık; `eposta:true` kalır ama kod maili canlı sunucudan çıkar, test `/saglik eposta` sayaçları artmaz). **Bekleyen:** Turnstile Rotate secret (kullanıcı) → `~/.turnstile-kasaba` + iki env + restart; canlıda telefondan gerçek kod denemesi henüz yapılmadı.
 - Supabase: `kasaba-api.munupixi.com` (ionos `/root/supabase-kasaba`, v0.8.3), şema 005'e kadar, RLS testleri 8/8, yedek 04:10.
 
 ## Projeler
@@ -32,18 +32,17 @@ Tasarım: `docs/superpowers/specs/2026-10-24-kasaba-gecesi-sahne-design.md`.
 - ⏳ Plan 3 evler (referans görsel kullanıcıdan; bej duvar, koyu çatı, baca + tabela).
 - Ertelenen küçükler: spec §5.1'de eski eşik/formül cümleleri; n=9'da Tuzakçı/Provokatör hiç çıkmıyor; test temizliği (`OZEL`, somut Masum iddiaları); `DAGILIM` dondurulmamış; **gece ortasında yenilemede karakter evde görünür** (sunucu hamleyi geri yollamaz; `priv`'e kendi hamlesi eklenirse hedefte gösterilebilir — kullanıcı kararı).
 
-## Sıradaki işler (yeni oturum, 2026-10-25 akşamı itibarıyla; sırayla)
-1. **Canlıya geçiş (Plan 5+6+7, `gecmis` HEAD):** `kasaba.env`'e `RESEND_API_KEY` (yerel `~/.resend-kasaba-key`), `EPOSTA_KANCA_SIRRI` (Supabase `.env` `HOOK_SEND_EMAIL_SECRETS`), `TURNSTILE_SITE=0x4AAAAAAFlQGHDJqXliNaR0`, `TURNSTILE_SECRET` (yerel `~/.turnstile-kasaba`), `SUPABASE_IC_URL=http://127.0.0.1:8000`; `sudo db/kur-supabase.sh --kanca kasaba.munupixi.com` (sır korunur); `/yayinla` (`gecmis`); aynı pencerede `sudo db/caddy.sh --signup-kapali`; doğrulama curl'leri (README). Sonra Cloudflare Turnstile **Rotate secret** → yeni değer `~/.turnstile-kasaba` + iki env + restart.
+## Sıradaki işler (2026-10-25 gece itibarıyla; sırayla)
+1. ✅ **Canlıya geçiş (Plan 5+6+7, `gecmis@4293262`)** yapıldı (2026-10-25; env + `--kanca` + `kur.sh` + `--signup-kapali` + doğrulama curl'leri). Kalan: (a) Cloudflare Turnstile **Rotate secret** (kullanıcı) → yeni değer `~/.turnstile-kasaba` + `kasaba.env` + `kasaba-test.env` + `systemctl restart game@kasaba game@kasaba-test`; (b) kullanıcı telefondan canlıda "Hesabınla gir" ile bir kod maili alıp `/saglik kod.gonderildi`'nin arttığını görsün.
 2. **Rol dağılımı geri bildirim paketi** (kullanıcı kararı; brainstorm → `denge.js` ölçümü → plan): rol tekrarı hafızası, Masum azaltma/kaldırma seçenekleri, hain sürümlü rollerin ağırlığı.
 3. Açık geri bildirim: tartışma süresi ayarı (yeniden üretilemedi; cihaz/adım bilgisi gerekli).
-4. Küçükler: `auth.users` anonim kalıntı temizliği; Gmail bağlayıcısı yetkisi (kod mailleri otomatik okunsun).
+4. Küçükler: `auth.users` anonim kalıntı temizliği (35; canlıya geçiş doğrulamasında açılan 4 deneme kullanıcısı admin API ile silindi — son 10 dk süzgeciyle; biri gerçek bir ziyaretçinin boş anonim oturumu olabilir, maç kaydı yoktu); Gmail bağlayıcısı yetkisi (kod mailleri otomatik okunsun).
 
 ## Kullanıcıdan bekleyenler
 - **Geri bildirim (2026-10-25, açık): "tartışma süresi ayarlandığında tekrar değişiyor / değişim olmuyor."** Yerelde gerçek tarayıcıyla yeniden üretilemedi (lobide 60 yazıldı; katılım sırasında, Enter'la, yenileme sonrası ve başlatınca sunucu `R.settings`, `P.settings` ve oyun süresi 60); canlı (`224752f`) ile HEAD arasında ayar kodu farkı yok. Gerekli: hangi cihaz/tarayıcı, lobide mi yoksa maç sonunda mı (süre kutuları yalnız lobide), kutu mu geri dönüyor yoksa oyundaki süre mi değişmiyor.
-- Plan 5 + Plan 6'yı canlıya alma kararı (kasaba-test'te dene → canlı adımları: `/etc/games/kasaba.env`'e `RESEND_API_KEY` + `EPOSTA_KANCA_SIRRI` (sır `grep HOOK_SEND_EMAIL_SECRETS /root/supabase-kasaba/.env`), `sudo db/kur-supabase.sh --kanca kasaba.munupixi.com` (kanca canlıya döner; kasaba-test'te düğmeler kalır ama mail canlı sunucudan gider), `/yayinla` ile `gecmis`).
 - Gmail bağlayıcısı (claude.ai) yeniden yetkilendirme istiyor; yetkilendirilirse kod mailleri denemelerde otomatik okunur.
 - **Geri bildirim paketi — rol dağılımı (2026-10-25, kullanıcı):** (1) aynı rol üst üste aynı kişiye geliyor → oda oturumunda son roller hafızası ("tekrar yok"); (2) Masum rolü azaltılsın/kaldırılsın (seçenekler: tamamen / en az 1 / yalnız 7+ kişide; `denge.js` ile ölç); (3) hain sürümlü roller (Gözcü-hain, Polis-hain…) daha sık, düz Hain daha seyrek (ör. 2 hainde en fazla 1 düz). Kural kararı kullanıcının; brainstorm → ölçüm → plan sırasıyla.
-- **Plan 7 canlıya alma adımları (Plan 5+6 ile birlikte):** `kasaba.env`'e `RESEND_API_KEY`, `EPOSTA_KANCA_SIRRI`, `TURNSTILE_SITE=0x4AAAAAAFlQGHDJqXliNaR0`, `TURNSTILE_SECRET` (yerel `~/.turnstile-kasaba`), `SUPABASE_IC_URL=http://127.0.0.1:8000` (KOD_GUNLUK varsayılan 80); `sudo db/kur-supabase.sh --kanca kasaba.munupixi.com`; `/yayinla` ile `gecmis`; **sonra** `sudo db/caddy.sh --signup-kapali` (eski istemci kalmayınca); Cloudflare'de Turnstile **Rotate secret** → yeni değer `~/.turnstile-kasaba` ve iki env'e.
+- **Turnstile Rotate secret** (Cloudflare; sır sohbetten geçmişti): yeni değeri verince `~/.turnstile-kasaba` + `kasaba.env` + `kasaba-test.env` güncellenir, iki servis yeniden başlar.
 - Cloudflare → Caching → "Browser Cache TTL" = **Respect Existing Headers** (Free varsayılanı 4 sa; `.js` dosyalarına uygulanıyor; kod artık sürümlü olduğu için isteğe bağlı).
 - Cloudflare tünel token'ını yenilemesi (sohbete yapıştırılmıştı) → sonra sunucuda `cloudflared service install YENI`.
 - `alt-php-internal` (Imunify) güncelleme onayı (ionos).
