@@ -20,7 +20,7 @@ Tasarım: `docs/superpowers/specs/2026-10-24-kasaba-gecesi-gecmis-design.md`.
 
 ### paket1b — hızlı iddia/tepki balonları, rol rehberi (ChatGPT Paket 1, özellik 1 ve 5)
 Tasarım: `docs/superpowers/specs/2026-10-25-kasaba-gecesi-paket1b-iddia-rehber-design.md`; plan `…2026-10-25-paket1b-iddia-rehber.md`.
-- ✅ Görev 1–4: `hizli` kuralı + sunucu yolu, gazete `iddia` kartı, ⚡ paneli, 📘 rehber çekmecesi (`ipucu` game.js'te). Belgeler bu commit'te; kasaba-test denemesi ve taze inceleme sırada.
+- ✅ Görev 1–4: `hizli` kuralı + sunucu yolu, gazete `iddia` kartı, ⚡ paneli, 📘 rehber çekmecesi (`ipucu` game.js'te). kasaba-test'te bot denemesi geçti (gazetede 'iddia' kartları, `olaylar`'da `iddia` olayları). Taze inceleme geçti; önemliler düzeltildi (çoklu iddia sırası, 📘/zamanlayıcı çakışması, rehber kaydırması, Doktor ipucu). Ertelenen küçükler: istemcide 0/4 göstergesi ve bekleme sırasında gönderim engeli yok; seçenek etiketleri `HIZLI_TUR`'dan türemiyor; sunucu testinde 8 sn duvar saati.
 
 ### sahne — rol dağılımı, gece yürüyüşü ve rol animasyonları, evler
 Tasarım: `docs/superpowers/specs/2026-10-24-kasaba-gecesi-sahne-design.md`.
