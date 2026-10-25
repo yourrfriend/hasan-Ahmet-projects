@@ -1,9 +1,38 @@
 <!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kasaba Gecesi — Oyun</title>
 <link rel="stylesheet" href="/sayfa/ortak.css"><script src="/sunucu/game.js"></script><script src="/sayfa/ortak.js"></script><script src="/sayfa/hikaye.js"></script></head>
-<body><main><a class="geri" href="/">← Kasaba Gecesi</a><h1>Oyun</h1><div id="icerik" class="panel"><p class="muted">Yükleniyor…</p></div></main>
+<body><main><a class="geri" href="/">← Kasaba Gecesi</a><h1 id="baslik">Oyun</h1><div id="icerik" class="panel"><p class="muted">Yükleniyor…</p></div></main>
 <script>
-// /oyun/<id>: özet + oyuncular + gece gece hikâye (KG_HIKAYE). Veri: Supabase, paylaşılan oturum, RLS. (Task 4 doldurur.)
-(async()=>{const {not,kimlik}=KG_SAYFA;const k=kimlik();const {sb,session,neden}=await KG_SAYFA.oturum();
-  if(!sb||!session){not(neden==='kayit-kapali'?'Kayıt kapalı: bu kurulumda oyun geçmişi tutulmuyor.':'Bu cihazda kimlik yok: önce oyun sayfasını aç.',neden==='kayit-kapali'?'':'hata');document.getElementById('icerik').textContent='';return}
-})();
+// /oyun/<id>: özet (kasaba, tarih, kazanan), oyuncular (rol etiketi, akıbet), gece gece hikâye (KG_HIKAYE).
+// Veri: Supabase, paylaşılan oturum, RLS (olaylar yalnız bitmiş oyunda okunur). Kayıt kuyrukta gecikmiş olabilir → "yenile" notu.
+(async()=>{
+  const {el,not,kimlik,tarih,rolAdi,ROLES}=KG_SAYFA;const {hikaye}=KG_HIKAYE;const k=kimlik();const icerik=document.getElementById('icerik');
+  const {sb,session,neden}=await KG_SAYFA.oturum();
+  if(!sb||!session){not(neden==='kayit-kapali'?'Kayıt kapalı: bu kurulumda oyun geçmişi tutulmuyor.':'Bu cihazda kimlik yok: önce oyun sayfasını aç, sonra buraya dön.',neden==='kayit-kapali'?'':'hata');icerik.textContent='';return}
+  const {data:oyun}=await sb.from('oyunlar').select('id,kasaba_id,kurulum,oda_kodu,baslama,bitis,sonuc,kazanan_takim,kazanan_metin,oyuncu_sayisi').eq('id',k.id).maybeSingle();
+  if(!oyun){not('Bu oyunu göremezsin (oyuncusu ya da kasaba üyesi değilsin) ya da henüz yazılmadı — birkaç saniye sonra yenile.','hata');icerik.textContent='';return}
+  icerik.textContent='';
+  const [{data:kasaba},{data:oyuncular},{data:olaylar}]=await Promise.all([
+    oyun.kasaba_id?sb.from('kasabalar').select('id,ad').eq('id',oyun.kasaba_id).maybeSingle():Promise.resolve({data:null}),
+    sb.from('oyun_oyunculari_acik').select('*').eq('oyun_id',oyun.id),
+    sb.from('olaylar').select('sira,gun,faz,tur,veri').eq('oyun_id',oyun.id).order('sira',{ascending:true})]);
+  document.title='Kasaba Gecesi — '+tarih(oyun.baslama);
+  // özet
+  const p1=el('div','panel');
+  if(kasaba){const a=el('a',null,kasaba.ad);a.href='/kasaba/'+kasaba.id;const d=el('div','small muted');d.append(a,document.createTextNode(' · '+tarih(oyun.baslama)+' · '+oyun.oyuncu_sayisi+' oyuncu'));p1.append(d)}
+  else p1.append(el('div','small muted',tarih(oyun.baslama)+' · '+oyun.oyuncu_sayisi+' oyuncu'));
+  p1.append(el('div','kazanan '+(oyun.kazanan_takim||''),oyun.sonuc==='bitti'?(oyun.kazanan_metin||'Oyun bitti'):oyun.sonuc==='iptal'?'Oyun iptal edildi':'Oyun sürüyor'));
+  icerik.append(p1);
+  // oyuncular
+  const p2=el('div','panel');p2.append(el('h2',null,'Oyuncular'));const w=el('div','tablo');const t=el('table');const th=el('tr');['Oyuncu','Rol','Akıbet'].forEach(h=>th.append(el('th',null,h)));t.append(th);
+  const SEKIL={stab:'öldürüldü',bomb:'patladı',bolt:'yıldırım çarptı',ghost:'hortlak aldı',vanish:'kayboldu',asildi:'asıldı'};
+  [...(oyuncular||[])].sort((a,b)=>(b.sonunda_sag?1:0)-(a.sonunda_sag?1:0)).forEach(p=>{const tr=el('tr',p.sonunda_sag?'':'olu');
+    const rol=el('td');const tag=el('span','tag '+(p.takim||''),p.rol_key?rolAdi(p):'?');rol.append(tag);
+    tr.append(el('td',null,(p.sonunda_sag?'🙂 ':'💀 ')+(p.ad||'?')+(p.uye===session.user.id?' (sen)':'')),rol,el('td','small',p.sonunda_sag?'sağ':(p.olum_gunu?'Gün '+p.olum_gunu+': ':'')+(SEKIL[p.olum_sekli]||p.olum_sekli||'')));t.append(tr)});
+  w.append(t);p2.append(w);icerik.append(p2);
+  // hikâye
+  const p3=el('div','panel');p3.append(el('h2',null,'Gece gece hikâye'));
+  if(!olaylar||!olaylar.length)p3.append(el('p','muted',oyun.sonuc==='devam'?'Oyun bitince hikâye burada görünür.':'Hikâye henüz yazılmadı; birkaç saniye sonra yenile.'));
+  else hikaye(olaylar,oyuncular||[],ROLES()).forEach(b=>{const g=el('div','gun');g.append(el('h3',null,b.baslik));b.satirlar.forEach(s=>g.append(el('div',null,s)));p3.append(g)});
+  icerik.append(p3);
+})().catch(e=>{KG_SAYFA.not('Bir şey ters gitti: '+e.message,'hata')});
 </script></body></html>

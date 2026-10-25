@@ -35,6 +35,11 @@ const step=t=>console.log('•',t);
       assert.match(await p3.textContent('.kimlik-notu-lobi'),/Misafir/,'sunucu kayıtlı saymadıysa lobide misafir notu');
       await c3.close();await new Promise(r=>s3.close(r)); }
 
+    step('geçmiş sayfaları: Supabase yokken hatasız açılır ve "kayıt kapalı" der');
+    { const c4=await newCtx();const u='aaaaaaaa-0000-4000-8000-000000000009';
+      for(const yol of ['/oyun/'+u,'/kasaba/'+u]){const p=await open(c4,'Sayfa'+yol,base.replace(/\/$/,'')+yol);await p.waitForSelector('.not',{timeout:8000});assert.match(await p.textContent('.not'),/Kayıt kapalı/,yol);assert.ok(await p.$('main'))}
+      await c4.close(); }
+
     step('ev sahibi oda kurar');
     const hostCtx=await newCtx();let host=await open(hostCtx,'Ev',base);
     await host.click('text=Yeni oda kur');await host.fill('#nameInput','Ev');await host.click('text=Lobiye gir');

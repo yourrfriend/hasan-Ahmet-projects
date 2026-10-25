@@ -1,9 +1,49 @@
 <!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kasaba Gecesi — Kasaba</title>
 <link rel="stylesheet" href="/sayfa/ortak.css"><script src="/sunucu/game.js"></script><script src="/sayfa/ortak.js"></script><script src="/sayfa/karsilastirma.js"></script></head>
-<body><main><a class="geri" href="/">← Kasaba Gecesi</a><h1>Kasaba</h1><div id="icerik" class="panel"><p class="muted">Yükleniyor…</p></div></main>
+<body><main><a class="geri" href="/">← Kasaba Gecesi</a><h1 id="baslik">Kasaba</h1><div id="icerik" class="panel"><p class="muted">Yükleniyor…</p></div></main>
 <script>
-// /kasaba/<id>: ad, üyeler, tablo, karşılaştırmalar, son maçlar. (Task 3 doldurur.)
-(async()=>{const {not,kimlik}=KG_SAYFA;const k=kimlik();const {sb,session,neden}=await KG_SAYFA.oturum();
-  if(!sb||!session){not(neden==='kayit-kapali'?'Kayıt kapalı: bu kurulumda oyun geçmişi tutulmuyor.':'Bu cihazda kimlik yok: önce oyun sayfasını aç.',neden==='kayit-kapali'?'':'hata');document.getElementById('icerik').textContent='';return}
-})();
+// /kasaba/<id>: ad (sahip düzenler), üyeler, tablo (kasaba_tablo; yüzde yok, "en çok kaybeden" yok, örneklem görünür),
+// giriş yapmış üye için arkadaş karşılaştırmaları (son 50 bitmiş maçtan istemcide), son maçlar. Veri: Supabase, paylaşılan oturum, RLS.
+(async()=>{
+  const {el,not,kimlik,tarih,ROLES}=KG_SAYFA;const {karsilastir}=KG_KARSILASTIRMA;const k=kimlik();const icerik=document.getElementById('icerik');
+  const {ayar,sb,session,neden}=await KG_SAYFA.oturum();
+  if(!sb||!session){not(neden==='kayit-kapali'?'Kayıt kapalı: bu kurulumda oyun geçmişi tutulmuyor.':'Bu cihazda kimlik yok: önce oyun sayfasını aç, sonra buraya dön.',neden==='kayit-kapali'?'':'hata');icerik.textContent='';return}
+  const ben=session.user.id;
+  const {data:kasaba}=await sb.from('kasabalar').select('id,ad,sahip,olusturma').eq('id',k.id).maybeSingle();
+  if(!kasaba){not('Bu kasabayı göremezsin (üyesi değilsin) ya da böyle bir kasaba yok.','hata');icerik.textContent='';return}
+  icerik.textContent='';document.getElementById('baslik').textContent=kasaba.ad;document.title='Kasaba Gecesi — '+kasaba.ad;
+  // ad düzenleme (yalnız sahip; RLS de yalnız sahibe izin verir)
+  if(kasaba.sahip===ben){const r=el('div','satir');const i=el('input');i.value=kasaba.ad;i.maxLength=40;const b=el('button',null,'Adı kaydet');
+    b.onclick=async()=>{const ad=i.value.trim().slice(0,40);if(!ad)return;const {error}=await sb.from('kasabalar').update({ad}).eq('id',kasaba.id);if(error)not('Ad kaydedilemedi: '+error.message,'hata');else{document.getElementById('baslik').textContent=ad;b.textContent='Kaydedildi ✓';setTimeout(()=>{b.textContent='Adı kaydet'},1500)}};
+    r.append(i,b);icerik.append(r)}
+  const [{data:uyeler},{data:tablo},{data:oyunlar}]=await Promise.all([
+    sb.from('kasaba_uyeleri').select('uye,rol,katilma').eq('kasaba_id',kasaba.id),
+    sb.from('kasaba_tablo').select('uye,ad,oyun,kazanma,en_cok_rol').eq('kasaba_id',kasaba.id).eq('kurulum',ayar.kurulum||''),
+    sb.from('oyunlar').select('id,baslama,bitis,sonuc,kazanan_takim,kazanan_metin,oyuncu_sayisi').eq('kasaba_id',kasaba.id).eq('sonuc','bitti').order('bitis',{ascending:false}).limit(50)]);
+  const uyeIds=(uyeler||[]).map(u=>u.uye);const {data:profiller}=uyeIds.length?await sb.from('profiller').select('uye,ad,renk').in('uye',uyeIds):{data:[]};
+  const adlar=new Map((profiller||[]).map(p=>[p.uye,p.ad]));
+  // üyeler
+  const p1=el('div','panel');p1.append(el('h2',null,'Üyeler ('+uyeIds.length+')'));const ul=el('div','satir');
+  (uyeler||[]).forEach(u=>{const s=el('span','tag '+(u.rol==='sahip'?'imp':'inn'),(adlar.get(u.uye)||'?')+(u.rol==='sahip'?' · sahip':'')+(u.uye===ben?' (sen)':''));ul.append(s)});p1.append(ul);icerik.append(p1);
+  // tablo
+  const p2=el('div','panel');p2.append(el('h2',null,'Bu kasabada'));
+  if(!tablo||!tablo.length)p2.append(el('p','muted','Henüz bitmiş maç yok.'));
+  else{const w=el('div','tablo');const t=el('table');const th=el('tr');['Oyuncu','Maç','Zafer','En çok rol'].forEach(h=>th.append(el('th',null,h)));t.append(th);
+    [...tablo].sort((a,b)=>b.kazanma-a.kazanma||b.oyun-a.oyun).forEach(r=>{const tr=el('tr');tr.append(el('td',null,(r.ad||'?')+(r.uye===ben?' (sen)':'')),el('td',null,String(r.oyun)),el('td',null,r.kazanma+' / '+r.oyun),el('td',null,(ROLES()[r.en_cok_rol]||{}).n||r.en_cok_rol||'—'));t.append(tr)});
+    w.append(t);p2.append(w);p2.append(el('p','small muted','Zafer sayısı maç sayısıyla birlikte okunur; az maçla güçlü sonuç çıkarılmaz.'))}
+  icerik.append(p2);
+  // karşılaştırmalar
+  const ids=(oyunlar||[]).map(o=>o.id);const {data:oyuncular}=ids.length?await sb.from('oyun_oyunculari_acik').select('oyun_id,pub_id,uye,ad,takim,rol_key,sonunda_sag,olum_sekli').in('oyun_id',ids):{data:[]};
+  const kar=karsilastir(ben,oyunlar||[],oyuncular||[]);
+  if(kar.length){const p3=el('div','panel');p3.append(el('h2',null,'Senin karşılaştırmaların'));
+    kar.forEach(c=>{const d=el('div','satir');d.append(el('span','ad',c.ad));
+      if(c.azMac)d.append(el('span','muted small','birlikte '+c.birlikte+' maç — henüz az maç'));
+      else d.append(el('span','small','birlikte '+c.birlikte+' maç · aynı tarafta '+c.ayniTarafZafer+' zafer · karşı tarafta: sen '+c.karsi.ben+' – o '+c.karsi.o));
+      p3.append(d)});icerik.append(p3)}
+  // son maçlar
+  const p4=el('div','panel');p4.append(el('h2',null,'Son maçlar'));
+  if(!oyunlar||!oyunlar.length)p4.append(el('p','muted','Henüz yok.'));
+  (oyunlar||[]).slice(0,20).forEach(o=>{const a=el('a','satir');a.href='/oyun/'+o.id;a.append(el('span','small muted',tarih(o.bitis||o.baslama)),el('span','kazanan '+(o.kazanan_takim||''),o.kazanan_metin||'—'),el('span','small muted',o.oyuncu_sayisi+' oyuncu'));p4.append(a)});
+  icerik.append(p4);
+})().catch(e=>{KG_SAYFA.not('Bir şey ters gitti: '+e.message,'hata')});
 </script></body></html>
