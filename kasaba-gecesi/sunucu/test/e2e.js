@@ -194,6 +194,7 @@ const step=t=>console.log('•',t);
       assert.strictEqual(await pages[newHostName].textContent('.endcard button.lobi'),'Lobiye dön');
       await pages[newHostName].click('.endcard button.lobi');
       for(const p of [host,...Object.values(pages)])await p.waitForFunction(()=>P.phase==='lobby'&&!priv.role,null,{timeout:5000});
+      assert.strictEqual((await watcher.$$('.lobby-skor .cip')).length,4,'lobide bu akşamın skoru görünmeli');
     }
 
     assert.deepStrictEqual(errors,[],'sayfa hataları');

@@ -417,6 +417,17 @@ test('gazete: aynı özne iki kartı kaplamaz; sıra tür → gün → kayıt',(
   G.act(R,'u0',{kill:'u3'});G.act(R,'u2',{ab:'u3'});G.advance(R);                                                // gece 3 tuzak haini yakalar
   G.advance(R);asil(R,'u0',['u1','u2','u3','u5']);assert.strictEqual(R.P.phase,'end');
   const m=R.P.gazete.map(k=>k.metin);assert.strictEqual(m.length,3,m.join(' | '));
-  assert.match(m[0],/Gece 1: Oyuncu1 bir saldırıyı önledi/);assert.match(m[1],/Gece 3: Oyuncu2'in tuzağı/);assert.match(m[2],/Gün 3: kasaba Oyuncu0'ı gönderdi/);
+  assert.match(m[0],/Gece 1: Oyuncu1 bir saldırıyı önledi/);assert.match(m[1],/Gece 3: Oyuncu2'nin tuzağı/);assert.match(m[2],/Gün 3: kasaba Oyuncu0'ı gönderdi/);
   assert.ok(!m.some(x=>/Gece 2: Oyuncu1/.test(x)),'doktorun ikinci kartı atlanır');
+});
+
+test('inceleme: Türkçe ad ekleri ünlü uyumuna ve kaynaştırmaya uyar; gazete metinleri doğru ek alır',()=>{
+  const e=G.ek;
+  assert.strictEqual(e('Ece','i'),"Ece'yi");assert.strictEqual(e('Can','in'),"Can'ın");assert.strictEqual(e('Ahmet','in'),"Ahmet'in");
+  assert.strictEqual(e('Deniz','i'),"Deniz'i");assert.strictEqual(e('Kaya','in'),"Kaya'nın");assert.strictEqual(e('Umut','i'),"Umut'u");
+  assert.strictEqual(e('Gül','in'),"Gül'ün");assert.strictEqual(e('Oyuncu2','in'),"Oyuncu2'nin");assert.strictEqual(e('Oyuncu0','i'),"Oyuncu0'ı");
+  assert.strictEqual(e('Oyuncu6','i'),"Oyuncu6'yı");assert.strictEqual(e('Xyz','i'),"Xyz'i");
+  const R=fixed(['hain','tuzakci','masum','masum','masum']);R.P.players.find(p=>p.id==='u0').name='Ece';R.P.players.find(p=>p.id==='u1').name='Kaya';R.P.players.find(p=>p.id==='u2').name='Can';
+  G.act(R,'u0',{kill:'u2'});G.act(R,'u1',{ab:'u2'});G.advance(R);for(const p of G.alivePlayers(R))if(p.id!=='u0')G.pl(R,p.id).alive=false;G.advance(R);G.advance(R);
+  assert.match(R.P.gazete.map(k=>k.metin).join(' | '),/Kaya'nın tuzağı Ece'yi Can'ın kapısında yakaladı/);
 });

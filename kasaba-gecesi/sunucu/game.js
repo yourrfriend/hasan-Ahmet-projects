@@ -328,6 +328,17 @@ function payinFor(R,id){const nm=x=>nameOf(R,x);const o={oldurdu:[],kurtardi:[],
 // En çok GAZETE_EN_COK kart, yalnız günlükteki gerçekleşmiş olaylardan, deterministik: adaylar (tür önceliği, gün,
 // kayıt sırası) ile sıralanır; aynı özne iki kartta olmaz; bitiş kartı yalnız yer kalırsa.
 const GAZETE_EN_COK=3;
+// Ad + kesme + ek: ünlü uyumu (a,ı→ı · e,i→i · o,u→u · ö,ü→ü) ve kaynaştırma (ünlüyle bitene -yi / -nin).
+// tip 'i' = belirtme (-ı/-i/-u/-ü), 'in' = tamlayan (-ın/-in/-un/-ün). Sonu rakamsa rakamın okunuşuna göre.
+const RAKAM_SON={0:['ı',false],1:['i',false],2:['i',true],3:['ü',false],4:['ü',false],5:['i',false],6:['ı',true],7:['i',true],8:['i',false],9:['u',false]};
+function ek(ad,tip){
+  const a=String(ad);const son=a.slice(-1);let unlu='i',unluyleBiter=false;
+  if(/[0-9]/.test(son)){[unlu,unluyleBiter]=RAKAM_SON[+son]}
+  else{const m=a.toLowerCase().match(/[aeıioöuüâîû](?!.*[aeıioöuüâîû])/);const u=m?m[0]:'i';
+    unlu=/[aıâ]/.test(u)?'ı':/[eiî]/.test(u)?'i':/[ouû]/.test(u)?'u':'ü';unluyleBiter=/[aeıioöuüâîû]/i.test(son)}
+  const kaynastirma=unluyleBiter?(tip==='in'?'n':'y'):'';
+  return a+"'"+kaynastirma+unlu+(tip==='in'?'n':'');
+}
 function gazeteFor(R){
   const P=R.P,g=R.g,nm=id=>nameOf(R,id);const ad=[];let sira=0;
   const ekle=(tur,oncelik,gun,ozne,metin)=>ad.push({tur,oncelik,gun,sira:sira++,ozne,metin});
@@ -338,15 +349,15 @@ function gazeteFor(R){
       for(const k of v.kurtaranlar||[])ekle('mudahale',1,e.gun,[k.kim],'💉 '+G_+nm(k.kim)+' bir saldırıyı önledi; '+nm(k.hedef)+' sağ çıktı.');
       for(const id of v.yelek||[])ekle('mudahale',1,e.gun,[id],'🦺 '+G_+nm(id)+' yelek sayesinde saldırıdan sağ çıktı.');
       const tuzaklar={};for(const t of v.tuzak||[]){const key=t.kuran+'>'+t.ev;(tuzaklar[key]=tuzaklar[key]||{kuran:t.kuran,ev:t.ev,kim:[]}).kim.push(t.kim)}
-      for(const t of Object.values(tuzaklar))ekle('mudahale',1,e.gun,[t.kuran],'🪤 '+G_+nm(t.kuran)+"'in tuzağı "+t.kim.map(nm).join(', ')+"'ı "+nm(t.ev)+"'nin kapısında yakaladı.");
-      for(const t of v.tutanlar||[])ekle('mudahale',1,e.gun,[t.kim],'👮 '+G_+'Polis '+nm(t.kim)+', '+nm(t.hedef)+"'ı evde tuttu.");
+      for(const t of Object.values(tuzaklar))ekle('mudahale',1,e.gun,[t.kuran],'🪤 '+G_+ek(nm(t.kuran),'in')+' tuzağı '+t.kim.map(k=>ek(nm(k),'i')).join(', ')+' '+ek(nm(t.ev),'in')+' kapısında yakaladı.');
+      for(const t of v.tutanlar||[])ekle('mudahale',1,e.gun,[t.kim],'👮 '+G_+'Polis '+nm(t.kim)+', '+ek(nm(t.hedef),'i')+' evde tuttu.');
       for(const o of v.olenler||[]){
         if(o.sekil==='ghost'){const h=Object.keys(g.candle).find(x=>g.candle[x]===o.kim&&g.hauntWins.includes(x));if(h)ekle('mudahale',1,e.gun,[h],'🕯️ '+G_+nm(h)+' hayalet olarak döndü; '+nm(o.kim)+' mumun bedelini ödedi.')}
       }
-      if(v.caldi)ekle('mudahale',1,e.gun,[v.caldi.hirsiz],'🎭 '+G_+nm(v.caldi.hirsiz)+' '+nm(v.caldi.kurban)+"'nin rolünü çaldı; artık "+v.caldi.yeni_rol+'.');
+      if(v.caldi)ekle('mudahale',1,e.gun,[v.caldi.hirsiz],'🎭 '+G_+nm(v.caldi.hirsiz)+' '+ek(nm(v.caldi.kurban),'in')+' rolünü çaldı; artık '+v.caldi.yeni_rol+'.');
       for(const o of v.olenler||[]){
         if(o.sekil!=='bolt')continue;
-        if(o.kimden&&o.kimden.length)ekle('mudahale',1,e.gun,o.kimden.slice(),'⚡ '+G_+'Büyücü '+nm(o.kim)+"'nin rolünü doğru tahmin etti; yıldırım düştü.");
+        if(o.kimden&&o.kimden.length)ekle('mudahale',1,e.gun,o.kimden.slice(),'⚡ '+G_+'Büyücü '+ek(nm(o.kim),'in')+' rolünü doğru tahmin etti; yıldırım düştü.');
         else ekle('mudahale',1,e.gun,[o.kim],'⚡ '+G_+'Büyücü yanlış tahmin etti; yıldırım kendine düştü.');
       }
       const patlayan=(v.olenler||[]).filter(o=>o.sekil==='bomb');
@@ -355,7 +366,7 @@ function gazeteFor(R){
   }
   // bitiş kartı: oyunu bitiren son olay (gündüz asılma ya da gece ölümleri)
   let bitis=null;const son=[sonGece,sonGun].filter(Boolean).sort((a,b)=>b.sira-a.sira)[0];
-  if(son&&son.tur==='gunduz_sonuc'&&son.veri.asilan)bitis={tur:'bitis',ozne:[],metin:'⚖️ Gün '+son.gun+': kasaba '+nm(son.veri.asilan)+"'ı gönderdi ve oyun bitti."};
+  if(son&&son.tur==='gunduz_sonuc'&&son.veri.asilan)bitis={tur:'bitis',ozne:[],metin:'⚖️ Gün '+son.gun+': kasaba '+ek(nm(son.veri.asilan),'i')+' gönderdi ve oyun bitti.'};
   else if(son&&son.tur==='gece_sonuc'&&son.veri.olenler.length)bitis={tur:'bitis',ozne:[],metin:'🌙 Gece '+son.gun+': '+son.veri.olenler.map(o=>nm(o.kim)).join(', ')+' öldü ve oyun bitti.'};
   ad.sort((a,b)=>a.oncelik-b.oncelik||a.gun-b.gun||a.sira-b.sira);
   const secilen=[],ozneler=new Set(),atlanan=[];
@@ -409,6 +420,6 @@ function privFor(R,id){
 }
 
 return{ROLES,SETUP,COLORS,HATS,DEFAULT_SETTINGS,DAGILIM,roleLabel,autoSetup,cleanSettings,setClock,
-  lobbyState,createGame,startGame,setPhase,advance,tick,resolveNight,resolveVote,checkWin,kazananlar,gazeteFor,GAZETE_EN_COK,endToLobby,olay,
+  lobbyState,createGame,startGame,setPhase,advance,tick,resolveNight,resolveVote,checkWin,kazananlar,gazeteFor,GAZETE_EN_COK,ek,endToLobby,olay,
   act,vote,chat,deadChat,privFor,pl,alivePlayers,inGame};
 });
