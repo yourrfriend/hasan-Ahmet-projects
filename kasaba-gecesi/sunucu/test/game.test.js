@@ -284,7 +284,7 @@ const OZEL=Object.keys(G.ROLES).filter(k=>!['masum','hain'].includes(k));
 test('rol dağılımı: eşikler, tekrarsız özel roller, bilgi rolü ≥ hain, Masum 7+ kişide 1',()=>{
   const bekle={4:[1,0,0,0],5:[1,0,0,0],6:[1,0,0,1],7:[1,0,0,1],8:[1,0,0,1],9:[2,1,1,1],10:[2,1,1,1],11:[2,1,1,1],12:[2,2,1,1]}; // hain, saldırgan, pasif, deli
   for(let n=4;n<=12;n++){
-    const kumeler=new Set();
+    const kumeler=new Set();let surumluSay=0;
     for(let i=0;i<500;i++){
       const c=G.autoSetup(n);const ids=Object.keys(c);
       assert.strictEqual(Object.values(c).reduce((a,b)=>a+b,0),n,'toplam '+n);
@@ -294,15 +294,25 @@ test('rol dağılımı: eşikler, tekrarsız özel roller, bilgi rolü ≥ hain,
       const pasif=say(id=>['hayatta','hortlak'].includes(id));
       assert.deepStrictEqual([hain,sald,pasif,c.deli||0],bekle[n],'n='+n+' '+JSON.stringify(c));
       for(const id of ids)if(id!=='masum'&&id!=='hain')assert.strictEqual(c[id],1,'özel rol tekrar: '+id+' n='+n);
-      assert.ok((c.hain||0)>=1,'düz hain şart');
-      assert.ok(say(id=>id.endsWith('_h')||['temizlikci','suclayici'].includes(id))<=Math.floor(hain/2),'yetenekli hain sınırı n='+n);
+      const surumlu=say(id=>id.endsWith('_h')||['temizlikci','suclayici'].includes(id));surumluSay+=surumlu;
+      assert.ok(surumlu<=Math.ceil(hain/2),'sürümlü hain sınırı n='+n);
+      if(hain>=2)assert.ok((c.hain||0)>=1,'2 hainde en az bir düz Hain n='+n);
       assert.ok(c.doktor===1,'doktor hep');assert.strictEqual(c.polis||0,n>=5?1:0,'polis 5+');
       const bilgi=say(id=>BILGI.includes(id));assert.ok(bilgi>=hain,'bilgi rolü ≥ hain n='+n+' '+JSON.stringify(c));
       assert.strictEqual(c.masum||0,n>=7?1:0,'masum n='+n+' '+JSON.stringify(c));
       kumeler.add(ids.sort().join(','));
     }
     if(n>=7)assert.ok(kumeler.size>1,'n='+n+' hep aynı küme');
+    if(n<=8){const oran=surumluSay/500;assert.ok(oran>=0.35&&oran<=0.65,'tek hain sürümlü oranı ≈ %50 n='+n+' '+oran)}
+    else assert.strictEqual(surumluSay,500,'2 hainde hep 1 sürümlü n='+n);
   }
+  // olasılık sabiti uçları
+  const eski=G.DAGILIM.tekHainSurumP;
+  try{
+    G.DAGILIM.tekHainSurumP=0;for(let i=0;i<100;i++){const c=G.autoSetup(6);assert.strictEqual(c.hain,1,'P=0 → hep düz Hain')}
+    G.DAGILIM.tekHainSurumP=1;for(let i=0;i<100;i++){const c=G.autoSetup(6);assert.strictEqual(c.hain||0,0,'P=1 → hep sürümlü')}
+  }finally{G.DAGILIM.tekHainSurumP=eski}
+  assert.strictEqual(G.DAGILIM.tekHainSurumP,0.5,'varsayılan 0,5');
 });
 
 test('polis bombacıyı tutamaz (seri katil gibi); 1\'e 1 kalınca bombacı patlatıp kazanır',()=>{

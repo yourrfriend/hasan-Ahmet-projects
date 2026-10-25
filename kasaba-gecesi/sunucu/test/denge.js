@@ -8,7 +8,8 @@
 const G=require('../game.js');
 const OYUN=+process.argv[2]||2000;
 // Eşik denemesi (kalibrasyon): DAGILIM_HAIN='n<=7?1:n<=11?2:3' gibi ifadelerle eşikleri geçici değiştir.
-for(const k of ['hain','saldirgan','pasif','deli']){const e=process.env['DAGILIM_'+k.toUpperCase()];if(e)G.DAGILIM[k]=new Function('n','return ('+e+')')}
+for(const k of ['hain','saldirgan','pasif','deli','masum']){const e=process.env['DAGILIM_'+k.toUpperCase()];if(e)G.DAGILIM[k]=new Function('n','return ('+e+')')}
+if(process.env.DAGILIM_TEKHAINSURUMP)G.DAGILIM.tekHainSurumP=+process.env.DAGILIM_TEKHAINSURUMP; // 0 / 0.5 / 1 (botlar hain yeteneği kullanmaz: tabloya etkisi yok)
 const ARALIK=(process.argv[3]||'4-12').split('-').map(Number);
 const pick=a=>a[Math.floor(Math.random()*a.length)];
 const SALDIRGAN=['serikatil','bombaci','hirsiz','buyucu'];

@@ -48,7 +48,7 @@ const has=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
 function roleLabel(r){const b=ROLES[r.key];return b.n+((r.team==='imp'&&b.team!=='imp')?' (Hain)':'')}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 // Rol dağılımı (tasarım docs/superpowers/specs/2026-10-24-kasaba-gecesi-sahne-design.md §5.1): eşikler oyuncu
-// sayısına göre; her özel rol en fazla bir kez; hain tarafında en az bir düz Hain, en çok floor(hain/2) yetenekli;
+// sayısına göre; her özel rol en fazla bir kez; 2 hainde 1 sürümlü + 1 düz Hain, tek hain DAGILIM.tekHainSurumP olasılıkla sürümlü;
 // Masum DAGILIM.masum(n) (4–6: 0, 7+: 1), kalan masumların hepsi yetenekli (havuz 8 rol); bilgi rolü sayısı ≥ hain.
 // Geri bildirim paketi: docs/superpowers/specs/2026-10-25-kasaba-gecesi-rol-dagilimi-geri-bildirim-design.md.
 // Eşikler test/denge.js ile ölçülür (README "Rol dağılımı").
@@ -58,13 +58,15 @@ const DAGILIM={
   saldirgan:n=>n>=12?2:n>=9?1:0,   // serikatil / bombaci / hirsiz / buyucu
   pasif:n=>n>=9?1:0,               // hayatta / hortlak
   deli:n=>n>=6?1:0,
-  masum:n=>n>=7?1:0                // yeteneksiz Masum: 4–6 kişide yok, 7+ kişide 1 (kullanıcı kararı 2026-10-25)
+  masum:n=>n>=7?1:0,               // yeteneksiz Masum: 4–6 kişide yok, 7+ kişide 1 (kullanıcı kararı 2026-10-25)
+  tekHainSurumP:0.5                // tek hainli oyunda hainin sürümlü (Polis-hain, Gözcü-hain…) olma olasılığı; 2 hainde hep 1 sürümlü + 1 düz
 };
 const BILGI_ROLLERI=['polis','gozcu','izci','dedektif','ispiyoncu'];
 function autoSetup(n){
   const c={};const add=id=>{c[id]=(c[id]||0)+1};
   const hain=DAGILIM.hain(n),sald=DAGILIM.saldirgan(n),pasif=DAGILIM.pasif(n),deli=DAGILIM.deli(n);
-  const yh=shuffle(['temizlikci','suclayici','polis_h','gozcu_h','dedektif_h','tuzakci_h','izci_h','ispiyoncu_h','provokator_h']).slice(0,Math.floor(hain/2));
+  const surumlu=hain===1?(Math.random()<DAGILIM.tekHainSurumP?1:0):Math.floor(hain/2);
+  const yh=shuffle(['temizlikci','suclayici','polis_h','gozcu_h','dedektif_h','tuzakci_h','izci_h','ispiyoncu_h','provokator_h']).slice(0,surumlu);
   yh.forEach(add);for(let i=yh.length;i<hain;i++)add('hain');
   shuffle(['serikatil','bombaci','hirsiz','buyucu']).slice(0,sald).forEach(add);
   shuffle(['hayatta','hortlak']).slice(0,pasif).forEach(add);

@@ -13,7 +13,7 @@
 
 | kişi | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 |
 |---|---|---|---|---|---|---|---|---|---|
-| hain (en çok yarısı yetenekli) | 1 | 1 | 1 | 1 | 1 | 2 | 2 | 2 | 2 |
+| hain (tek hain %50 sürümlü; 2 hainde 1 sürümlü + 1 düz) | 1 | 1 | 1 | 1 | 1 | 2 | 2 | 2 | 2 |
 | saldırgan tarafsız (Seri Katil/Bombacı/Hırsız/Büyücü) | 0 | 0 | 0 | 0 | 0 | 1 | 1 | 1 | 2 |
 | pasif tarafsız (Hayatta Kalan/Hortlak) | 0 | 0 | 0 | 0 | 0 | 1 | 1 | 1 | 1 |
 | Deli | 0 | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
