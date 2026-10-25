@@ -406,3 +406,20 @@ test('join{token}: geçerli/süresi dolmuş token kimliği sub\'dan verir; sahte
   const tok2=Kimlik.imzala({sub:SUB,exp:simdi+3600},GIZLI);
   const e=client('tk9','E',{host:true,token:tok2});await e.until(c=>c.P&&c.P.room);assert.strictEqual(e.me,pubIdOf('tk9'));assert.strictEqual(e.kayitli,false);await e.close();
 });
+
+test('kayıtlı oyuncunun adı/rengi değişince kayit.profil çağrılır; misafirde çağrılmaz',async()=>{
+  const GIZLI='p-gizli';const SUB='22222222-3333-4444-8555-666666666666';const cagri=[];
+  const sahte={kuyrukla(){},profil:(uye,v)=>cagri.push([uye,v]),kapat(){},sayac:{}};
+  const s2=createServer({quiet:true,tickMs:50,kayit:sahte,ayar:{url:'https://x',anonKey:'a',serviceKey:'s',jwtSecret:GIZLI,kurulum:'t'}});
+  await new Promise(r=>s2.server.listen(0,'127.0.0.1',r));const b2='127.0.0.1:'+s2.server.address().port;
+  try{
+    const tok=Kimlik.imzala({sub:SUB,exp:Math.floor(Date.now()/1000)+600},GIZLI);
+    const a=client('pr0','Ece',{host:true,token:tok,color:G.COLORS[1],hat:'bow'},b2);await a.until(c=>c.P&&c.P.room);
+    assert.deepStrictEqual(cagri[cagri.length-1],[SUB,{ad:'Ece',renk:G.COLORS[1],sapka:'bow'}],'join\'de profil yazılır');
+    a.send({t:'look',name:'Ece2'});await a.until(c=>c.P.lobby.some(p=>p.name==='Ece2'));
+    assert.deepStrictEqual(cagri[cagri.length-1],[SUB,{ad:'Ece2',renk:G.COLORS[1],sapka:'bow'}]);
+    const n=cagri.length;const g=client('pr1','Mis',{room:a.P.room},b2);await g.until(c=>c.me);g.send({t:'look',name:'Mis2'});await bekle(100);
+    assert.strictEqual(cagri.length,n,'misafir için profil yazılmaz');
+    await a.close();await g.close();
+  }finally{await new Promise(r=>s2.close(r))}
+});

@@ -41,7 +41,7 @@ function createServer(opts={}){
   // Supabase ayarı (env ya da opts.ayar): url/anonKey istemciye /ayar.json ile gider; serviceKey ve jwtSecret yalnız sunucuda
   const ayar=opts.ayar||{url:process.env.SUPABASE_URL||null,anonKey:process.env.SUPABASE_ANON_KEY||null,serviceKey:process.env.SUPABASE_SERVICE_KEY||null,jwtSecret:process.env.SUPABASE_JWT_SECRET||null,kurulum:process.env.KG_KURULUM||null};
   const ayarAcik=()=>({url:ayar.url||null,anonKey:ayar.anonKey||null,kurulum:ayar.kurulum||null,kayit:!!(ayar.url&&ayar.serviceKey)});
-  const kayit=opts.kayit||Kayit.olustur({}); // olay günlüğünün gittiği yer (testler bellekte biriktiren bir sahte verir)
+  const kayit=opts.kayit||Kayit.olustur({url:ayar.url,serviceKey:ayar.serviceKey,quiet:!!opts.quiet}); // olay günlüğünün gittiği yer (testler bellekte biriktiren bir sahte verir)
   // odanın biriken olaylarını kayıt yuvasına ver (R.log boşalır; R.gameLog oyunda kalır)
   function bosalt(room){const R=room.game;if(R.log.length)kayit.kuyrukla(room,R.log.splice(0))}
   // Bu Akşamın Skoru: biten maç bir kez işlenir (gameId); katılımcılar oynadı, P.winner.kazananlar kazandı. İptal işlenmez.
@@ -186,6 +186,7 @@ function createServer(opts={}){
     const n=cleanName(m.name);if(n){mem.name=n;const sk=room.skor.get(uid);if(sk)sk.ad=n} // skor tablosu son adı gösterir
     if(G.COLORS.includes(m.color))mem.color=m.color;
     if(G.HATS.includes(m.hat))mem.hat=m.hat;
+    if(mem.uye&&mem.name)kayit.profil(mem.uye,{ad:mem.name,renk:mem.color,sapka:mem.hat}); // kayıtlı oyuncu: profil (arka planda, oyunu beklemez)
   }
   function onMessage(ws,m){
     if(m.t==='join')return onJoin(ws,m);
