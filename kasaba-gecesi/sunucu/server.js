@@ -116,7 +116,7 @@ function createServer(opts={}){
     m.socks.delete(ws);
     if(!online(m)){
       const R=room.game,oy=G.inGame(R)&&(R.P.players||[]).find(p=>p.id===ws.uid);
-      if(oy)G.olay(R,'kopus',{kim:ws.uid,gun:R.P.day,faz:R.P.phase,olu:!oy.alive}); // ölçüm: oyundaki oyuncu koptu
+      if(oy)G.olay(R,'kopus',{kim:ws.uid,olu:!oy.alive}); // ölçüm: oyundaki oyuncu koptu (gün/faz zarfta)
       if(ws.uid===room.hostId)room.hostGoneSince=Date.now();
       if(!anyOnline(room))room.emptySince=Date.now();
     }
@@ -182,8 +182,8 @@ function createServer(opts={}){
         else send(ws,{t:'err',m:'Başlamak için 4–12 oyuncu gerekir.',code:'soft'});
         break}
       case 'cancel':if(isHost(ws)&&R.P.phase!=='lobby'){skorIsle(room);G.endToLobby(R);room.hazir.clear();flush(room)}break;
-      case 'hazir':if(R.P.phase==='end'&&room.members.has(uid)){const v=!!m.v;if(v!==room.hazir.has(uid)){if(v)room.hazir.add(uid);else room.hazir.delete(uid);G.olay(R,'hazir',{kim:uid,v})}schedule(room)}break;
-      case 'gordum':if(R.P.phase==='end'&&room.members.has(uid)&&!room.gorduler.has(uid)){room.gorduler.add(uid);G.olay(R,'son_ekran_goruldu',{kim:uid});schedule(room)}break; // ölçüm: son ekran görüldü (kişi başı bir kez)
+      case 'hazir':if(R.P.phase==='end'&&room.members.has(uid)){const v=!!m.v;if(v!==room.hazir.has(uid)){if(v)room.hazir.add(uid);else room.hazir.delete(uid);G.olay(R,'hazir',{kim:uid,v});schedule(room)}}break; // değişmediyse yayın yok
+      case 'gordum':if(R.P.phase==='end'&&room.members.has(uid)&&!room.gorduler.has(uid)){room.gorduler.add(uid);G.olay(R,'son_ekran_goruldu',{kim:uid});bosalt(room)}break; // ölçüm: son ekran görüldü (kişi başı bir kez; yayın gerekmez)
       case 'close':if(isHost(ws))deleteRoom(room,'Ev sahibi odayı kapattı.');break;
       case 'act':G.act(R,uid,m);break; // gece hamlesi gizli: kimseye yayın yok
       case 'vote':if(G.vote(R,uid,m.v,m.d,m.g))schedule(room);break;

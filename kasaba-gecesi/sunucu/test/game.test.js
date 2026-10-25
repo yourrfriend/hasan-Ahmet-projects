@@ -427,6 +427,10 @@ test('inceleme: Türkçe ad ekleri ünlü uyumuna ve kaynaştırmaya uyar; gazet
   assert.strictEqual(e('Deniz','i'),"Deniz'i");assert.strictEqual(e('Kaya','in'),"Kaya'nın");assert.strictEqual(e('Umut','i'),"Umut'u");
   assert.strictEqual(e('Gül','in'),"Gül'ün");assert.strictEqual(e('Oyuncu2','in'),"Oyuncu2'nin");assert.strictEqual(e('Oyuncu0','i'),"Oyuncu0'ı");
   assert.strictEqual(e('Oyuncu6','i'),"Oyuncu6'yı");assert.strictEqual(e('Xyz','i'),"Xyz'i");
+  // inceleme: büyük İ, çok haneli sayı sonu, sondaki emoji/noktalama
+  assert.strictEqual(e('ALİ','i'),"ALİ'yi");assert.strictEqual(e('VELİ','in'),"VELİ'nin");assert.strictEqual(e('AYŞE','in'),"AYŞE'nin");
+  assert.strictEqual(e('Oyuncu10','i'),"Oyuncu10'u");assert.strictEqual(e('Oyuncu20','i'),"Oyuncu20'yi");assert.strictEqual(e('Oyuncu100','in'),"Oyuncu100'ün");assert.strictEqual(e('Oyuncu40','i'),"Oyuncu40'ı");
+  assert.strictEqual(e('Ali😀','i'),"Ali😀'yi");assert.strictEqual(e('Can!','in'),"Can!'ın");
   const R=fixed(['hain','tuzakci','masum','masum','masum']);R.P.players.find(p=>p.id==='u0').name='Ece';R.P.players.find(p=>p.id==='u1').name='Kaya';R.P.players.find(p=>p.id==='u2').name='Can';
   G.act(R,'u0',{kill:'u2'});G.act(R,'u1',{ab:'u2'});G.advance(R);for(const p of G.alivePlayers(R))if(p.id!=='u0')G.pl(R,p.id).alive=false;G.advance(R);G.advance(R);
   assert.match(R.P.gazete.map(k=>k.metin).join(' | '),/Kaya'nın tuzağı Ece'yi Can'ın kapısında yakaladı/);

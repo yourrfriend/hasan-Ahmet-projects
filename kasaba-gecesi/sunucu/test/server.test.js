@@ -316,11 +316,14 @@ test('ölçüm olayları kayıt yuvasına gider, maç damgası taşır, içerik 
     hizliBitir(R());await Promise.all([host,cs[1],cs[2],geri].map(c=>c.until(c=>c.P.phase==='end')));
     host.send({t:'gordum'});host.send({t:'gordum'});cs[1].send({t:'hazir',v:true});await host.until(c=>c.P.hazir.length===1);
     for(const c of [cs[2],geri])c.send({t:'hazir',v:true});await host.until(c=>c.P.hazir.length===3);
+    await bekle(150);assert.ok(!R().gameLog.some(e=>['hazir','son_ekran_goruldu','kopus','dondu'].includes(e.tur)),'ölçüm olayları gameLog\'a girmez: '+R().gameLog.map(e=>e.tur).join(','));
+    const stBefore=host.states;host.send({t:'gordum'});cs[1].send({t:'hazir',v:true});await bekle(200);assert.strictEqual(host.states,stBefore,'tekrarlanan gordum/hazır yayın tetiklemez');
     host.send({t:'start',rovans:true});await Promise.all([host,cs[1],cs[2],geri].map(c=>c.until(c=>c.P.phase==='night'&&c.P.gameId!==g1)));
     await bekle(150);
     const tur=t=>alinan.filter(e=>e.tur===t);
     assert.ok(alinan.every(e=>'oyun' in e),'her olay oyun damgası taşır');
-    assert.deepStrictEqual(tur('kopus').map(e=>[e.veri.kim,e.veri.gun,e.veri.faz,e.veri.olu,e.oyun]),[[cs[3].me,1,'night',false,g1]]);
+    assert.deepStrictEqual(tur('kopus').map(e=>[e.veri.kim,e.gun,e.faz,e.veri.olu,e.oyun]),[[cs[3].me,1,'night',false,g1]]); // gün/faz zarfta
+
     assert.deepStrictEqual(tur('dondu').map(e=>[e.veri.kim,e.oyun]),[[geri.me,g1]]);
     assert.deepStrictEqual(tur('son_ekran_goruldu').map(e=>[e.veri.kim,e.oyun]),[[host.me,g1]],'gordum tekil');
     assert.deepStrictEqual(tur('hazir').map(e=>[e.veri.kim,e.veri.v,e.oyun]),[[cs[1].me,true,g1],[cs[2].me,true,g1],[geri.me,true,g1]]);

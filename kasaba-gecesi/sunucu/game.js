@@ -107,11 +107,11 @@ function sysChat(R,t){pushChat(R,{sys:true,t})}
 // R.log sunucuya giden kuyruktur (her yayında boşaltılır); R.gameLog bu oyunun tam günlüğüdür (özet ve "senin payın" buradan).
 function logEv(R,tur,veri){const e={sira:++R.logSeq,gun:R.P.day||0,faz:R.P.phase,tur,veri,oyun:R.P.gameId||null};R.log.push(e);R.gameLog.push(e)}
 // Ölçüm olayları (sunucu yazar: son_ekran_goruldu, hazir, rovans_basladi, kopus, dondu); içerik taşımaz, günlükle aynı yoldan kayda gider
-function olay(R,tur,veri){logEv(R,tur,veri)}
+function olay(R,tur,veri){R.log.push({sira:++R.logSeq,gun:R.P.day||0,faz:R.P.phase,tur,veri,oyun:R.P.gameId||null})} // gameLog'a girmez (özet/gazete onu tarar)
 
 // ---------- Oyun akışı ----------
 // lobby: [{id,name,color,hat}] (oda sırasıyla). En az 4, en çok 12 kişi.
-function startGame(R,lobby,ek){ // ek: {rovans:true, onceki:gameId} rövanşta
+function startGame(R,lobby,secenek){ // secenek: {rovans:true, onceki:gameId} rövanşta
   const players=lobby.slice();if(players.length<4||players.length>12)return false;
   const counts=autoSetup(players.length);
   const bag=[];for(const e of SETUP)for(let i=0;i<(counts[e.id]||0);i++)bag.push({key:e.key,team:e.team});shuffle(bag);
@@ -122,7 +122,7 @@ function startGame(R,lobby,ek){ // ek: {rovans:true, onceki:gameId} rövanşta
   R.P={phase:'night',day:1,ends:clock()+settings.night*1000+6000,chat:[],dead:[],voted:[],settings,gameId:clock(),morning:null,evening:null,provoked:null,
      players:players.map(p=>({id:p.id,name:p.name,alive:true,color:p.color,hat:p.hat})),
      roleList:bag.map(r=>({n:roleLabel(r),team:r.team})).sort((a,b)=>a.team.localeCompare(b.team))};
-  logEv(R,'baslangic',{ayarlar:settings,roller:R.P.roleList,oyuncular:players.map(p=>({id:p.id,ad:p.name,renk:p.color,sapka:p.hat})),...(ek&&ek.rovans?{rovans:true,onceki:ek.onceki}:{})});
+  logEv(R,'baslangic',{ayarlar:settings,roller:R.P.roleList,oyuncular:players.map(p=>({id:p.id,ad:p.name,renk:p.color,sapka:p.hat})),...(secenek&&secenek.rovans?{rovans:true,onceki:secenek.onceki}:{})});
   return true;
 }
 function setPhase(R,ph){
@@ -329,13 +329,18 @@ function payinFor(R,id){const nm=x=>nameOf(R,x);const o={oldurdu:[],kurtardi:[],
 // kayıt sırası) ile sıralanır; aynı özne iki kartta olmaz; bitiş kartı yalnız yer kalırsa.
 const GAZETE_EN_COK=3;
 // Ad + kesme + ek: ünlü uyumu (a,ı→ı · e,i→i · o,u→u · ö,ü→ü) ve kaynaştırma (ünlüyle bitene -yi / -nin).
-// tip 'i' = belirtme (-ı/-i/-u/-ü), 'in' = tamlayan (-ın/-in/-un/-ün). Sonu rakamsa rakamın okunuşuna göre.
+// tip 'i' = belirtme (-ı/-i/-u/-ü), 'in' = tamlayan (-ın/-in/-un/-ün). Sondaki emoji/noktalama atlanır; sonu sayıysa
+// sayının okunuşuna göre (7 yedi, 10 on, 20 yirmi, 100 yüz, 1000 bin).
 const RAKAM_SON={0:['ı',false],1:['i',false],2:['i',true],3:['ü',false],4:['ü',false],5:['i',false],6:['ı',true],7:['i',true],8:['i',false],9:['u',false]};
+const ONLAR_SON={1:['u',false],2:['i',true],3:['u',false],4:['ı',false],5:['i',true],6:['ı',false],7:['i',false],8:['i',false],9:['ı',false]};
+const UNLU=/[aeıioöuüâîû]/;
 function ek(ad,tip){
-  const a=String(ad);const son=a.slice(-1);let unlu='i',unluyleBiter=false;
-  if(/[0-9]/.test(son)){[unlu,unluyleBiter]=RAKAM_SON[+son]}
-  else{const m=a.toLowerCase().match(/[aeıioöuüâîû](?!.*[aeıioöuüâîû])/);const u=m?m[0]:'i';
-    unlu=/[aıâ]/.test(u)?'ı':/[eiî]/.test(u)?'i':/[ouû]/.test(u)?'u':'ü';unluyleBiter=/[aeıioöuüâîû]/i.test(son)}
+  const a=String(ad);const harfler=Array.from(a.toLocaleLowerCase('tr')).filter(c=>/[\p{L}\p{N}]/u.test(c));
+  let unlu='i',unluyleBiter=false;const son=harfler[harfler.length-1]||'';
+  if(/[0-9]/.test(son)){let n=0;while(n<harfler.length&&/[0-9]/.test(harfler[harfler.length-1-n]))n++;const sayi=harfler.slice(harfler.length-n).join('');
+    if(+son)[unlu,unluyleBiter]=RAKAM_SON[+son];else if(/[1-9]0$/.test(sayi))[unlu,unluyleBiter]=ONLAR_SON[+sayi.slice(-2,-1)];else if(/00$/.test(sayi)&&!/000$/.test(sayi))[unlu,unluyleBiter]=['ü',false];else if(/000$/.test(sayi))[unlu,unluyleBiter]=['i',false];else [unlu,unluyleBiter]=RAKAM_SON[0]}
+  else{const u=[...harfler].reverse().find(c=>UNLU.test(c))||'i';
+    unlu=/[aıâ]/.test(u)?'ı':/[eiî]/.test(u)?'i':/[ouû]/.test(u)?'u':'ü';unluyleBiter=UNLU.test(son)}
   const kaynastirma=unluyleBiter?(tip==='in'?'n':'y'):'';
   return a+"'"+kaynastirma+unlu+(tip==='in'?'n':'');
 }
