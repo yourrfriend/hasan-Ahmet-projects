@@ -25,7 +25,6 @@ Tasarım: `docs/superpowers/specs/2026-10-24-kasaba-gecesi-sahne-design.md`.
 - Ertelenen küçükler: spec §5.1'de eski eşik/formül cümleleri; n=9'da Tuzakçı/Provokatör hiç çıkmıyor; test temizliği (`OZEL`, somut Masum iddiaları); `DAGILIM` dondurulmamış; **gece ortasında yenilemede karakter evde görünür** (sunucu hamleyi geri yollamaz; `priv`'e kendi hamlesi eklenirse hedefte gösterilebilir — kullanıcı kararı).
 
 ## Kullanıcıdan bekleyenler
-- Cloudflare'de `/ws` için hız sınırı kuralı (ücretsiz planda 1 kural): sunucuya ulaşmadan oda/soket taşkınını keser (isteğe bağlı).
 - Cloudflare tünel token'ını yenilemesi (sohbete yapıştırılmıştı) → sonra sunucuda `cloudflared service install YENI`.
 - `alt-php-internal` (Imunify) güncelleme onayı (ionos).
 - Plan 6 için Google OAuth istemci kimliği.
@@ -35,5 +34,6 @@ Tasarım: `docs/superpowers/specs/2026-10-24-kasaba-gecesi-sahne-design.md`.
 - Oyunu başka asistanlara anlatan teknik olmayan tanıtım: `docs/kasaba-gecesi-tanitim.md`.
 
 ## Bilinen açık konular
+- Cloudflare hız sınırı kuralı var (2026-10-25): `kasaba*.munupixi.com/ws` IP başına 10 sn'de 20 istek, aşınca 10 sn engel; API ile yönetilir (altyapı notu hafızada).
 - `munupixi.com` kök adresi 522 (188.119.45.227, bilinmeyen sunucu); oyunla ilgisi yok.
 - Simülasyonda 2+ hainli oyunlarda masum kazanma yüzdesi anlamsız (basit oyuncu); ölçü ilk gece ölüm ve süre.
