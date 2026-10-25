@@ -32,7 +32,8 @@ Tasarım: `docs/superpowers/specs/2026-10-24-kasaba-gecesi-sahne-design.md`.
 ## Kullanıcıdan bekleyenler
 - Cloudflare tünel token'ını yenilemesi (sohbete yapıştırılmıştı) → sonra sunucuda `cloudflared service install YENI`.
 - `alt-php-internal` (Imunify) güncelleme onayı (ionos).
-- Plan 6 için SMTP hesabı (SendGrid/Brevo): SMTP kullanıcı/şifre (API anahtarı) + gönderici adresi (`oyun@munupixi.com` için SendGrid'de alan doğrulaması: Cloudflare'de 3 CNAME).
+- Plan 6 (karar): sağlayıcı **Resend** (gönderim anahtarı alındı, deneme maili gitti); tüm gönderim tek `sendTransactionalEmail()` (`eposta.js`); oyun olayı için e-posta yok, davetler link ile. Barış'tan bekleyen: Resend panelinde `munupixi.com` alanı (EU) + DNS kayıtlarının Cloudflare'e eklenmesi (ya da DNS yetkili CF token).
+- (eski) Plan 6 için SMTP hesabı: SMTP kullanıcı/şifre (API anahtarı) + gönderici adresi (`oyun@munupixi.com` için SendGrid'de alan doğrulaması: Cloudflare'de 3 CNAME).
 
 ## Diğer
 - Güvenlik taraması (2026-10-24, `main...sahne`): tek bulgu — `?s=` ile gizli anahtar yabancı sunucuya gidiyordu; `sahne@2c291c0`'da düzeltildi (`sunucuIzinli`). Canlı `sahne`'ye geçince kapandı. Diğer alanlar (P/priv sızıntısı, doğrulama, XSS, dosya sunumu, kur.sh) temiz.
