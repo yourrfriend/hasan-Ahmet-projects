@@ -9,7 +9,7 @@ const simdi=Math.floor(Date.now()/1000);
 
 test('doğru imza: sub, exp, süre bilgisi; anonim bayrağı',()=>{
   const t=yap({sub:SUB,exp:simdi+3600,role:'authenticated',is_anonymous:true},GIZLI);
-  assert.deepStrictEqual(K.dogrula(t,GIZLI),{sub:SUB,exp:simdi+3600,suresiDolmus:false,anonim:true});
+  assert.deepStrictEqual(K.dogrula(t,GIZLI),{sub:SUB,exp:simdi+3600,suresiDolmus:false,anonim:true,eposta:null});
   const t2=yap({sub:SUB,exp:simdi+3600,role:'authenticated'},GIZLI);assert.strictEqual(K.dogrula(t2,GIZLI).anonim,false);
 });
 test('süresi dolmuş ama imzası doğru: sub döner, suresiDolmus true',()=>{
@@ -37,7 +37,7 @@ const yapAsim=(payload,kid,alg,priv)=>{const h=b64({alg,typ:'JWT',kid}),p=b64(pa
   return data+'.'+sig.toString('base64url')};
 test('ES256 token JWKS ile doğrulanır; yanlış anahtar/kid/alg reddedilir; HS256 yine secret ile',()=>{
   const t=yapAsim({sub:SUB,exp:simdi+60,is_anonymous:true},'kid-ec','ES256',ec.privateKey);
-  assert.deepStrictEqual(K.dogrula(t,{jwks:JWKS}),{sub:SUB,exp:simdi+60,suresiDolmus:false,anonim:true});
+  assert.deepStrictEqual(K.dogrula(t,{jwks:JWKS}),{sub:SUB,exp:simdi+60,suresiDolmus:false,anonim:true,eposta:null});
   assert.strictEqual(K.dogrula(t,{secret:GIZLI}),null,'jwks yoksa ES256 doğrulanamaz');
   const baska=crypto.generateKeyPairSync('ec',{namedCurve:'P-256'});
   assert.strictEqual(K.dogrula(yapAsim({sub:SUB,exp:simdi+60},'kid-ec','ES256',baska.privateKey),{jwks:JWKS}),null,'başka anahtarla imza');

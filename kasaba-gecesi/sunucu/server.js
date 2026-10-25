@@ -9,6 +9,8 @@ const {WebSocketServer}=require('ws');
 const G=require('./game.js');
 const Kayit=require('./kayit.js');
 const Kimlik=require('./kimlik.js');
+const Hesap=require('./hesap.js');
+const Eposta=require('./eposta.js');
 
 const ROOM_TTL_MS=+process.env.ROOM_TTL_MS||2*60*60*1000;   // bu kadar süre mesaj gelmezse oda silinir
 const HOST_GRACE_MS=+process.env.HOST_GRACE_MS||10*60*1000; // ev sahibi bu kadar dönmezse yetki devredilir
@@ -39,7 +41,7 @@ function createServer(opts={}){
   const ipSoketler=new Map(),ipKurmalar=new Map(); // ip → açık soket sayısı; ip → son bir dakikadaki oda kurma zamanları
   const ipOdalar=ip=>[...rooms.values()].filter(r=>r.ip===ip).length;
   // Supabase ayarı (env ya da opts.ayar): url/anonKey istemciye /ayar.json ile gider; serviceKey ve jwtSecret yalnız sunucuda
-  const ayar=opts.ayar||{url:process.env.SUPABASE_URL||null,anonKey:process.env.SUPABASE_ANON_KEY||null,serviceKey:process.env.SUPABASE_SERVICE_KEY||null,jwtSecret:process.env.SUPABASE_JWT_SECRET||null,jwks:process.env.SUPABASE_JWT_JWKS||null,kurulum:process.env.KG_KURULUM||null};
+  const ayar=opts.ayar||{url:process.env.SUPABASE_URL||null,anonKey:process.env.SUPABASE_ANON_KEY||null,serviceKey:process.env.SUPABASE_SERVICE_KEY||null,jwtSecret:process.env.SUPABASE_JWT_SECRET||null,jwks:process.env.SUPABASE_JWT_JWKS||null,kurulum:process.env.KG_KURULUM||null,kancaSirri:process.env.EPOSTA_KANCA_SIRRI||null};
   // Token doğrulama anahtarları: HS256 için jwtSecret; ES256/RS256 için JWKS — env'den (JSON ya da base64) ya da Supabase'in açık
   // JWKS uç noktasından (açık anahtarlar; gizli değil). Çekim başarısızsa artan aralıkla yeniden denenir (sunucu Supabase'den önce
   // açılabilir); bilinmeyen kid gelince (anahtar dönmüş) en çok dakikada bir yeniden çekilir. Anahtar yokken herkes misafirdir.
@@ -58,7 +60,23 @@ function createServer(opts={}){
   // token'ın kid'i elimizdeki JWKS'te yoksa (anahtar döndü) yeniden çek; dakikada en çok bir kez
   function kidBilinmiyor(token){const p=String(token).split('.');if(p.length!==3)return false;let h;try{h=JSON.parse(Buffer.from(p[0],'base64url').toString('utf8'))}catch(e){return false}
     if(!h||!['ES256','RS256'].includes(h.alg)||!h.kid)return false;return !(dogrulama.jwks&&dogrulama.jwks.keys.some(k=>k.kid===h.kid))}
-  const ayarAcik=()=>({url:ayar.url||null,anonKey:ayar.anonKey||null,kurulum:ayar.kurulum||null,kayit:!!(ayar.url&&ayar.serviceKey)});
+  const ayarAcik=()=>({url:ayar.url||null,anonKey:ayar.anonKey||null,kurulum:ayar.kurulum||null,kayit:!!(ayar.url&&ayar.serviceKey),eposta:!!(ayar.url&&ayar.serviceKey&&ayar.kancaSirri)}); // eposta: bu kurulum GoTrue kancasının hedefi (sır var) → istemcide bağla/gir düğmeleri
+  // E-posta (Plan 6): GoTrue "Send Email" kancası → tek gönderim fonksiyonu. Sır yoksa uç kapalı (404). webhook-id ile 10 dk tekilleştirme (GoTrue yeniden dener).
+  const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata:0,atlanan:0};const kancaGorulen=new Map();
+  function govdeOku(req,sinir){return new Promise((res,rej)=>{let b='';let asim=false;req.on('data',d=>{if(asim)return;b+=d;if(b.length>sinir){asim=true;rej(Object.assign(new Error('büyük'),{kod:413}))}});req.on('end',()=>{if(!asim)res(b)});req.on('error',rej)})}
+  async function kancaUcu(req,res){
+    const json=(d,b)=>{res.writeHead(d,{'Content-Type':'application/json'});res.end(JSON.stringify(b))};
+    if(!ayar.kancaSirri){res.writeHead(404);return res.end('yok')}
+    let govde;try{govde=await govdeOku(req,64*1024)}catch(e){return json(e.kod===413?413:400,{error:{http_code:e.kod===413?413:400,message:'gövde'}})}
+    const d=Hesap.imzaDogrula({sirlar:ayar.kancaSirri,headers:req.headers,govde,simdiMs:Date.now()});
+    if(!d.ok){log('kanca reddedildi',d.neden);return json(401,{error:{http_code:401,message:'imza: '+d.neden}})}
+    const id=req.headers['webhook-id'];const simdi=Date.now();for(const [k,v] of kancaGorulen)if(simdi-v.zaman>600000)kancaGorulen.delete(k);
+    const onceki=kancaGorulen.get(id);if(onceki)return json(onceki.durum,onceki.govde);
+    let yuk;try{yuk=JSON.parse(govde)}catch(e){return json(400,{error:{http_code:400,message:'json'}})}
+    const r=await Hesap.kancaIsle({yuk,eposta,sayac:epostaSayac});kancaGorulen.set(id,{zaman:simdi,durum:r.durum,govde:r.govde});
+    const c=Hesap.kancaYukunuCoz(yuk);log('kanca',c.tur||'atlandi',c.alici?Hesap.maskele(c.alici):'-',r.durum);
+    return json(r.durum,r.govde);
+  }
   const kayit=opts.kayit||Kayit.olustur({url:ayar.url,serviceKey:ayar.serviceKey,kurulum:ayar.kurulum,quiet:!!opts.quiet}); // olay günlüğünün gittiği yer (testler bellekte biriktiren bir sahte verir)
   // odanın biriken olaylarını kayıt yuvasına ver (R.log boşalır; R.gameLog oyunda kalır)
   function bosalt(room){const R=room.game;if(R.log.length)kayit.kuyrukla(room,R.log.splice(0))}
@@ -80,6 +98,7 @@ function createServer(opts={}){
   }
   const server=http.createServer((req,res)=>{
     const url=(req.url||'/').split('?')[0],surumlu=/[?&]v=/.test(req.url||'');
+    if(req.method==='POST'&&url==='/eposta/kanca'){kancaUcu(req,res).catch(()=>{res.writeHead(500);res.end()});return}
     if(req.method!=='GET'&&req.method!=='HEAD'){res.writeHead(405);return res.end()}
     if(url==='/'||url==='/index.html'){
       fs.readFile(INDEX,(err,buf)=>{
@@ -109,7 +128,7 @@ function createServer(opts={}){
         res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-cache'});res.end(req.method==='HEAD'?undefined:buf.toString('utf8').split('__V__').join(SURUM_V));
       });return;
     }
-    if(url==='/saglik'){const k=kayit.sayac||{};res.writeHead(200,{'Content-Type':'application/json'});return res.end(JSON.stringify({ok:true,rooms:rooms.size,surum:process.env.KG_SURUM||null,kayit:{kuyruk:k.kuyruk||0,yazilan:k.yazilan||0,hata:k.hata||0,dusen:k.dusen||0}}))} // kayıt sayaçları: yalnız sayılar
+    if(url==='/saglik'){const k=kayit.sayac||{};res.writeHead(200,{'Content-Type':'application/json'});return res.end(JSON.stringify({ok:true,rooms:rooms.size,surum:process.env.KG_SURUM||null,kayit:{kuyruk:k.kuyruk||0,yazilan:k.yazilan||0,hata:k.hata||0,dusen:k.dusen||0},eposta:{...epostaSayac}}))} // kayıt ve e-posta sayaçları: yalnız sayılar
     res.writeHead(404,{'Content-Type':'text/plain; charset=utf-8'});res.end('Bulunamadı');
   });
 

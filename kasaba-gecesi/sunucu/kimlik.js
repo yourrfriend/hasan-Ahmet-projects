@@ -1,6 +1,6 @@
 'use strict';
 // Kimlik: Supabase (GoTrue) erişim token'ını yerelde doğrular — ağ çağrısı yok, bağımlılık yok.
-//   dogrula(token, {secret, jwks}) → {sub, exp, suresiDolmus, anonim} ya da null
+//   dogrula(token, {secret, jwks}) → {sub, exp, suresiDolmus, anonim, eposta} ya da null
 //   HS256: secret (JWT_SECRET) ile; ES256/RS256: jwks ({keys:[JWK]}) içinde header.kid ile eşleşen açık anahtarla
 //   (self-hosted Supabase v0.8+ token'ları ES256 ile imzalar ve /auth/v1/.well-known/jwks.json'da yayınlar).
 // null: biçim bozuk, alg desteklenmiyor, anahtar yok, imza yanlış, sub uuid değil.
@@ -36,7 +36,7 @@ function dogrula(token,ayar){
   const t=parcala(token);if(!t||!imzaDogru(t,ayar))return null;
   const sub=t.b.sub;if(typeof sub!=='string'||!UUID.test(sub))return null;
   const exp=Number(t.b.exp)||0;
-  return {sub:sub.toLowerCase(),exp,suresiDolmus:exp<=Math.floor(Date.now()/1000),anonim:t.b.is_anonymous===true};
+  return {sub:sub.toLowerCase(),exp,suresiDolmus:exp<=Math.floor(Date.now()/1000),anonim:t.b.is_anonymous===true,eposta:typeof t.b.email==='string'&&t.b.email?t.b.email:null};
 }
 // JWKS'i ayardan çöz: JSON metni ya da base64'ü (systemd env dosyasında tırnak sorunu olmasın diye)
 function jwksCoz(metin){if(!metin||typeof metin!=='string')return null;let s=metin.trim();try{if(!s.startsWith('{'))s=Buffer.from(s,'base64').toString('utf8');const j=JSON.parse(s);return j&&Array.isArray(j.keys)?j:null}catch(e){return null}}
