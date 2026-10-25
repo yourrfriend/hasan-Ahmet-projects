@@ -9,10 +9,9 @@ Türkçe yazış; arayüz metinleri Türkçe ve kısa.
 - Tasarım yazıları `docs/superpowers/specs/`, uygulama planları `docs/superpowers/plans/` (superpowers akışı: brainstorm → tasarım → denetleyici → plan → yerel yürütme → taze inceleme).
 
 ## Dallar
-- `main`: eski tek sayfalık sürüm (sunucu yok).
-- `sunucu`, `sahne`: eski canlı dallar; `gecmis` ikisini de kapsar.
-- `gecmis`: **canlı** (`kasaba.munupixi.com`, 2026-10-25, **kayıt açık**); `/yayinla` buradan kurar. İçinde: geçmiş/kimlik/Supabase (Plan 1–4), Paket 1a (gazete, rövanş, skor), Paket 1b (⚡ hızlı iddia, 📘 rehber), Plan 5 sayfalar (sürüyor). Sahne Plan 3 (evler) ve Plan 6 (e-posta bağlama) de bu dalda.
-Her iş kendi dalında; PR en sonda. Yeni özellik önce `kasaba-test.munupixi.com`'a (`/yayinla kasaba-test <dal>`), kullanıcı dener, sonra canlı.
+- `main`: **canlı** (`kasaba.munupixi.com`; 2026-10-25 gece `rol-dagilimi`'ye fast-forward edildi, `a5abd6d`); `/yayinla` buradan kurar (`CANLI_SURUM=main`). Eski tek sayfalık sürüm `v0-tek-sayfa` etiketinde.
+- `sunucu`, `sahne`, `gecmis`, `rol-dagilimi`: bitmiş, `main`'e alınmış dallar (silinebilir).
+Her iş `main`'den kendi dalında; sonunda PR `main`'e. Yeni özellik önce `kasaba-test.munupixi.com`'a (`/yayinla kasaba-test <dal>`), kullanıcı dener, sonra canlı.
 
 ## Komutlar
 - Kontrol: `.claude/skills/kasaba-gecesi/scripts/kontrol.sh [--e2e]` (e2e Playwright'ı npx önbelleğinden ve sistem Chrome'undan bulur).
