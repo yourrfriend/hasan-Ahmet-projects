@@ -18,20 +18,20 @@
 | pasif tarafsız (Hayatta Kalan/Hortlak) | 0 | 0 | 0 | 0 | 0 | 1 | 1 | 1 | 1 |
 | Deli | 0 | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
 
-Eşikler `npm run denge` ile ölçüldü (her kişi sayısı için 2000 oyun, basit stratejili oyuncular; gerçek oyuncuyu temsil etmez, dağılımları karşılaştırmak içindir). Her hain ayrı öldürdüğü için 2 hain ancak 9+ kişide; 6–8 kişide 2 hain oyunu ilk gece bitiriyordu. 2+ hainli satırlarda "masum %" basit oyuncuların haini bulamamasından düşüktür; o satırlarda anlamlı ölçü ilk gece ölüm ve süredir. Son ölçüm (beraberlik = herkes öldü; bitmeyen = 60 fazda sonuç yok — Polis her gece Bombacı'yı tutunca 2 kişilik kilit, kural boşluğu):
+Eşikler `npm run denge` ile ölçüldü (her kişi sayısı için 2000 oyun, basit stratejili oyuncular; gerçek oyuncuyu temsil etmez, dağılımları karşılaştırmak içindir). Her hain ayrı öldürdüğü için 2 hain ancak 9+ kişide; 6–8 kişide 2 hain oyunu ilk gece bitiriyordu. 2+ hainli satırlarda "masum %" basit oyuncuların haini bulamamasından düşüktür; o satırlarda anlamlı ölçü ilk gece ölüm ve süredir. Son ölçüm (2026-10-25, geri bildirim paketi sonrası — 4–6 kişide Masum yok, 7+'da 1; tek hain %50 sürümlü). Taban (paket öncesi, aynı gün): 4→%33, 5→%36, 6→%41, 7→%44, 8→%47 masum; Masum'un kalkması 5–6 kişide masum kazanmasını 1–3 puan artırdı (gürültü sınırında), ilk gece ölüm ve süre değişmedi. `DAGILIM_TEKHAINSURUMP=0` ve `=1` satırları aynı çıkar: botlar hain yeteneği kullanmaz, sürümlü hainin etkisi yalnız gerçek maçta görülür. `bitmeyen` 0: Polis–Bombacı kilidi kapandı:
 
 ```
 2000 oyun/n · strateji basit (rapor eşiği %45–55 masum; "!" bant dışı; beraberlik = herkes öldü; bitmeyen = 60 fazda sonuç yok, ör. Polis–Bombacı kilidi)
  n | masum | hain | taraf | berab | gün  | 1.gece | bitmeyen
- 4 |  28% |  72% |   0% |   0% |  1.4 |  0.73 |   0 !
- 5 |  35% |  65% |   0% |   0% |  2.2 |  0.66 |   0 !
- 6 |  41% |  59% |   0% |   0% |  2.7 |  0.70 |   0 !
- 7 |  44% |  56% |   0% |   0% |  3.3 |  0.72 |   0 !
- 8 |  48% |  52% |   0% |   0% |  3.8 |  0.74 |   0  
- 9 |   8% |  84% |   5% |   3% |  2.7 |  1.92 |   7 !
-10 |  10% |  80% |   6% |   3% |  3.3 |  1.91 |   3 !
-11 |  12% |  79% |   6% |   3% |  3.7 |  2.00 |   2 !
-12 |  14% |  69% |  12% |   5% |  3.9 |  2.56 |  10 !
+ 4 |  31% |  69% |   0% |   0% |  1.4 |  0.74 |   0 !
+ 5 |  37% |  63% |   0% |   0% |  2.2 |  0.63 |   0 !
+ 6 |  44% |  56% |   0% |   0% |  2.6 |  0.69 |   0 !
+ 7 |  45% |  55% |   0% |   0% |  3.2 |  0.73 |   0  
+ 8 |  48% |  52% |   0% |   0% |  3.7 |  0.74 |   0  
+ 9 |   7% |  84% |   6% |   4% |  2.7 |  1.92 |   0 !
+10 |  10% |  80% |   6% |   3% |  3.2 |  1.96 |   0 !
+11 |  13% |  78% |   6% |   3% |  3.8 |  1.99 |   0 !
+12 |  13% |  68% |  13% |   6% |  3.9 |  2.58 |   0 !
 ```
 
 **Kurallar:** her hain kendi başına öldürür, yardımcı hainler gece ya yeteneğini kullanır ya öldürür; hainler birbirini tanır ama yazışamaz ve gece birbirini göremez. Polis, Seri Katil'i ve Bombacı'yı tutamaz (ikiye düşünce oyun kilitlenmesin diye). Oylar gizlidir; sonunda yalnızca toplamlar açıklanır. Ölen oyuncular kendi aralarında yazışabilir.

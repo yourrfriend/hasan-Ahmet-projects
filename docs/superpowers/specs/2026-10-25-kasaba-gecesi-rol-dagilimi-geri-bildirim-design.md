@@ -124,6 +124,7 @@ Amaç: akşamlar arası tekrar. Kaynak `oyun_oyunculari` (bitmiş maçlar, `rol_
 - `npm run denge` önce (HEAD; taban 2026-10-25: 4→%33, 5→%36, 6→%41, 7→%44, 8→%47 masum; bitmeyen 0) ve sonra (Masum
   eşiği etkisi); README "Rol dağılımı" tablosu ve ölçüm bloğu güncellenir; `game.test.js` `bekle` tablosu (hain/saldırgan/pasif/deli değişmez) ve Masum/sürüm iddiaları.
 - SKILL.md "Rol dağılımı" satırı ve `docs/DURUM.md`.
+- **Sonuç (2026-10-25):** yeni ölçüm 4→%31, 5→%37, 6→%44, 7→%45, 8→%48 masum (taban 33/36/41/44/47); 9–12 değişmedi; ilk gece ölüm ve süre aynı; P=0/0,5/1 aynı (bot sınırı). Uygulama: dal `rol-dagilimi`, plan `docs/superpowers/plans/2026-10-25-rol-dagilimi-geri-bildirim.md`.
 - Yayın sırası: `kasaba-test` → kullanıcı birkaç maç dener (rövanşta rol tekrarına bakar) → `/yayinla`.
 
 ## 6. Yaklaşımlar (değerlendirilenler)
