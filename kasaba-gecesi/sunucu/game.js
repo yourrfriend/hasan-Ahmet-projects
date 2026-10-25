@@ -14,7 +14,7 @@ const ROLES={
   masum:{n:'Masum',team:'inn',ico:'🏠',desc:'Özel bir yeteneğin yok. Gündüz tartış, oylamayla hainleri bul.'},
   doktor:{n:'Doktor',team:'inn',ico:'💉',desc:'Gece birini seç. O gece saldırıya uğrarsa kurtulur.',act:'other',pos:'door'},
   deli:{n:'Deli',team:'inn',ico:'🌀',desc:'Masum bir rol olduğunu sanırsın ama yaptıkların hiçbir şey değiştirmez.'},
-  polis:{n:'Polis',team:'inn',ico:'👮',desc:'Seçtiğin kişi o gece evden çıkamaz; rolünü kullanamaz. Seri Katil\'i tutamazsın.',act:'other',dual:true,pos:'door'},
+  polis:{n:'Polis',team:'inn',ico:'👮',desc:'Seçtiğin kişi o gece evden çıkamaz; rolünü kullanamaz. Seri Katil\'i ve Bombacı\'yı tutamazsın.',act:'other',dual:true,pos:'door'},
   gozcu:{n:'Gözcü',team:'inn',ico:'🔭',desc:'Seçtiğin evi gözetlersin; o gece kaç kişinin geldiğini öğrenirsin.',act:'other',dual:true,pos:'bush'},
   izci:{n:'İzci',team:'inn',ico:'👣',desc:'Seçtiğin kişiyi izlersin; gece hangi eve gittiğini öğrenirsin.',act:'other',dual:true,pos:'bush'},
   dedektif:{n:'Dedektif',team:'inn',ico:'🔍',desc:'Seçtiğin kişinin evini ararsın; olabileceği rolleri öğrenirsin.',act:'other',dual:true,pos:'window'},
@@ -26,7 +26,7 @@ const ROLES={
   suclayici:{n:'Suçlayıcı',team:'imp',ico:'🫵',desc:'Gece ya öldürürsün ya suçlarsın: seçtiğin kişi o gece ölür ya da ertesi gün asılırsa rolü Hain görünür.',act:'other',pos:'door'},
   hayatta:{n:'Hayatta Kalan',team:'neu',ico:'🦺',desc:'Sona kadar yaşa. 3 kez yelek giyebilirsin; yelekliyken ölmezsin. Kazanan tarafla kazanırsın.',act:'self'},
   serikatil:{n:'Seri Katil',team:'neu',ico:'🔪',desc:'Her gece birinin evine girip onu öldürürsün. Polis seni tutamaz. Tek başına kalınca kazanırsın.',act:'other',pos:'enter'},
-  bombaci:{n:'Bombacı',team:'neu',ico:'🧨',desc:'Her gece bir eve dinamit koyarsın. İstediğin gece hepsini patlatırsın. Herkes ölünce kazanırsın.',act:'other',pos:'door'},
+  bombaci:{n:'Bombacı',team:'neu',ico:'🧨',desc:'Her gece bir eve dinamit koyarsın. İstediğin gece hepsini patlatırsın. Polis seni tutamaz. Herkes ölünce kazanırsın.',act:'other',pos:'door'},
   hirsiz:{n:'Hırsız',team:'neu',ico:'🎭',desc:'Seçtiğin kişinin evine girip onu öldürür ve rolünü çalarsın; artık o rolle o tarafta oynarsın.',act:'other',pos:'enter'},
   buyucu:{n:'Büyücü',team:'neu',ico:'⚡',desc:'Evinden çıkmadan birini seçip rolünü tahmin edersin. Doğruysa yıldırımla ölür, Doktor kurtaramaz. Yanlışsa sen ölürsün. Tek başına kazanırsın.',act:'other',guess:true,pos:'home'},
   hortlak:{n:'Hortlak',team:'neu',ico:'🕯️',desc:'Gece bir evin önüne mum koyarsın. Ertesi gün asılırsan o gece hayalet olarak gelir, mum koyduğun kişiyi öldürürsün. Asılınca kazanırsın.',act:'other',pos:'door'}
@@ -47,12 +47,38 @@ const has=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
 
 function roleLabel(r){const b=ROLES[r.key];return b.n+((r.team==='imp'&&b.team!=='imp')?' (Hain)':'')}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+// Rol dağılımı (tasarım docs/superpowers/specs/2026-10-24-kasaba-gecesi-sahne-design.md §5.1): eşikler oyuncu
+// sayısına göre; her özel rol en fazla bir kez; hain tarafında en az bir düz Hain, en çok floor(hain/2) yetenekli;
+// masumların yetenekli sayısı min(m, max(ceil(0,75·m), hain+1)); bilgi rolü sayısı ≥ hain; gerisi Masum.
+// Eşikler test/denge.js ile ölçülür (README "Rol dağılımı").
+// Eşikler denge.js ölçümüyle seçildi (2026-10-24): her hain ayrı öldürdüğü için 2 hain ancak 9+ kişide; 3 hain hiç yok.
+const DAGILIM={
+  hain:n=>n<=8?1:2,
+  saldirgan:n=>n>=12?2:n>=9?1:0,   // serikatil / bombaci / hirsiz / buyucu
+  pasif:n=>n>=9?1:0,               // hayatta / hortlak
+  deli:n=>n>=6?1:0
+};
+const BILGI_ROLLERI=['polis','gozcu','izci','dedektif','ispiyoncu'];
 function autoSetup(n){
   const c={};const add=id=>{c[id]=(c[id]||0)+1};
-  const imp=n<=5?1:n<=8?2:3;add('hain');if(imp>=2)add(shuffle(['temizlikci','suclayici','polis_h','gozcu_h','dedektif_h','tuzakci_h','izci_h'])[0]);if(imp>=3)add(shuffle(['hain','ispiyoncu_h','provokator_h','temizlikci'])[0]);
-  let used=imp;if(n>=7){add(shuffle(['serikatil','serikatil','bombaci','hirsiz','buyucu','hortlak'])[0]);used++}if(n>=10){add('hayatta');used++}
-  const inn=['doktor','polis',...shuffle(['gozcu','dedektif','tuzakci','deli','ispiyoncu','provokator','izci'])];
-  for(let i=0;used<n;i++,used++)add(inn[i]||'masum');
+  const hain=DAGILIM.hain(n),sald=DAGILIM.saldirgan(n),pasif=DAGILIM.pasif(n),deli=DAGILIM.deli(n);
+  const yh=shuffle(['temizlikci','suclayici','polis_h','gozcu_h','dedektif_h','tuzakci_h','izci_h','ispiyoncu_h','provokator_h']).slice(0,Math.floor(hain/2));
+  yh.forEach(add);for(let i=yh.length;i<hain;i++)add('hain');
+  shuffle(['serikatil','bombaci','hirsiz','buyucu']).slice(0,sald).forEach(add);
+  shuffle(['hayatta','hortlak']).slice(0,pasif).forEach(add);
+  if(deli)add('deli');
+  const m=n-hain-sald-pasif-deli;
+  const yetenekli=Math.min(m,Math.max(Math.ceil(0.75*m),hain+1),8);
+  const secilen=['doktor'];if(n>=5&&secilen.length<yetenekli)secilen.push('polis');
+  let bilgi=secilen.filter(k=>BILGI_ROLLERI.includes(k)).length;
+  const havuzB=shuffle(['gozcu','izci','dedektif','ispiyoncu']),havuzD=shuffle(['tuzakci','provokator']);
+  while(secilen.length<yetenekli&&(havuzB.length||havuzD.length)){
+    let k;
+    if(bilgi<hain&&havuzB.length)k=havuzB.shift();            // önce bilgi rolleri, hain sayısına ulaşana kadar
+    else{k=shuffle([...havuzB,...havuzD])[0];const ix=havuzB.indexOf(k);if(ix>=0)havuzB.splice(ix,1);else havuzD.splice(havuzD.indexOf(k),1)}
+    secilen.push(k);if(BILGI_ROLLERI.includes(k))bilgi++;
+  }
+  secilen.forEach(add);for(let i=secilen.length;i<m;i++)add('masum');
   return c;
 }
 function cleanSettings(s){
@@ -169,7 +195,7 @@ function resolveNight(R){
     if(heldCop.has(c)){blocked.add(c);L.tutulan.add(c);nt(c,'Polis seni evde tuttu, kimseyi tutamadın.');continue}
     visits[t].push(c);went[c]=t;
     if(trappedAt(c,t)){blocked.add(c);L.tuzak.push({kim:c,ev:t,kuran:traps[t]});nt(c,'Tuzağa yakalandın, kimseyi tutamadın.');nt(traps[t],nm(c)+' tuzağına yakalandı.')}
-    else if(eff(t)==='serikatil'){nt(c,nm(t)+' evde durmadı; onu tutamadın.')}
+    else if(eff(t)==='serikatil'||eff(t)==='bombaci'){nt(c,nm(t)+' evde durmadı; onu tutamadın.')} // ikisi de tutulamaz (Polis–Bombacı kilidi olmasın)
     else{blocked.add(t);L.tutulan.add(t);L.tutanlar.push({kim:c,hedef:t});nt(c,nm(t)+' bu gece evden çıkamadı.');if(!heldCop.has(t)&&!heldTrapper.has(t))nt(t,'Polis seni evde tuttu, rolünü kullanamadın.')}}
   // 3) ziyaretler ve tuzak yakalamaları (büyücü evinden çıkmaz; polis ve tuzakçının yetenek hedefi yukarıda, öldürme hedefi burada)
   for(const id of al){const k=eff(id);const r=g.roles[id];const targets=new Set();
@@ -323,10 +349,10 @@ function privFor(R,id){
     mates:r.team==='imp'?Object.keys(g.roles).filter(x=>g.roles[x].team==='imp'&&x!==id):[],
     notes:g.notes[id]||[],dchat:me&&!me.alive?g.dchat:[],
     fakeProvoked:r.fakeProvoked&&r.fakeProvoked.day===P.day&&P.phase==='vote'?r.fakeProvoked.t:null,
-    uses:r.uses,vest:r.vest,planted:r.planted.length,candle:g.candle[id]||null,payin:P.phase==='end'?payinFor(R,id):null};
+    uses:r.uses,vest:r.vest,planted:r.planted.slice(),candle:g.candle[id]||null,payin:P.phase==='end'?payinFor(R,id):null};
 }
 
-return{ROLES,SETUP,COLORS,HATS,DEFAULT_SETTINGS,roleLabel,autoSetup,cleanSettings,setClock,
+return{ROLES,SETUP,COLORS,HATS,DEFAULT_SETTINGS,DAGILIM,roleLabel,autoSetup,cleanSettings,setClock,
   lobbyState,createGame,startGame,setPhase,advance,tick,resolveNight,resolveVote,checkWin,endToLobby,
   act,vote,chat,deadChat,privFor,pl,alivePlayers,inGame};
 });

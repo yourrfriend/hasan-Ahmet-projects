@@ -9,7 +9,32 @@
 
 **Roller (19):** Masum, Doktor, Deli, Polis, Gözcü, İzci, Dedektif, Tuzakçı, İspiyoncu, Provokatör · Hain, Temizlikçi, Suçlayıcı (+ masum rollerin hain sürümleri) · Hayatta Kalan, Seri Katil, Bombacı, Hırsız, Büyücü, Hortlak.
 
-**Kurallar:** her hain kendi başına öldürür, yardımcı hainler gece ya yeteneğini kullanır ya öldürür; hainler birbirini tanır ama yazışamaz ve gece birbirini göremez. Oylar gizlidir; sonunda yalnızca toplamlar açıklanır. Ölen oyuncular kendi aralarında yazışabilir.
+**Rol dağılımı** (`sunucu/game.js` `autoSetup`, tasarım `docs/superpowers/specs/2026-10-24-kasaba-gecesi-sahne-design.md` §5.1): her özel rol bir oyunda en fazla bir kez çıkar; Doktor hep, Polis 5+ kişide; bilgi rolü sayısı (Polis, Gözcü, İzci, Dedektif, İspiyoncu) hain sayısından az olmaz; masumların dörtte üçü yetenekli, gerisi Masum.
+
+| kişi | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 |
+|---|---|---|---|---|---|---|---|---|---|
+| hain (en çok yarısı yetenekli) | 1 | 1 | 1 | 1 | 1 | 2 | 2 | 2 | 2 |
+| saldırgan tarafsız (Seri Katil/Bombacı/Hırsız/Büyücü) | 0 | 0 | 0 | 0 | 0 | 1 | 1 | 1 | 2 |
+| pasif tarafsız (Hayatta Kalan/Hortlak) | 0 | 0 | 0 | 0 | 0 | 1 | 1 | 1 | 1 |
+| Deli | 0 | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
+
+Eşikler `npm run denge` ile ölçüldü (her kişi sayısı için 2000 oyun, basit stratejili oyuncular; gerçek oyuncuyu temsil etmez, dağılımları karşılaştırmak içindir). Her hain ayrı öldürdüğü için 2 hain ancak 9+ kişide; 6–8 kişide 2 hain oyunu ilk gece bitiriyordu. 2+ hainli satırlarda "masum %" basit oyuncuların haini bulamamasından düşüktür; o satırlarda anlamlı ölçü ilk gece ölüm ve süredir. Son ölçüm (beraberlik = herkes öldü; bitmeyen = 60 fazda sonuç yok — Polis her gece Bombacı'yı tutunca 2 kişilik kilit, kural boşluğu):
+
+```
+2000 oyun/n · strateji basit (rapor eşiği %45–55 masum; "!" bant dışı; beraberlik = herkes öldü; bitmeyen = 60 fazda sonuç yok, ör. Polis–Bombacı kilidi)
+ n | masum | hain | taraf | berab | gün  | 1.gece | bitmeyen
+ 4 |  28% |  72% |   0% |   0% |  1.4 |  0.73 |   0 !
+ 5 |  35% |  65% |   0% |   0% |  2.2 |  0.66 |   0 !
+ 6 |  41% |  59% |   0% |   0% |  2.7 |  0.70 |   0 !
+ 7 |  44% |  56% |   0% |   0% |  3.3 |  0.72 |   0 !
+ 8 |  48% |  52% |   0% |   0% |  3.8 |  0.74 |   0  
+ 9 |   8% |  84% |   5% |   3% |  2.7 |  1.92 |   7 !
+10 |  10% |  80% |   6% |   3% |  3.3 |  1.91 |   3 !
+11 |  12% |  79% |   6% |   3% |  3.7 |  2.00 |   2 !
+12 |  14% |  69% |  12% |   5% |  3.9 |  2.56 |  10 !
+```
+
+**Kurallar:** her hain kendi başına öldürür, yardımcı hainler gece ya yeteneğini kullanır ya öldürür; hainler birbirini tanır ama yazışamaz ve gece birbirini göremez. Polis, Seri Katil'i ve Bombacı'yı tutamaz (ikiye düşünce oyun kilitlenmesin diye). Oylar gizlidir; sonunda yalnızca toplamlar açıklanır. Ölen oyuncular kendi aralarında yazışabilir.
 
 ### Sunucu kurulumu
 
@@ -46,7 +71,7 @@ sudo ./kur.sh kasaba-v1 kasaba-v1.munupixi.com --surum v1              # eski s�
 - Claude Code ile: depoyu kendi bilgisayarına klonla, `.claude/yayin.env.ornek` dosyasını `.claude/yayin.env` olarak kopyalayıp VPS'in SSH adresini yaz, depo klasöründe `claude` çalıştır ve `/yayinla` (yayındaki sürüm), `/yayinla kasaba-test sunucu`, `/yayinla --liste` ya da `/yayinla --kaldir kasaba-test` yaz. Claude önce testleri çalıştırır, komutu gösterip onay ister, sunucuda `kur.sh`'yi çalıştırır ve adresi `/saglik` ile doğrular. VPS'e SSH anahtarıyla bağlanabilmen ve kullanıcının `root` ya da parolasız `sudo` yetkili olması gerekir.
 - Eski tek oyunluk kurulum (`kasaba-gecesi` servisi) varsa ilk yeni kurulumda durdurulur; eski Caddyfile `Caddyfile.eski` olarak saklanır.
 - Odalar bellekte tutulur; servis yeniden başlarsa açık odalar kapanır. 2 saat kullanılmayan oda kendiliğinden silinir.
-- Sayfayı GitHub Pages gibi başka bir yerden açacaksan sunucu adresini `index.html` içindeki `KG_SERVER` sabitine yaz ya da linke `?s=wss://oyun.ornek.com` ekle.
+- Sayfayı GitHub Pages gibi başka bir yerden açacaksan sunucu adresini `index.html` içindeki `KG_SERVER` sabitine yaz. Linkteki `?s=` yalnız yerel geliştirmede (localhost) ya da sayfanın kendi sunucusu için kabul edilir: oyuncunun gizli anahtarı linke yazılan yabancı bir sunucuya gitmesin.
 
 ### Geçmiş ve kullanıcı kaydı: Supabase (kendi sunucunda)
 

@@ -31,10 +31,11 @@ Oda ve oyun mantığı Node sunucusunda yaşar; ev sahibi dahil herkes WebSocket
 - Sunucu → istemci: `you{id}` (açık kimlik, join yanıtı), `state{P,now}`, `chat{a,init?}`, `priv{d}`, `err{m,code}`.
 - Oyuncu kimliği `kg_uid` (localStorage, gizli). Yeniden bağlanan aynı anahtarla aynı oyuncu olur. Ev sahibi = `room.hostId`; 10 dk bağlı değilse bağlı bir oyuncuya geçer (`HOST_GRACE_MS`). Odalar 2 saat mesajsız kalınca silinir (`ROOM_TTL_MS`). Lobideki ya da izleyen üye kopunca `room.members`'tan silinir; oyundaki oyuncu dönebilsin diye kalır.
 - Olay günlüğü: `game.js` her çözümde `logEv(R,tur,veri)` ile olay yazar (`baslangic`, `gece_hamle`, `gece_sonuc`, `gunduz_sonuc`, `bitis`, `iptal`; alanlar tasarım §5.4). `R.log` sunucuya giden kuyruk (her yayında boşalır), `R.gameLog` bu oyunun tam günlüğü. İkisi de gizlidir (`SECRET_KEYS`). Oyun bitince `checkWin` günlükten `P.ozet` (herkese açık: kazanan, oyuncu rol/akıbet) üretir, `privFor` `payin` (öldürdün/kurtardın/yakaladın/tuttun) ekler; istemci `renderEndUI` bunları ve "Tekrar oyna"yı (`cancel`) gösterir.
+- Rol dağılımı: `autoSetup(n)` + `DAGILIM` eşikleri (`game.js`); her özel rol en fazla bir kez; eşikler `npm run denge` (test/denge.js, test değil) ile ölçülür, tablo README'de. Eşik değiştirirken `game.test.js`'teki `bekle` tablosunu ve README'yi güncelle. Kural: her hain ayrı öldürür (kullanıcı kararı; "ekip tek kurban" reddedildi).
 - Faz akışı: `night → talk → vote → night…`, `checkWin` olursa `end`. Süreler `P.settings` (en az 15 sn); sabah/akşam animasyonu için `talk` +7 sn, `night` +6 sn eklenir. Herkes oy verince oylama beklemeden biter.
 - Bağlantı durumu: `state.P.online` bağlı üyelerin açık kimlikleri (sunucu ekler, `game.js` bilmez); istemci kopuk oyuncunun karakterine "📡 KOPUK" etiketi koyar. Gece süresi dolduğunda kopuk yaşayan oyuncu varsa `tick(R, offline)` bir kez en çok 30 sn bekler (`P.waiting`, `P.waited`); hamlesi olup olmadığına bakılmaz (bakılsa rolü ele verirdi). Testlerde geceyi hemen bitirmek için `P.waited=true` ver.
 - Dokunma: gece karartma katmanı ve ambiyans `pointer-events:none`; ev halkası `ringPos` ile görünür alana sığdırılır (kısa ekranda basılır). Oylamada karakter de hedeftir; karakter bir evin önündeyse dokunma eve gider (`houseAt`).
-- İstemcide `isHost = P.hostId === myId`. Sunucu adresi: `?s=` parametresi, sonra `KG_SERVER` sabiti, yoksa sayfanın kendi origin'i + `/ws`.
+- İstemcide `isHost = P.hostId === myId`. Sunucu adresi: `?s=` parametresi (**yalnız** localhost'ta ya da sayfanın kendi host'u için — `sunucuIzinli`; gizli anahtar yabancı adrese gitmesin), sonra `KG_SERVER` sabiti, yoksa sayfanın kendi origin'i + `/ws`.
 
 ## Dokunulmaz kurallar
 
@@ -84,6 +85,7 @@ Playwright betiğinde süreleri beklemek yerine sunucuyu aynı süreçte `create
 
 ## Bilinen tuzaklar
 
+- Gece hamlesi: `pickHouse` → `yuruyusBaslat(hedef, uygula, kind)` yürüyüş süresini (`anim.walkMs`, 190 birim/sn) **render'dan önce** hesaplar; `moveBean(...,ms)` yalnız o hareketi mesafeye göre yapar. Gece boyunca render'ın `eseq` (akşam dizisi) dalı çalışır, `night` dalı değil — konum değişikliği oraya da işlenmeli. Rol hareketleri `S_.aksiyon` katmanında (render **silmez**; `rolHareketi` kendisi siler), izler `S_.fx`'te (her render yeniden çizilir, `izCiz`). Etiketler (SEN/HAİN/KOPUK) karakter grubunun içinde (`b._tag`, `b._tag2`), `scene.labels`'da değil.
 - İlk gece rol kartı (`ui.roleCard`) açıkken evler tıklanmaz; testte önce "Anladım"a bas. Eylem düğmeleri gece başladıktan ~2,5 sn sonra açılır.
 - Evler SVG; tıklama `scene.houses[id].g.onclick` ile bağlı.
 - Playwright global olmayabilir: `kontrol.sh --e2e` sırayla `npm root -g` ve npx önbelleğine (`~/.npm/_npx/*/node_modules`) bakar, Playwright'ın Chromium'u yoksa sistemdeki Chrome'u `PW_CHROMIUM` ile verir. `test/e2e.js`'yi elle çalıştırırken `NODE_PATH` (ve gerekirse `PW_CHROMIUM`) ver. `playwright install` çalıştırma.

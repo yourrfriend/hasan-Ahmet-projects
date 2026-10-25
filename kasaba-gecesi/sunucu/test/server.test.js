@@ -141,13 +141,13 @@ test('lobiden kopan üye silinir; 13 kişiyle oyun başlamaz; ev sahibi odayı k
 });
 
 test('aynı soket üst üste oda kurunca boş odalar birikmez; boş oda süresi dolunca kapanır',async()=>{
-  const before=srv.rooms.size;
   const c=client('r0','A',{host:true});await c.until(c=>c.P&&c.P.room);
-  let prev=c.P.room;
-  for(let i=0;i<5;i++){c.send({t:'join',uid:'r0',name:'A',host:true});await c.until(x=>x.P.room!==prev);prev=c.P.room}
-  assert.strictEqual(srv.rooms.size,before+1,'terk edilen boş lobi odaları hemen silinmeli');
+  let prev=c.P.room;const eski=[];
+  for(let i=0;i<5;i++){eski.push(prev);c.send({t:'join',uid:'r0',name:'A',host:true});await c.until(x=>x.P.room!==prev);prev=c.P.room}
+  // başka testlerin odaları bu sırada kapanabilir: toplam sayı yerine terk edilen kodlara bak
+  assert.ok(eski.every(k=>!srv.rooms.has(k)),'terk edilen boş lobi odaları hemen silinmeli');assert.ok(srv.rooms.has(prev));
   await c.close();
-  await new Promise(r=>setTimeout(r,700));
+  const t0=Date.now();while(srv.rooms.has(prev)&&Date.now()-t0<2000)await new Promise(r=>setTimeout(r,50));
   assert.ok(!srv.rooms.has(prev),'kimsenin kalmadığı oda EMPTY_ROOM_MS sonra kapanmalı');
 });
 

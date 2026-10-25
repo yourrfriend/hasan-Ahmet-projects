@@ -278,3 +278,50 @@ test('inceleme: çoklu saldırıda kurtaranlar/yelek tekrarlanmaz; tutulan tekil
   G.act(R,'u0',{ab:'u1'});G.act(R,'u1',{ab:'u2'});G.advance(R);
   gs=R.log.find(e=>e.tur==='gece_sonuc');assert.deepStrictEqual(gs.veri.tutulan,['u1']);
 });
+
+const BILGI=['polis','gozcu','izci','dedektif','ispiyoncu'];
+const OZEL=Object.keys(G.ROLES).filter(k=>!['masum','hain'].includes(k));
+test('rol dağılımı: eşikler, tekrarsız özel roller, bilgi rolü ≥ hain, %75 yetenekli',()=>{
+  const bekle={4:[1,0,0,0],5:[1,0,0,0],6:[1,0,0,1],7:[1,0,0,1],8:[1,0,0,1],9:[2,1,1,1],10:[2,1,1,1],11:[2,1,1,1],12:[2,2,1,1]}; // hain, saldırgan, pasif, deli
+  for(let n=4;n<=12;n++){
+    const kumeler=new Set();
+    for(let i=0;i<500;i++){
+      const c=G.autoSetup(n);const ids=Object.keys(c);
+      assert.strictEqual(Object.values(c).reduce((a,b)=>a+b,0),n,'toplam '+n);
+      const say=(f)=>ids.filter(f).reduce((a,id)=>a+c[id],0);
+      const hain=say(id=>G.SETUP.find(s=>s.id===id).team==='imp');
+      const sald=say(id=>['serikatil','bombaci','hirsiz','buyucu'].includes(id));
+      const pasif=say(id=>['hayatta','hortlak'].includes(id));
+      assert.deepStrictEqual([hain,sald,pasif,c.deli||0],bekle[n],'n='+n+' '+JSON.stringify(c));
+      for(const id of ids)if(id!=='masum'&&id!=='hain')assert.strictEqual(c[id],1,'özel rol tekrar: '+id+' n='+n);
+      assert.ok((c.hain||0)>=1,'düz hain şart');
+      assert.ok(say(id=>id.endsWith('_h')||['temizlikci','suclayici'].includes(id))<=Math.floor(hain/2),'yetenekli hain sınırı n='+n);
+      assert.ok(c.doktor===1,'doktor hep');assert.strictEqual(c.polis||0,n>=5?1:0,'polis 5+');
+      const bilgi=say(id=>BILGI.includes(id));assert.ok(bilgi>=hain,'bilgi rolü ≥ hain n='+n+' '+JSON.stringify(c));
+      const m=n-hain-sald-pasif-(c.deli||0);const yetenekli=m-(c.masum||0);
+      assert.strictEqual(yetenekli,Math.min(m,Math.max(Math.ceil(0.75*m),hain+1),8),'yetenekli masum sayısı n='+n);
+      kumeler.add(ids.sort().join(','));
+    }
+    if(n>=7)assert.ok(kumeler.size>1,'n='+n+' hep aynı küme');
+  }
+});
+
+test('polis bombacıyı tutamaz (seri katil gibi); 1\'e 1 kalınca bombacı patlatıp kazanır',()=>{
+  // u0 polis u1 bombacıyı tutmaya gider; bombacı yine dinamit koyar
+  let R=fixed(['polis','bombaci','hain','masum','masum']);
+  G.act(R,'u0',{ab:'u1'});G.act(R,'u1',{ab:'u3'});G.advance(R);
+  assert.match(notesOf(R,'u0'),/evde durmadı; onu tutamadın/);assert.strictEqual(R.g.roles.u1.planted.length,1);
+  assert.ok(!/Polis seni evde tuttu/.test(notesOf(R,'u1')));
+  // polis + bombacı: bombacı önceki geceden dinamit koymuş olsun, patlatınca polis ölür → oyun biter (kilit yok)
+  R=fixed(['polis','bombaci','masum','masum']);G.pl(R,'u2').alive=false;G.pl(R,'u3').alive=false;R.g.roles.u1.planted=['u0'];
+  G.act(R,'u0',{ab:'u1'});G.act(R,'u1',{det:true});G.advance(R);
+  assert.strictEqual(R.P.phase,'end');assert.strictEqual(R.P.winner.who,'u1');
+});
+
+test('privFor.planted dinamit konan evlerin listesidir',()=>{
+  const R=fixed(['bombaci','hain','masum','masum','masum']);
+  G.act(R,'u0',{ab:'u2'});G.advance(R);G.advance(R);G.advance(R); // gece 1 → gündüz → oylama → gece 2
+  G.act(R,'u0',{ab:'u3'});G.advance(R);
+  assert.deepStrictEqual(G.privFor(R,'u0').planted,['u2','u3']);
+  assert.deepStrictEqual(G.privFor(R,'u1').planted,[]);
+});

@@ -29,11 +29,25 @@ const step=t=>console.log('•',t);
     await host.waitForSelector('.lobbybar code');
     const link=await host.textContent('.lobbybar code');assert.match(link,/\?oda=[a-z0-9]{6}$/);
 
+    step('?s= yabancı sunucuyu yalnız yerelde seçer (gizli anahtar linkteki adrese gitmez)');
+    const izin=await host.evaluate(()=>{const canli={hostname:'kasaba.ornek.com',host:'kasaba.ornek.com',protocol:'https:'};return[
+      sunucuIzinli('evil.example',canli),sunucuIzinli('wss://evil.example/ws',canli),sunucuIzinli('https://kasaba.ornek.com',canli),
+      sunucuIzinli('evil.example',{hostname:'localhost',host:'localhost:8787',protocol:'http:'}),sunucuIzinli('',canli),sunucuIzinli('evil.example',location)]});
+    assert.deepStrictEqual(izin,[false,false,true,true,false,true]);
+    assert.ok(/^u[0-9a-z]{16,}$/.test(await host.evaluate(()=>uid)),'kimlik anahtarı uzun ve rastgele olmalı');
+
     step('3 oyuncu davet linkiyle katılır');
     const ctxs={},pages={};
     for(const n of ['Ali','Ayse','Can']){ctxs[n]=await newCtx();pages[n]=await open(ctxs[n],n,link);await pages[n].fill('#nameInput',n);await pages[n].click('text=Lobiye gir')}
     await host.waitForFunction(()=>/4 \/ 12/.test(document.querySelector('.count').textContent));
     assert.strictEqual(await pages.Ali.$('.start'),null,'ev sahibi olmayanda başlat düğmesi olmamalı');
+
+    step('telefon klavyesi: süre kutusu odaktayken pencere küçülünce odak ve değer kalır');
+    await host.click('.gear');await host.fill('#sure_night','45');await host.focus('#sure_night');
+    await host.setViewportSize({width:900,height:300});await host.waitForTimeout(400);
+    assert.deepStrictEqual(await host.evaluate(()=>({id:document.activeElement.id,v:document.activeElement.value})),{id:'sure_night',v:'45'});
+    await host.setViewportSize({width:900,height:520});await host.evaluate(()=>document.activeElement.blur());await host.waitForTimeout(300);
+    await host.click('.gear');
 
     step('oyun başlar, herkes rolünü görür');
     await host.click('.start');
@@ -49,24 +63,64 @@ const step=t=>console.log('•',t);
     step('gece: hamlesi olan herkes bir eve dokunur');
     await host.waitForTimeout(5200); // rol kartı gece animasyonundan sonra açılır
     for(const p of all())await p.click('text=Anladım');
-    let acted=0;
+    let acted=0;const actors=[];
     for(const p of all()){
       // gerçek tıklama, ekrandaki konuma: evin üstünü örten bir katman varsa (gece karartması, ipucu) burada yakalanır
       const at=await p.evaluate(()=>{if(!canTarget())return null;const t=P.players.find(x=>x.id!==myId);const g=scene.houses[t.id].g;if(!g.onclick)throw new Error('ev tıklanamıyor');const r=g.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}});
       if(!at)continue;
-      await p.mouse.click(at.x,at.y);acted++;
+      await p.mouse.click(at.x,at.y);acted++;actors.push(p);
+      if(acted===1){
+        // yürüyüş: 250 ms sonra karakter henüz hedefte değil; walkMs sonra hedefte, yürüyüş sınıfı düşmüş, etiket karakterin üstünde
+        await p.waitForTimeout(250);const t0=Date.now()-250;
+        const walk=await p.evaluate(()=>anim.walkMs);assert.ok(walk>=500&&walk<=3500,'walkMs '+walk);
+        const yolda=await p.evaluate(()=>{const b=scene.beans[myId];const r=b.g.getBoundingClientRect();const h=scene.houses[anim.hedef].g.getBoundingClientRect();return Math.hypot((r.x+r.width/2)-(h.x+h.width/2),(r.y+r.height/2)-(h.y+h.height/2))});
+        assert.ok(yolda>60,'250 ms sonra hâlâ yolda olmalı: '+yolda);
+        await p.waitForTimeout(Math.max(0,walk-(Date.now()-t0))+150);
+        const varis=await p.evaluate(()=>{const b=scene.beans[myId];return{walking:b.g.classList.contains('walking'),tag:b.tag.textContent}});
+        assert.strictEqual(varis.walking,false,'varışta yürüyüş sınıfı düşmeli');assert.strictEqual(varis.tag,'SEN');
+        // rol hareketi: varıştan hemen sonra sahnede .rol-fx (masum hariç); başka oyuncu hiçbir şey görmez; yenilemede tekrar oynamaz
+        await p.waitForTimeout(150);
+        const fx=await p.evaluate(()=>({n:document.querySelectorAll('#app .rol-fx').length,rol:priv.role.key}));
+        assert.ok(fx.n>=1||fx.rol==='masum','rol hareketi görünmeli: '+JSON.stringify(fx));
+        const other=all().find(q=>q!==p);
+        assert.strictEqual(await other.evaluate(()=>document.querySelectorAll('#app .rol-fx, #app .iz').length),0,'başkası hareket/iz görmemeli');
+        await p.reload();await p.waitForFunction(()=>P.phase==='night'&&typeof scene!=='undefined'&&scene&&scene.beans[myId],null,{timeout:8000});await p.waitForTimeout(800);
+        assert.strictEqual(await p.evaluate(()=>document.querySelectorAll('#app .rol-fx').length),0,'yenilemede hareket tekrar oynamamalı');
+        await p.waitForTimeout(4500);await p.click('text=Anladım'); // yenilemede akşam dizisi ve rol kartı yeniden gelir
+        // hedef değiştirme: yürürken başka ev; eski hareket silinir, yeni yürüyüş başlar (walkN), süre makul
+        const evler=await p.evaluate(()=>P.players.filter(x=>x.id!==myId).map(x=>{const r=scene.houses[x.id].g.getBoundingClientRect();return{id:x.id,x:r.x+r.width/2,y:r.y+r.height/2}}));
+        await p.mouse.click(evler[0].x,evler[0].y);await p.waitForTimeout(120);await p.mouse.click(evler[1].x,evler[1].y);
+        const yeni=await p.evaluate(()=>({n:anim.walkN,hedef:anim.hedef,fx:document.querySelectorAll('#app .rol-fx').length,ms:anim.walkMs}));
+        assert.deepStrictEqual({n:yeni.n,hedef:yeni.hedef,fx:yeni.fx},{n:2,hedef:evler[1].id,fx:0},'hedef değişince eski hareket silinmeli: '+JSON.stringify(yeni));
+        assert.ok(yeni.ms>=0&&yeni.ms<=3500,'ikinci yürüyüş süresi '+yeni.ms);
+        await p.waitForTimeout(yeni.ms+500);
+        const varis2=await p.evaluate(()=>{const b=scene.beans[myId];const r=b.g.getBoundingClientRect();const h=scene.houses[anim.hedef].g.getBoundingClientRect();return Math.hypot((r.x+r.width/2)-(h.x+h.width/2),(r.y+r.height/2)-(h.y+h.height/2))});
+        assert.ok(varis2<120,'ikinci hedefe varmalı: '+varis2);
+        // vazgeç: iz silinir, karakter evine yürür
+        await p.click('text=Vazgeç');
+        const vaz=await p.evaluate(()=>({hedef:anim.hedef,iz:document.querySelectorAll('#app .iz').length,fx:document.querySelectorAll('#app .rol-fx').length,ms:anim.walkMs}));
+        assert.deepStrictEqual({hedef:vaz.hedef,iz:vaz.iz,fx:vaz.fx},{hedef:null,iz:0,fx:0},'vazgeçte iz ve hareket silinmeli: '+JSON.stringify(vaz));
+        await p.waitForTimeout(vaz.ms+500);
+        const evde=await p.evaluate(()=>{const b=scene.beans[myId];const r=b.g.getBoundingClientRect();const h=scene.houses[myId].g.getBoundingClientRect();return Math.hypot((r.x+r.width/2)-(h.x+h.width/2),(r.y+r.height/2)-(h.y+h.height/2))});
+        assert.ok(evde<120,'vazgeçince evine dönmeli: '+evde);
+        await p.mouse.click(evler[0].x,evler[0].y); // hamle yeniden: sunucuda hamle kalsın
+      }
     }
     await host.waitForTimeout(300);
     assert.ok(acted>0&&Object.keys(R.g.acts).length===acted,'sunucu gece hamlelerini almalı ('+acted+' / '+Object.keys(R.g.acts).length+')');
+    const gec=Object.values(pages).find(p=>actors.includes(p)); // gece biterken hareketi süren oyuncu (ev sahibi değil)
 
     step('ev sahibi sekmesini kapatır; gece sonu onu bekler, sonra oyun sürer');
     await hostCtx.close();
-    roomOf().game.P.ends=Date.now()-1;
     const watcher=pages.Ali;
+    await watcher.waitForFunction(id=>!(P.online||[]).includes(id),ids.Ev,{timeout:5000}); // sunucu kapanan soketi görmüş olsun
+    roomOf().game.P.ends=Date.now()-1;
     await watcher.waitForFunction(id=>P.phase==='night'&&P.waiting&&P.waiting.includes(id)&&document.body.textContent.includes('bekleniyor'),ids.Ev,{timeout:5000});
+    if(gec){const at=await gec.evaluate(()=>{const t=P.players.find(x=>x.id!==myId&&x.id!==anim.hedef);const r=scene.houses[t.id].g.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}});await gec.mouse.click(at.x,at.y)}
     roomOf().game.P.ends=Date.now()-1;
     await watcher.waitForFunction(()=>P.phase!=='night',null,{timeout:5000});
     assert.ok(['talk','end'].includes(await phase(watcher)));
+    if(gec){await gec.waitForTimeout(1500);assert.strictEqual(await gec.evaluate(()=>document.querySelectorAll('#app .rol-fx, #app .iz').length),0,'gece biterken süren hareket sabaha kalmamalı')}
 
     step('ev sahipliği bağlı bir oyuncuya geçer');
     await watcher.waitForFunction(h=>P.hostId!==h,ids.Ev,{timeout:5000});
@@ -88,7 +142,7 @@ const step=t=>console.log('•',t);
       await lost.waitForSelector('.ov.offline',{timeout:3000});
       // diğerleri kopuk oyuncunun karakterinde KOPUK etiketini görür (gözlemci kopan sekme olmamalı)
       const lostId=await lost.evaluate(()=>myId);const observer=Object.values(pages).find(p=>p!==lost);
-      await observer.waitForFunction(id=>P.online&&!P.online.includes(id)&&scene.labels.textContent.includes('KOPUK'),lostId,{timeout:4000});
+      await observer.waitForFunction(id=>P.online&&!P.online.includes(id)&&scene.beans[id]&&scene.beans[id].g.textContent.includes('KOPUK'),lostId,{timeout:4000}); // etiket karakterin üstünde
       await lost.waitForSelector('.ov.offline',{state:'detached',timeout:8000});
       await lost.waitForFunction(()=>(P.chat||[]).some(m=>m.t==='merhaba kasaba'));
       assert.strictEqual(await lost.evaluate(()=>P.chat.filter(m=>m.t==='merhaba kasaba').length),1,'yeniden bağlanınca sohbet çiftlenmemeli');
