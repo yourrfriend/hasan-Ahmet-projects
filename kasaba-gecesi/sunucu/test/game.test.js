@@ -281,7 +281,7 @@ test('inceleme: çoklu saldırıda kurtaranlar/yelek tekrarlanmaz; tutulan tekil
 
 const BILGI=['polis','gozcu','izci','dedektif','ispiyoncu'];
 const OZEL=Object.keys(G.ROLES).filter(k=>!['masum','hain'].includes(k));
-test('rol dağılımı: eşikler, tekrarsız özel roller, bilgi rolü ≥ hain, %75 yetenekli',()=>{
+test('rol dağılımı: eşikler, tekrarsız özel roller, bilgi rolü ≥ hain, Masum 7+ kişide 1',()=>{
   const bekle={4:[1,0,0,0],5:[1,0,0,0],6:[1,0,0,1],7:[1,0,0,1],8:[1,0,0,1],9:[2,1,1,1],10:[2,1,1,1],11:[2,1,1,1],12:[2,2,1,1]}; // hain, saldırgan, pasif, deli
   for(let n=4;n<=12;n++){
     const kumeler=new Set();
@@ -298,8 +298,7 @@ test('rol dağılımı: eşikler, tekrarsız özel roller, bilgi rolü ≥ hain,
       assert.ok(say(id=>id.endsWith('_h')||['temizlikci','suclayici'].includes(id))<=Math.floor(hain/2),'yetenekli hain sınırı n='+n);
       assert.ok(c.doktor===1,'doktor hep');assert.strictEqual(c.polis||0,n>=5?1:0,'polis 5+');
       const bilgi=say(id=>BILGI.includes(id));assert.ok(bilgi>=hain,'bilgi rolü ≥ hain n='+n+' '+JSON.stringify(c));
-      const m=n-hain-sald-pasif-(c.deli||0);const yetenekli=m-(c.masum||0);
-      assert.strictEqual(yetenekli,Math.min(m,Math.max(Math.ceil(0.75*m),hain+1),8),'yetenekli masum sayısı n='+n);
+      assert.strictEqual(c.masum||0,n>=7?1:0,'masum n='+n+' '+JSON.stringify(c));
       kumeler.add(ids.sort().join(','));
     }
     if(n>=7)assert.ok(kumeler.size>1,'n='+n+' hep aynı küme');

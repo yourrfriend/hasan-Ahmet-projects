@@ -49,14 +49,16 @@ function roleLabel(r){const b=ROLES[r.key];return b.n+((r.team==='imp'&&b.team!=
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 // Rol dağılımı (tasarım docs/superpowers/specs/2026-10-24-kasaba-gecesi-sahne-design.md §5.1): eşikler oyuncu
 // sayısına göre; her özel rol en fazla bir kez; hain tarafında en az bir düz Hain, en çok floor(hain/2) yetenekli;
-// masumların yetenekli sayısı min(m, max(ceil(0,75·m), hain+1)); bilgi rolü sayısı ≥ hain; gerisi Masum.
+// Masum DAGILIM.masum(n) (4–6: 0, 7+: 1), kalan masumların hepsi yetenekli (havuz 8 rol); bilgi rolü sayısı ≥ hain.
+// Geri bildirim paketi: docs/superpowers/specs/2026-10-25-kasaba-gecesi-rol-dagilimi-geri-bildirim-design.md.
 // Eşikler test/denge.js ile ölçülür (README "Rol dağılımı").
 // Eşikler denge.js ölçümüyle seçildi (2026-10-24): her hain ayrı öldürdüğü için 2 hain ancak 9+ kişide; 3 hain hiç yok.
 const DAGILIM={
   hain:n=>n<=8?1:2,
   saldirgan:n=>n>=12?2:n>=9?1:0,   // serikatil / bombaci / hirsiz / buyucu
   pasif:n=>n>=9?1:0,               // hayatta / hortlak
-  deli:n=>n>=6?1:0
+  deli:n=>n>=6?1:0,
+  masum:n=>n>=7?1:0                // yeteneksiz Masum: 4–6 kişide yok, 7+ kişide 1 (kullanıcı kararı 2026-10-25)
 };
 const BILGI_ROLLERI=['polis','gozcu','izci','dedektif','ispiyoncu'];
 function autoSetup(n){
@@ -68,7 +70,7 @@ function autoSetup(n){
   shuffle(['hayatta','hortlak']).slice(0,pasif).forEach(add);
   if(deli)add('deli');
   const m=n-hain-sald-pasif-deli;
-  const yetenekli=Math.min(m,Math.max(Math.ceil(0.75*m),hain+1),8);
+  const yetenekli=Math.min(m-DAGILIM.masum(n),8);
   const secilen=['doktor'];if(n>=5&&secilen.length<yetenekli)secilen.push('polis');
   let bilgi=secilen.filter(k=>BILGI_ROLLERI.includes(k)).length;
   const havuzB=shuffle(['gozcu','izci','dedektif','ispiyoncu']),havuzD=shuffle(['tuzakci','provokator']);
