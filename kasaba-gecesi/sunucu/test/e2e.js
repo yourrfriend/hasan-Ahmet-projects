@@ -54,6 +54,8 @@ const step=t=>console.log('•',t);
     for(const n of ['Ali','Ayse','Can']){ctxs[n]=await newCtx();pages[n]=await open(ctxs[n],n,link);await pages[n].fill('#nameInput',n);await pages[n].click('text=Lobiye gir')}
     await host.waitForFunction(()=>/4 \/ 12/.test(document.querySelector('.count').textContent));
     assert.strictEqual(await pages.Ali.$('.start'),null,'ev sahibi olmayanda başlat düğmesi olmamalı');
+    // rol rehberi lobide de açılır ve kapanır
+    await host.click('button.rehber-dugme');await host.waitForSelector('.rehber');assert.match(await host.textContent('.rehber'),/Masumlar[\s\S]*Hainler[\s\S]*Tarafsızlar/);await host.click('.rehber .kapat');assert.strictEqual(await host.$('.rehber'),null);
 
     step('telefon klavyesi: süre kutusu odaktayken pencere küçülünce odak ve değer kalır');
     await host.click('.gear');await host.fill('#sure_night','45');await host.focus('#sure_night');
@@ -76,6 +78,11 @@ const step=t=>console.log('•',t);
     step('gece: hamlesi olan herkes bir eve dokunur');
     await host.waitForTimeout(5200); // rol kartı gece animasyonundan sonra açılır
     for(const p of all())await p.click('text=Anladım');
+    // rol rehberi gece de açılır, sahneyi kaplamaz, kendi rolünü işaretlemez, 19 rolü ve dağılımı listeler
+    { const rp=pages.Ali;await rp.click('button.rehber-dugme');await rp.waitForSelector('.rehber');
+      const r=await rp.evaluate(()=>{const e=document.querySelector('.rehber');const t=e.textContent;return{w:e.getBoundingClientRect().width/innerWidth,roller:Object.values(ROLES).filter(x=>t.includes(x.n)).length,dagilim:/Dağılım/.test(t),ben:!!e.querySelector('.ben'),gizli:t.includes('Hain arkadaşların')||t.includes((priv.notes||[]).join(''))&&(priv.notes||[]).length>0}});
+      assert.ok(r.w<0.6,'çekmece sahnenin yarısından azını kaplar');assert.strictEqual(r.roller,Object.keys(await rp.evaluate(()=>ROLES)).length,'tüm roller listelenir');assert.ok(r.dagilim);assert.strictEqual(r.ben,false);assert.strictEqual(r.gizli,false);
+      await rp.click('.rehber .kapat');assert.strictEqual(await rp.$('.rehber'),null); }
     let acted=0;const actors=[];
     for(const p of all()){
       // gerçek tıklama, ekrandaki konuma: evin üstünü örten bir katman varsa (gece karartması, ipucu) burada yakalanır

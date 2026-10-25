@@ -516,3 +516,7 @@ test('gazete: iddia kartı — doğru/yanlış/çoklu iddia; Deli atlanır; Hır
     assert.match(m,/🗣️ Oyuncu0 önce Hırsız, sonra Doktor olduğunu söyledi; doğruydu\./); // son iddia o anki rolle (çalınmış Doktor) eşleşir
   }finally{G.setClock()}
 });
+
+test('rol rehberi: her rolün kısa ipucu metni var (10–120 karakter)',()=>{
+  for(const [k,r] of Object.entries(G.ROLES))assert.ok(typeof r.ipucu==='string'&&r.ipucu.length>=10&&r.ipucu.length<=120,'ipucu yok/uzun: '+k);
+});

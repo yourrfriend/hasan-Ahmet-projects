@@ -11,25 +11,25 @@
 // ---------- Rol tanımları ----------
 // act: 'other' = bir ev seçer, 'self' = kendine, yok = yetenek yok. pos: gece gittiği evde nerede durur.
 const ROLES={
-  masum:{n:'Masum',team:'inn',ico:'🏠',desc:'Özel bir yeteneğin yok. Gündüz tartış, oylamayla hainleri bul.'},
-  doktor:{n:'Doktor',team:'inn',ico:'💉',desc:'Gece birini seç. O gece saldırıya uğrarsa kurtulur.',act:'other',pos:'door'},
-  deli:{n:'Deli',team:'inn',ico:'🌀',desc:'Masum bir rol olduğunu sanırsın ama yaptıkların hiçbir şey değiştirmez.'},
-  polis:{n:'Polis',team:'inn',ico:'👮',desc:'Seçtiğin kişi o gece evden çıkamaz; rolünü kullanamaz. Seri Katil\'i ve Bombacı\'yı tutamazsın.',act:'other',dual:true,pos:'door'},
-  gozcu:{n:'Gözcü',team:'inn',ico:'🔭',desc:'Seçtiğin evi gözetlersin; o gece kaç kişinin geldiğini öğrenirsin.',act:'other',dual:true,pos:'bush'},
-  izci:{n:'İzci',team:'inn',ico:'👣',desc:'Seçtiğin kişiyi izlersin; gece hangi eve gittiğini öğrenirsin.',act:'other',dual:true,pos:'bush'},
-  dedektif:{n:'Dedektif',team:'inn',ico:'🔍',desc:'Seçtiğin kişinin evini ararsın; olabileceği rolleri öğrenirsin.',act:'other',dual:true,pos:'window'},
-  tuzakci:{n:'Tuzakçı',team:'inn',ico:'🪤',desc:'Seçtiğin evin önüne tuzak kurarsın; o eve gelen herkes yakalanır ve rolünü kullanamaz.',act:'other',dual:true,pos:'door'},
-  ispiyoncu:{n:'İspiyoncu',team:'inn',ico:'📣',desc:'Bir kez: seçtiğin kişinin rolünü sabah meydanda herkese açıklarsın.',act:'other',once:true,dual:true,pos:'window'},
-  provokator:{n:'Provokatör',team:'inn',ico:'🔥',desc:'Bir kez: seçtiğin kişi ertesi günkü oylamaya 2 oyla başlar.',act:'other',once:true,dual:true,pos:'door'},
-  hain:{n:'Hain',team:'imp',ico:'🗡️',desc:'Her gece birinin evine girip onu öldürürsün. Hainler birbirini tanır ama gece birbirini göremez.'},
-  temizlikci:{n:'Temizlikçi',team:'imp',ico:'🧹',desc:'Gece ya öldürürsün ya temizlersin: seçtiğin kişi o gece ölürse rolü sabah gizli kalır.',act:'other',pos:'door'},
-  suclayici:{n:'Suçlayıcı',team:'imp',ico:'🫵',desc:'Gece ya öldürürsün ya suçlarsın: seçtiğin kişi o gece ölür ya da ertesi gün asılırsa rolü Hain görünür.',act:'other',pos:'door'},
-  hayatta:{n:'Hayatta Kalan',team:'neu',ico:'🦺',desc:'Sona kadar yaşa. 3 kez yelek giyebilirsin; yelekliyken ölmezsin. Kazanan tarafla kazanırsın.',act:'self'},
-  serikatil:{n:'Seri Katil',team:'neu',ico:'🔪',desc:'Her gece birinin evine girip onu öldürürsün. Polis seni tutamaz. Tek başına kalınca kazanırsın.',act:'other',pos:'enter'},
-  bombaci:{n:'Bombacı',team:'neu',ico:'🧨',desc:'Her gece bir eve dinamit koyarsın. İstediğin gece hepsini patlatırsın. Polis seni tutamaz. Herkes ölünce kazanırsın.',act:'other',pos:'door'},
-  hirsiz:{n:'Hırsız',team:'neu',ico:'🎭',desc:'Seçtiğin kişinin evine girip onu öldürür ve rolünü çalarsın; artık o rolle o tarafta oynarsın.',act:'other',pos:'enter'},
-  buyucu:{n:'Büyücü',team:'neu',ico:'⚡',desc:'Evinden çıkmadan birini seçip rolünü tahmin edersin. Doğruysa yıldırımla ölür, Doktor kurtaramaz. Yanlışsa sen ölürsün. Tek başına kazanırsın.',act:'other',guess:true,pos:'home'},
-  hortlak:{n:'Hortlak',team:'neu',ico:'🕯️',desc:'Gece bir evin önüne mum koyarsın. Ertesi gün asılırsan o gece hayalet olarak gelir, mum koyduğun kişiyi öldürürsün. Asılınca kazanırsın.',act:'other',pos:'door'}
+  masum:{n:'Masum',team:'inn',ico:'🏠',desc:'Özel bir yeteneğin yok. Gündüz tartış, oylamayla hainleri bul.',ipucu:"Gece bir şey yapmazsın; gündüz kimin ne söylediğini karşılaştır, çelişkileri yakala."},
+  doktor:{n:'Doktor',team:'inn',ico:'💉',desc:'Gece birini seç. O gece saldırıya uğrarsa kurtulur.',act:'other',pos:'door',ipucu:"Kendini de koruyabilirsin. Kimi koruduğunu açıklamak haini sana yöneltebilir."},
+  deli:{n:'Deli',team:'inn',ico:'🌀',desc:'Masum bir rol olduğunu sanırsın ama yaptıkların hiçbir şey değiştirmez.',ipucu:"Bunu bilmezsin: bilgilerin uydurma olabilir. Kimse %100 emin konuşmasın."},
+  polis:{n:'Polis',team:'inn',ico:'👮',desc:'Seçtiğin kişi o gece evden çıkamaz; rolünü kullanamaz. Seri Katil\'i ve Bombacı\'yı tutamazsın.',act:'other',dual:true,pos:'door',ipucu:"Tuttuğun kişi o gece yetenek kullanamaz; şüpheliyi tutmak ölümü de önleyebilir."},
+  gozcu:{n:'Gözcü',team:'inn',ico:'🔭',desc:'Seçtiğin evi gözetlersin; o gece kaç kişinin geldiğini öğrenirsin.',act:'other',dual:true,pos:'bush',ipucu:"Gelen sayısı rol söylemez; bir ziyaretçi Doktor da olabilir, hain de."},
+  izci:{n:'İzci',team:'inn',ico:'👣',desc:'Seçtiğin kişiyi izlersin; gece hangi eve gittiğini öğrenirsin.',act:'other',dual:true,pos:'bush',ipucu:"Birinin bir eve gitmesi tek başına hain olduğunu göstermez; sabah ölümlerle eşleştir."},
+  dedektif:{n:'Dedektif',team:'inn',ico:'🔍',desc:'Seçtiğin kişinin evini ararsın; olabileceği rolleri öğrenirsin.',act:'other',dual:true,pos:'window',ipucu:"Üç rolden yalnız biri doğru; listeyi açıklamak hedefi savunmasız bırakabilir."},
+  tuzakci:{n:'Tuzakçı',team:'inn',ico:'🪤',desc:'Seçtiğin evin önüne tuzak kurarsın; o eve gelen herkes yakalanır ve rolünü kullanamaz.',act:'other',dual:true,pos:'door',ipucu:"Tuzağa yakalanan herkes o gece etkisiz; yakalanan masum da olabilir."},
+  ispiyoncu:{n:'İspiyoncu',team:'inn',ico:'📣',desc:'Bir kez: seçtiğin kişinin rolünü sabah meydanda herkese açıklarsın.',act:'other',once:true,dual:true,pos:'window',ipucu:"Tek seferlik: sabah herkese açıklanır. Zamanlaması oyunu belirler."},
+  provokator:{n:'Provokatör',team:'inn',ico:'🔥',desc:'Bir kez: seçtiğin kişi ertesi günkü oylamaya 2 oyla başlar.',act:'other',once:true,dual:true,pos:'door',ipucu:"Tek seferlik: seçtiğin kişi ertesi oylamaya 2 oyla başlar; dikkatli hedef seç."},
+  hain:{n:'Hain',team:'imp',ico:'🗡️',desc:'Her gece birinin evine girip onu öldürürsün. Hainler birbirini tanır ama gece birbirini göremez.',ipucu:"Her gece ayrı öldürürsün; arkadaşın kim bilirsin. Gündüz masum gibi akıl yürüt."},
+  temizlikci:{n:'Temizlikçi',team:'imp',ico:'🧹',desc:'Gece ya öldürürsün ya temizlersin: seçtiğin kişi o gece ölürse rolü sabah gizli kalır.',act:'other',pos:'door',ipucu:"Temizlediğin kişi ölürse rolü sabah gizli kalır; o gece öldüremezsin."},
+  suclayici:{n:'Suçlayıcı',team:'imp',ico:'🫵',desc:'Gece ya öldürürsün ya suçlarsın: seçtiğin kişi o gece ölür ya da ertesi gün asılırsa rolü Hain görünür.',act:'other',pos:'door',ipucu:"Suçladığın kişi ölür ya da asılırsa 'Hain' görünür; gündüz şüpheyi ona yönlendir."},
+  hayatta:{n:'Hayatta Kalan',team:'neu',ico:'🦺',desc:'Sona kadar yaşa. 3 kez yelek giyebilirsin; yelekliyken ölmezsin. Kazanan tarafla kazanırsın.',act:'self',ipucu:"Yelek bir gece korur, 3 hakkın var; kimse seni hedef görmesin."},
+  serikatil:{n:'Seri Katil',team:'neu',ico:'🔪',desc:'Her gece birinin evine girip onu öldürürsün. Polis seni tutamaz. Tek başına kalınca kazanırsın.',act:'other',pos:'enter',ipucu:"Polis seni tutamaz; herkese karşısın, hainler de seni avlar."},
+  bombaci:{n:'Bombacı',team:'neu',ico:'🧨',desc:'Her gece bir eve dinamit koyarsın. İstediğin gece hepsini patlatırsın. Polis seni tutamaz. Herkes ölünce kazanırsın.',act:'other',pos:'door',ipucu:"Dinamitleri biriktir, doğru gece hepsini patlat; Polis seni tutamaz."},
+  hirsiz:{n:'Hırsız',team:'neu',ico:'🎭',desc:'Seçtiğin kişinin evine girip onu öldürür ve rolünü çalarsın; artık o rolle o tarafta oynarsın.',act:'other',pos:'enter',ipucu:"Rolü çaldığın kişi kaybolur; sonra o rolle ve o tarafla kazanmaya çalışırsın."},
+  buyucu:{n:'Büyücü',team:'neu',ico:'⚡',desc:'Evinden çıkmadan birini seçip rolünü tahmin edersin. Doğruysa yıldırımla ölür, Doktor kurtaramaz. Yanlışsa sen ölürsün. Tek başına kazanırsın.',act:'other',guess:true,pos:'home',ipucu:"Evden çıkmazsın; tahmin yanlışsa sen ölürsün — bilgi topla, acele etme."},
+  hortlak:{n:'Hortlak',team:'neu',ico:'🕯️',desc:'Gece bir evin önüne mum koyarsın. Ertesi gün asılırsan o gece hayalet olarak gelir, mum koyduğun kişiyi öldürürsün. Asılınca kazanırsın.',act:'other',pos:'door',ipucu:"Asılmak kazanmaktır; mum koyduğun kişi o gece hayalet olarak alınır."}
 };
 const MADPOOL=['doktor','polis','gozcu','izci','dedektif','tuzakci','ispiyoncu','provokator'];
 const INVGROUPS=[['doktor','serikatil','hirsiz'],['polis','hain','hayatta'],['gozcu','dedektif','bombaci'],['tuzakci','ispiyoncu','temizlikci'],['provokator','suclayici','masum'],['izci','buyucu','hortlak']];
