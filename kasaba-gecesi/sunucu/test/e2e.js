@@ -27,7 +27,7 @@ const step=t=>console.log('•',t);
     const hostCtx=await newCtx();let host=await open(hostCtx,'Ev',base);
     await host.click('text=Yeni oda kur');await host.fill('#nameInput','Ev');await host.click('text=Lobiye gir');
     await host.waitForSelector('.lobbybar code');
-    const link=await host.textContent('.lobbybar code');assert.match(link,/\?oda=[a-z0-9]{6}$/);
+    const link=await host.textContent('.lobbybar code');assert.match(link,/\?oda=[a-z0-9]{12}$/);
 
     step('?s= yabancı sunucuyu yalnız yerelde seçer (gizli anahtar linkteki adrese gitmez)');
     const izin=await host.evaluate(()=>{const canli={hostname:'kasaba.ornek.com',host:'kasaba.ornek.com',protocol:'https:'};return[

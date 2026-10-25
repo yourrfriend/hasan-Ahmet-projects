@@ -12,7 +12,7 @@ ve oylamayla biri kasabadan gönderilir. Hainler saklanmaya, masumlar hainleri b
 
 ## Nasıl oynanır
 
-- **Oda:** biri oda kurar, altı harflik bir kodla ya da linkle arkadaşlarını çağırır. Herkes adını, rengini ve şapkasını
+- **Oda:** biri oda kurar, 12 karakterlik bir kodla (çoğunlukla linkle) arkadaşlarını çağırır. Herkes adını, rengini ve şapkasını
   seçer (bere, kep, kedi kulağı, fiyonk, gözlük, kapüşon). Hesap, kayıt, indirme yok; tarayıcıda açılır, telefon yatay
   tutulur.
 - **Köy:** evler halka biçiminde dizilidir, ortada meydan vardır. Her oyuncunun kendi evi ve evinin önünde kendi

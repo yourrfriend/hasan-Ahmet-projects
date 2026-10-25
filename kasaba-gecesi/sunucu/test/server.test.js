@@ -2,6 +2,7 @@
 // Sunucu testleri: gerçek WebSocket bağlantılarıyla oda, oyun, kopma ve geri dönme.
 process.env.HOST_GRACE_MS='300';
 process.env.EMPTY_ROOM_MS='300';
+process.env.MAX_ROOMS_PER_IP='1000';process.env.MAX_SOCKS_PER_IP='1000';process.env.MAX_ROOMS_PER_IP_MIN='1000'; // testler tek IP'den çok oda açar; sınır testi kendi sunucusunu kurar
 const test=require('node:test');
 const assert=require('node:assert');
 const http=require('http');
@@ -332,4 +333,33 @@ test('ölçüm olayları kayıt yuvasına gider, maç damgası taşır, içerik 
     for(const e of [...tur('kopus'),...tur('dondu'),...tur('son_ekran_goruldu'),...tur('hazir'),...tur('rovans_basladi')]){const j=JSON.stringify(e.veri);for(const k of ['"rol"','"hedef"','"x"','"oy"','"guess"','"kill"'])assert.ok(!j.includes(k),'içerik taşımaz: '+j)}
     for(const c of [host,cs[1],cs[2],geri])await c.close();
   }finally{await new Promise(r=>s2.close(r))}
+});
+
+// ---------- oda kodu ve IP sınırları ----------
+test('oda kodu 12 karakter ve yalnız sunucu üretir; ev sahibinin artık olmayan eski kodu kullanılmaz',async()=>{
+  const eski='abcdefghjkmn';
+  const a=client('kc0','A',{host:true,room:eski});await a.until(c=>c.P&&c.P.room);
+  assert.match(a.P.room,/^[abcdefghjkmnpqrstuvwxyz23456789]{12}$/,'kod 12 karakter, karışan harfler yok: '+a.P.room);
+  assert.notStrictEqual(a.P.room,eski,'istemcinin verdiği kod kullanılmaz');
+  assert.ok(!srv.rooms.has(eski));
+  const b=client('kc1','B',{host:true});await b.until(c=>c.P&&c.P.room);assert.notStrictEqual(b.P.room,a.P.room);
+  await a.close();await b.close();
+});
+
+test('IP başına sınır: ev sahipliği odası ve eşzamanlı soket',async()=>{
+  const s2=createServer({quiet:true,tickMs:50,ipOda:2,ipSoket:4,ipOdaDakika:100});await new Promise(r=>s2.server.listen(0,'127.0.0.1',r));
+  const b2='127.0.0.1:'+s2.server.address().port;const acik=[];
+  try{
+    const h1=client('ip0','A',{host:true},b2);await h1.until(c=>c.P&&c.P.room);acik.push(h1);
+    const h2=client('ip1','B',{host:true},b2);await h2.until(c=>c.P&&c.P.room);acik.push(h2);
+    const h3=client('ip2','C',{host:true},b2);await h3.until(c=>c.errs.length);acik.push(h3);
+    assert.strictEqual(h3.errs[0].code,'limit','üçüncü oda aynı IP için reddedilir: '+JSON.stringify(h3.errs));
+    assert.strictEqual(s2.rooms.size,2);
+    await h2.close();{const t0=Date.now();while(s2.rooms.size>1&&Date.now()-t0<3000)await new Promise(r=>setTimeout(r,50))}assert.strictEqual(s2.rooms.size,1,'boş oda EMPTY_ROOM_MS sonra silinir, yer açılır');
+    const h4=client('ip3','D',{host:true},b2);await h4.until(c=>c.P&&c.P.room);acik.push(h4);
+    // soket sınırı (4): şu an 3 açık (h1, h3 — hata aldı ama soketi açık —, h4); 4. açılır, 5. kapatılır
+    const s5=client('ip4','E',{room:h1.P.room},b2);await s5.until(c=>c.P&&c.P.room);acik.push(s5);
+    const s6=client('ip5','F',{room:h1.P.room},b2);acik.push(s6);
+    await new Promise(r=>setTimeout(r,300));assert.ok(s6.ws.readyState>=2||s6.errs.some(e=>e.code==='limit'),'sınırı aşan soket aynı IP için kabul edilmez');
+  }finally{for(const c of acik)await c.close();await new Promise(r=>s2.close(r))}
 });

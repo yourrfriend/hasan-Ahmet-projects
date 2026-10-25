@@ -13,6 +13,10 @@ const ROOM_TTL_MS=+process.env.ROOM_TTL_MS||2*60*60*1000;   // bu kadar süre me
 const HOST_GRACE_MS=+process.env.HOST_GRACE_MS||10*60*1000; // ev sahibi bu kadar dönmezse yetki devredilir
 const EMPTY_ROOM_MS=+process.env.EMPTY_ROOM_MS||10*60*1000; // kimse bağlı değilse oda bu kadar sonra silinir
 const MAX_ROOMS=+process.env.MAX_ROOMS||1000;
+// IP başına frenler (tünel/Caddy arkasında IP CF-Connecting-IP ya da X-Forwarded-For'dan; doğrudan bağlantıda soket adresi)
+const IP_ODA=+process.env.MAX_ROOMS_PER_IP||5;           // aynı anda ev sahipliği yapılan oda
+const IP_SOKET=+process.env.MAX_SOCKS_PER_IP||24;        // eşzamanlı soket
+const IP_ODA_DAKIKA=+process.env.MAX_ROOMS_PER_IP_MIN||5; // dakikada oda kurma
 const MAX_SOCKS_PER_ROOM=40;
 const INDEX=path.join(__dirname,'..','index.html');
 const GAME_JS=path.join(__dirname,'game.js'); // istemci de yükler: sabitler tek yerde
@@ -21,7 +25,7 @@ const CODE_CHARS='abcdefghjkmnpqrstuvwxyz23456789';
 // kısa bir kimlik gezer. Açık kimliği bilen başkasının yerine giremez, ev sahibi olamaz.
 const pubId=key=>crypto.createHash('sha256').update('kg:'+key).digest('base64url').slice(0,12);
 
-function genCode(rooms){for(;;){let s='';for(let i=0;i<6;i++)s+=CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)];if(!rooms.has(s))return s}}
+function genCode(rooms){for(;;){let s='';for(let i=0;i<12;i++)s+=CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)];if(!rooms.has(s))return s}}
 const cleanCode=v=>typeof v==='string'?v.toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,12):'';
 const cleanUid=v=>typeof v==='string'?v.replace(/[^A-Za-z0-9_-]/g,'').slice(0,24):'';
 const cleanName=v=>typeof v==='string'?v.trim().slice(0,16):'';
@@ -29,6 +33,9 @@ const cleanName=v=>typeof v==='string'?v.trim().slice(0,16):'';
 function createServer(opts={}){
   const rooms=new Map();
   const log=opts.quiet?()=>{}:(...a)=>console.log(new Date().toISOString(),...a);
+  const ipOda=opts.ipOda||IP_ODA,ipSoket=opts.ipSoket||IP_SOKET,ipOdaDakika=opts.ipOdaDakika||IP_ODA_DAKIKA;
+  const ipSoketler=new Map(),ipKurmalar=new Map(); // ip → açık soket sayısı; ip → son bir dakikadaki oda kurma zamanları
+  const ipOdalar=ip=>[...rooms.values()].filter(r=>r.ip===ip).length;
   const kayit=opts.kayit||Kayit.olustur({}); // olay günlüğünün gittiği yer (testler bellekte biriktiren bir sahte verir)
   // odanın biriken olaylarını kayıt yuvasına ver (R.log boşalır; R.gameLog oyunda kalır)
   function bosalt(room){const R=room.game;if(R.log.length)kayit.kuyrukla(room,R.log.splice(0))}
@@ -59,8 +66,8 @@ function createServer(opts={}){
   });
 
   // ---------- oda yardımcıları ----------
-  function newRoom(code,hostId){
-    const room={code,hostId,game:G.createGame(),members:new Map(),lastActive:Date.now(),hostGoneSince:null,emptySince:null,flushT:null,lastPriv:new Map(),hazir:new Set(),skor:new Map(),skorIslenen:new Set(),gorduler:new Set()}; // hazir: rövanşa hazır üyeler (yalnız oyun sonunda); skor: oda oturumu (pubId → {ad,oynadi,kazandi})
+  function newRoom(code,hostId,ip){
+    const room={code,hostId,ip,game:G.createGame(),members:new Map(),lastActive:Date.now(),hostGoneSince:null,emptySince:null,flushT:null,lastPriv:new Map(),hazir:new Set(),skor:new Map(),skorIslenen:new Set(),gorduler:new Set()}; // hazir: rövanşa hazır üyeler (yalnız oyun sonunda); skor: oda oturumu (pubId → {ad,oynadi,kazandi})
     rooms.set(code,room);log('oda açıldı',code);return room;
   }
   const online=m=>m.socks.size>0;
@@ -138,7 +145,10 @@ function createServer(opts={}){
     if(!room){
       if(!m.host)return send(ws,{t:'err',m:'Oda bulunamadı. Kod doğru mu? Oda uzun süre boş kaldıysa kapanmış olabilir.',code:'noroom'});
       if(rooms.size>=MAX_ROOMS)return send(ws,{t:'err',m:'Sunucu dolu, biraz sonra tekrar dene.',code:'full'});
-      room=newRoom(code||genCode(rooms),uid);
+      const simdi=Date.now();const son=(ipKurmalar.get(ws.ip)||[]).filter(t=>simdi-t<60000);
+      if(ipOdalar(ws.ip)>=ipOda||son.length>=ipOdaDakika)return send(ws,{t:'err',m:'Bu adresten çok fazla oda açıldı; biraz sonra tekrar dene.',code:'limit'});
+      son.push(simdi);ipKurmalar.set(ws.ip,son);
+      room=newRoom(genCode(rooms),uid,ws.ip); // kodu her zaman sunucu üretir: eski/elle kod "kapılamaz"; "Önceki odam" yalnız oda yaşıyorsa onu açar
     }
     let sockCount=0;for(const x of room.members.values())sockCount+=x.socks.size;
     if(sockCount>=MAX_SOCKS_PER_ROOM)return send(ws,{t:'err',m:'Oda dolu.',code:'full'});
@@ -194,7 +204,13 @@ function createServer(opts={}){
 
   // ---------- WebSocket ----------
   const wss=new WebSocketServer({server,path:'/ws',maxPayload:16*1024});
-  wss.on('connection',ws=>{
+  // istemci IP'si: yalnız yerel vekilden (Caddy/tünel) gelen bağlantıda başlıklara güvenilir
+  function ipOf(req){const d=(req.socket&&req.socket.remoteAddress)||'';const yerel=/^(127\.|::1$|::ffff:127\.)/.test(d);
+    if(!yerel)return d;const cf=req.headers['cf-connecting-ip'];const xff=(req.headers['x-forwarded-for']||'').split(',')[0].trim();return cf||xff||d}
+  wss.on('connection',(ws,req)=>{
+    ws.ip=ipOf(req);const n=(ipSoketler.get(ws.ip)||0)+1;
+    if(n>ipSoket){send(ws,{t:'err',m:'Bu adresten çok fazla bağlantı var.',code:'limit'});try{ws.close(4001,'limit')}catch(e){}return}
+    ipSoketler.set(ws.ip,n);ws.on('close',()=>{const k=(ipSoketler.get(ws.ip)||1)-1;if(k<=0)ipSoketler.delete(ws.ip);else ipSoketler.set(ws.ip,k)});
     ws.isAlive=true;ws.room=null;ws.uid=null;ws.chatSeen=0;ws.bucket={t:Date.now(),n:0};
     ws.on('pong',()=>{ws.isAlive=true});
     ws.on('message',data=>{
