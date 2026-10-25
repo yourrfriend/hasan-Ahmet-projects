@@ -4,7 +4,7 @@ const test=require('node:test');
 const assert=require('node:assert');
 const G=require('../game.js');
 
-const SECRET_KEYS=['roles','acts','votes','notes','dchat','candle','planted','mad','uses','vest','haunt','provoke','blame','log','gameLog','hizli'];
+const SECRET_KEYS=['roles','acts','votes','notes','dchat','candle','planted','mad','uses','vest','haunt','provoke','blame','log','gameLog','hizli','rolGecmisi'];
 function keysDeep(o,out=new Set()){if(o&&typeof o==='object'){for(const k of Object.keys(o)){out.add(k);keysDeep(o[k],out)}}return out}
 function noLeak(P){const ks=keysDeep(P);for(const k of SECRET_KEYS)assert.ok(!ks.has(k),'state içinde gizli alan: '+k)}
 
@@ -313,6 +313,55 @@ test('rol dağılımı: eşikler, tekrarsız özel roller, bilgi rolü ≥ hain,
     G.DAGILIM.tekHainSurumP=1;for(let i=0;i<100;i++){const c=G.autoSetup(6);assert.strictEqual(c.hain||0,0,'P=1 → hep sürümlü')}
   }finally{G.DAGILIM.tekHainSurumP=eski}
   assert.strictEqual(G.DAGILIM.tekHainSurumP,0.5,'varsayılan 0,5');
+});
+
+// ---------- Geri bildirim paketi: tekrar eğilimi (rolDagit, R.rolGecmisi) ----------
+test('tekrarCezasi: hemen tekrar 4, son 3\'te 1\'er, üst üste üçüncü hain 2, geçmişsiz 0',()=>{
+  const r=(key,team='inn')=>({key,team});
+  assert.strictEqual(G.tekrarCezasi(r('doktor'),[]),0);
+  assert.strictEqual(G.tekrarCezasi(r('doktor'),undefined),0);
+  assert.strictEqual(G.tekrarCezasi(r('doktor'),[r('doktor')]),4,'hemen tekrar');
+  assert.strictEqual(G.tekrarCezasi(r('doktor'),[r('polis'),r('doktor')]),1,'h[1]');
+  assert.strictEqual(G.tekrarCezasi(r('doktor'),[r('polis'),r('gozcu'),r('doktor')]),1,'h[2]');
+  assert.strictEqual(G.tekrarCezasi(r('doktor'),[r('polis'),r('doktor'),r('doktor')]),2,'h[1] ve h[2]');
+  assert.strictEqual(G.tekrarCezasi(r('doktor'),[r('polis'),r('gozcu'),r('izci'),r('doktor')]),0,'h[3] sayılmaz');
+  assert.strictEqual(G.tekrarCezasi(r('hain','imp'),[r('polis','imp'),r('gozcu','imp')]),2,'üçüncü kez hain (takım)');
+  assert.strictEqual(G.tekrarCezasi(r('hain','imp'),[r('hain','imp'),r('gozcu','imp')]),6,'hemen tekrar + takım');
+  assert.strictEqual(G.tekrarCezasi(r('polis','imp'),[r('polis','inn')]),4,'Polis ve Polis-hain aynı key');
+  assert.strictEqual(G.tekrarCezasi(r('doktor','inn'),[r('polis','inn'),r('gozcu','inn')]),0,'masum takımı tekrarı ceza değil');
+});
+
+test('rolDagit: cezasız dağıtım varsa bulur; eğilim tekrarı azaltır, kesin yasaklamaz',()=>{
+  const bag=[{key:'doktor',team:'inn'},{key:'polis',team:'inn'},{key:'masum',team:'inn'},{key:'hain',team:'imp'}];
+  const players=[{id:'u0'},{id:'u1'},{id:'u2'},{id:'u3'}];
+  const gecmis={u0:[{key:'hain',team:'imp'}],u1:[{key:'masum',team:'inn'}],u2:[{key:'polis',team:'inn'}],u3:[{key:'doktor',team:'inn'}]};
+  const ceza=(sira,g)=>sira.reduce((a,r,i)=>a+G.tekrarCezasi(r,g[players[i].id]),0);
+  for(let i=0;i<50;i++){
+    const sira=G.rolDagit(bag,players,gecmis,{kacinmaP:1,deneme:200});
+    assert.strictEqual(sira.length,4);assert.deepStrictEqual(sira.map(r=>r.key).sort(),['doktor','hain','masum','polis'],'torbanın tamamı');
+    assert.strictEqual(ceza(sira,gecmis),0,'cezasız dağıtım bulunur');
+  }
+  let tekrar=0;for(let i=0;i<400;i++){if(G.rolDagit(bag,players,gecmis)[0].key==='hain')tekrar++}
+  assert.ok(tekrar/400<=0.12,'varsayılan eğilimle hemen tekrar seyrek: '+tekrar/400); // %20 düz karıştırma → ≈%5 beklenir; kesin yasak değil
+  let temel=0;for(let i=0;i<400;i++){if(G.rolDagit(bag,players,{})[0].key==='hain')temel++}
+  assert.ok(temel/400>=0.15&&temel/400<=0.35,'geçmişsiz düz rastgele: '+temel/400);
+  for(let i=0;i<20;i++){const sira=G.rolDagit(bag,players,{u0:[{key:'hain',team:'imp'}]},{kacinmaP:1});assert.deepStrictEqual(sira.map(r=>r.key).sort(),['doktor','hain','masum','polis'],'yalnız u0 geçmişli: torba tam')}
+  assert.deepStrictEqual(G.TEKRAR,{kacinmaP:0.8,gecmisUz:5,deneme:200,ceza:{hemen:4,yakin:1,takim:2}});
+});
+
+test('startGame rol geçmişini odada tutar: oyuncu başına son 5, ayrılanın kaydı durur, state\'e sızmaz',()=>{
+  const R=G.createGame();assert.deepStrictEqual(R.rolGecmisi,{});
+  assert.ok(G.startGame(R,lobbyOf(4)));
+  for(const p of R.P.players){const h=R.rolGecmisi[p.id];assert.strictEqual(h.length,1);assert.deepStrictEqual(h[0],{key:R.g.roles[p.id].key,team:R.g.roles[p.id].team})}
+  noLeak(R.P);
+  G.endToLobby(R);
+  const yeni=[...lobbyOf(4).slice(1),{id:'u9',name:'Yeni',color:G.COLORS[5],hat:'none'}]; // u0 çıktı, u9 geldi
+  assert.ok(G.startGame(R,yeni));
+  assert.strictEqual(R.rolGecmisi.u0.length,1,'ayrılanın kaydı durur');assert.strictEqual(R.rolGecmisi.u1.length,2);assert.strictEqual(R.rolGecmisi.u9.length,1);
+  assert.deepStrictEqual(R.rolGecmisi.u1[0],{key:R.g.roles.u1.key,team:R.g.roles.u1.team},'en yeni önde');
+  for(let i=0;i<6;i++){G.endToLobby(R);assert.ok(G.startGame(R,yeni))}
+  assert.strictEqual(R.rolGecmisi.u1.length,5,'en çok 5');
+  noLeak(R.P);
 });
 
 test('polis bombacıyı tutamaz (seri katil gibi); 1\'e 1 kalınca bombacı patlatıp kazanır',()=>{

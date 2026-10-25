@@ -62,6 +62,26 @@ const DAGILIM={
   tekHainSurumP:0.5                // tek hainli oyunda hainin sürümlü (Polis-hain, Gözcü-hain…) olma olasılığı; 2 hainde hep 1 sürümlü + 1 düz
 };
 const BILGI_ROLLERI=['polis','gozcu','izci','dedektif','ispiyoncu'];
+// Tekrar eğilimi (geri bildirim paketi §5.3): torba değişmez, yalnız kimin hangi rolü aldığı seçilir. Oyuncu başına son
+// gecmisUz rol R.rolGecmisi'nde (gizli, oda ömrünce) tutulur; kacinmaP olasılıkla deneme kadar karıştırmadan en az cezalısı
+// seçilir, kalanında düz karıştırma (kesin yasak olmasın: "geçen maç haindi, bu maç değil" denemesin).
+const TEKRAR={kacinmaP:0.8,gecmisUz:5,deneme:200,ceza:{hemen:4,yakin:1,takim:2}};
+function tekrarCezasi(rol,gecmis){
+  if(!gecmis||!gecmis.length)return 0;
+  let c=0;
+  if(gecmis[0].key===rol.key)c+=TEKRAR.ceza.hemen;
+  for(let i=1;i<=2&&i<gecmis.length;i++)if(gecmis[i].key===rol.key)c+=TEKRAR.ceza.yakin;
+  if(rol.team==='imp'&&gecmis.length>=2&&gecmis[0].team==='imp'&&gecmis[1].team==='imp')c+=TEKRAR.ceza.takim;
+  return c;
+}
+function rolDagit(bag,players,gecmis,opts){
+  const o={...TEKRAR,...(opts||{})};gecmis=gecmis||{};
+  const toplam=sira=>sira.reduce((a,r,i)=>a+tekrarCezasi(r,gecmis[players[i].id]),0);
+  if(Math.random()>=o.kacinmaP)return shuffle(bag.slice());
+  let enIyi=null,enAz=Infinity;
+  for(let d=0;d<o.deneme;d++){const sira=shuffle(bag.slice());const c=toplam(sira);if(c<enAz){enAz=c;enIyi=sira;if(c===0)break}}
+  return enIyi;
+}
 function autoSetup(n){
   const c={};const add=id=>{c[id]=(c[id]||0)+1};
   const hain=DAGILIM.hain(n),sald=DAGILIM.saldirgan(n),pasif=DAGILIM.pasif(n),deli=DAGILIM.deli(n);
@@ -95,7 +115,7 @@ let clock=()=>Date.now();
 function setClock(f){clock=f||(()=>Date.now())}
 
 function lobbyState(){return{phase:'lobby',chat:[],dead:[],players:[]}}
-function createGame(settings){return{P:lobbyState(),g:null,settings:cleanSettings(settings),seq:0,log:[],logSeq:0,gameLog:[]}}
+function createGame(settings){return{P:lobbyState(),g:null,settings:cleanSettings(settings),seq:0,log:[],logSeq:0,gameLog:[],rolGecmisi:{}}} // rolGecmisi: pubId → [{key,team}…] en yeni önde (gizli)
 
 function pl(R,id){return (R.P.players||[]).find(p=>p.id===id)}
 function alivePlayers(R){return (R.P.players||[]).filter(p=>p.alive)}
@@ -124,8 +144,11 @@ function kapanisFor(R){const g=R.g;const olum={};
 function startGame(R,lobby,secenek){ // secenek: {rovans:true, onceki:gameId} rövanşta
   const players=lobby.slice();if(players.length<4||players.length>12)return false;
   const counts=autoSetup(players.length);
-  const bag=[];for(const e of SETUP)for(let i=0;i<(counts[e.id]||0);i++)bag.push({key:e.key,team:e.team});shuffle(bag);
-  const roles={};players.forEach((p,i)=>{const r=bag[i];roles[p.id]={key:r.key,team:r.team,mad:r.key==='deli'?MADPOOL[Math.floor(Math.random()*MADPOOL.length)]:null,uses:{},vest:3,planted:[]}});
+  const bag=[];for(const e of SETUP)for(let i=0;i<(counts[e.id]||0);i++)bag.push({key:e.key,team:e.team});
+  if(!R.rolGecmisi)R.rolGecmisi={};
+  const sira=rolDagit(bag,players,R.rolGecmisi);
+  const roles={};players.forEach((p,i)=>{const r=sira[i];roles[p.id]={key:r.key,team:r.team,mad:r.key==='deli'?MADPOOL[Math.floor(Math.random()*MADPOOL.length)]:null,uses:{},vest:3,planted:[]};
+    R.rolGecmisi[p.id]=[{key:r.key,team:r.team},...(R.rolGecmisi[p.id]||[])].slice(0,TEKRAR.gecmisUz)});
   R.g={roles,acts:{},notes:{},dchat:[],votes:{},provoke:null,blame:null,clean:null,candle:{},haunt:null,hauntWins:[]};R.gameLog=[];
   players.forEach(p=>R.g.notes[p.id]=[]);
   const settings={...R.settings};
@@ -471,7 +494,7 @@ function privFor(R,id){
     uses:r.uses,vest:r.vest,planted:r.planted.slice(),candle:g.candle[id]||null,payin:P.phase==='end'?payinFor(R,id):null};
 }
 
-return{ROLES,SETUP,COLORS,HATS,DEFAULT_SETTINGS,DAGILIM,roleLabel,autoSetup,cleanSettings,setClock,
+return{ROLES,SETUP,COLORS,HATS,DEFAULT_SETTINGS,DAGILIM,TEKRAR,tekrarCezasi,rolDagit,roleLabel,autoSetup,cleanSettings,setClock,
   lobbyState,createGame,startGame,setPhase,advance,tick,resolveNight,resolveVote,checkWin,kazananlar,gazeteFor,GAZETE_EN_COK,ek,endToLobby,olay,
   act,vote,chat,deadChat,hizli,HIZLI_BEKLE_MS,HIZLI_GUN,HIZLI_TUR,privFor,pl,alivePlayers,inGame};
 });
