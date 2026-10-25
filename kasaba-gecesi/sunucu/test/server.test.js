@@ -520,7 +520,7 @@ test('kanca: imzalı GoTrue isteği mail gönderir (200 {}); aynı webhook-id te
     assert.strictEqual((await postJ(base,'/eposta/kanca',govde,kotu)).s,401);
     assert.strictEqual((await postJ(base,'/',govde,{})).s,405,'diğer POST yolları 405 kalır');
     const ayar=JSON.parse((await getH(base,'/ayar.json')).b);assert.strictEqual(ayar.eposta,true);assert.strictEqual(ayar.kancaSirri,undefined,'sır /ayar.json\'a girmez');
-    const sag=JSON.parse((await getH(base,'/saglik')).b);assert.deepStrictEqual(sag.eposta,{gonderilen:1,hata:0,atlanan:0});
+    const sag=JSON.parse((await getH(base,'/saglik')).b);assert.deepStrictEqual(sag.eposta,{gonderilen:1,hata:0,atlanan:0,sinir:0});
     const buyuk='{"a":"'+'x'.repeat(70000)+'"}';const d=await postJ(base,'/eposta/kanca',buyuk,H.imzala({sir:SIR,id:'msg_c',ts:Math.floor(Date.now()/1000),govde:buyuk}));assert.strictEqual(d.s,413);
   }finally{await new Promise(r=>srv.close(r))}
   const s2=createServer({quiet:true,jwksAlma:false,ayar:{url:'http://127.0.0.1:1',anonKey:'anon',serviceKey:'srv',jwtSecret:'x',kurulum:'t'},eposta});
@@ -546,6 +546,25 @@ test('/hesap/birlestir: iki taze token → RPC + admin silme (taklit); eski sür
   }finally{await new Promise(r=>srv.close(r));await rest.kapat()}
   const s2=createServer({quiet:true});await new Promise(r=>s2.server.listen(0,'127.0.0.1',r));const b2='127.0.0.1:'+s2.server.address().port;
   try{assert.strictEqual((await postJ(b2,'/hesap/birlestir','{}')).s,404)}finally{await new Promise(r=>s2.close(r))}
+});
+test('kanca: başarısız gönderim önbelleklenmez (GoTrue yeniden deneyince mail gider); eşzamanlı aynı webhook-id tek mail; alıcı başına saatte 5',async()=>{
+  const SIR='v1,whsec_'+Buffer.from('kanca-sirri-2').toString('base64');const mailler=[];let basarisiz=true;let beklet=null;
+  const eposta={kodMaili:require('../eposta.js').kodMaili,sendTransactionalEmail:async m=>{if(beklet)await beklet;mailler.push(m);return basarisiz?{ok:false,neden:'saglayici',durum:500}:{ok:true,id:'e'}}};
+  const srv=createServer({quiet:true,jwksAlma:false,ayar:{url:'http://127.0.0.1:1',anonKey:'anon',serviceKey:'srv',jwtSecret:'x',kurulum:'t',kancaSirri:SIR},eposta});
+  await new Promise(r=>srv.server.listen(0,'127.0.0.1',r));const base='127.0.0.1:'+srv.server.address().port;
+  const yuk=(email,id)=>{const govde=JSON.stringify({user:{id:'u1',email},email_data:{token:'123456',email_action_type:'magiclink'}});return [govde,H.imzala({sir:SIR,id,ts:Math.floor(Date.now()/1000),govde})]};
+  try{
+    let [g,h]=yuk('a@ornek.com','msg_f');assert.strictEqual((await postJ(base,'/eposta/kanca',g,h)).s,500);assert.strictEqual(mailler.length,1);
+    basarisiz=false;assert.strictEqual((await postJ(base,'/eposta/kanca',g,h)).s,200,'aynı id, ilk deneme başarısızdı → yeniden gönderilir');assert.strictEqual(mailler.length,2);
+    assert.strictEqual((await postJ(base,'/eposta/kanca',g,h)).s,200);assert.strictEqual(mailler.length,2,'başarılı sonuç önbellekte');
+    // eşzamanlı tekrar: ilk işlem sürerken aynı id → tek mail
+    let coz;beklet=new Promise(r=>{coz=r});[g,h]=yuk('b@ornek.com','msg_g');const p1=postJ(base,'/eposta/kanca',g,h);await new Promise(r=>setTimeout(r,50));const p2=postJ(base,'/eposta/kanca',g,h);await new Promise(r=>setTimeout(r,50));coz();beklet=null;
+    const [r1,r2]=await Promise.all([p1,p2]);assert.strictEqual(r1.s,200);assert.strictEqual(r2.s,200);assert.strictEqual(mailler.filter(m=>m.to==='b@ornek.com').length,1,'eşzamanlı tekrar tek mail');
+    // alıcı başına saatte 5: 6. istek (farklı id) → 500, mail yok
+    for(let i=0;i<5;i++){const [g2,h2]=yuk('c@ornek.com','msg_c'+i);assert.strictEqual((await postJ(base,'/eposta/kanca',g2,h2)).s,200)}
+    const [g6,h6]=yuk('c@ornek.com','msg_c6');const r6=await postJ(base,'/eposta/kanca',g6,h6);assert.strictEqual(r6.s,500);assert.strictEqual(mailler.filter(m=>m.to==='c@ornek.com').length,5,'6. mail gitmez');
+    const sag=JSON.parse((await getH(base,'/saglik')).b);assert.strictEqual(sag.eposta.sinir,1);
+  }finally{await new Promise(r=>srv.close(r))}
 });
 const getH=(b,p,h)=>new Promise((res,rej)=>http.get('http://'+b+p,{headers:h||{}},r=>{let s='';r.on('data',d=>s+=d);r.on('end',()=>res({s:r.statusCode,b:s,h:r.headers}))}).on('error',rej));
 test('statik dosya önbelleği: sürümsüz /sayfa/* ve game.js no-cache + ETag (304); ?v= ile uzun önbellek; html sayfalarda __V__ sürümle dolar',async()=>{

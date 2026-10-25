@@ -230,7 +230,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 <div id="app"><div class="panel"><p class="muted">Yükleniyor…</p></div></div>
 <script>
 // Script daha başlamadan çökerse "Yükleniyor…" yerine hatayı göster (sürüm damgasıyla).
-window.KG_VER='2026-10-31a';
+window.KG_VER='2026-10-31b';
 window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ff6b6b"><p><b>Sayfa açılamadı.</b> Sürüm '+KG_VER+'</p><p class="small" style="word-break:break-all">'+String(e.message||e.error||e)+(e.filename?' @'+e.lineno:'')+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}});
 setTimeout(function(){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ffb347"><p><b>Sayfa yüklenemedi.</b> Sürüm '+KG_VER+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}},8000);
 </script>
@@ -338,6 +338,8 @@ async function hesapDogrula(){
   try{
     const {data,error}=await hesapSure(sb.auth.verifyOtp({email:h.eposta,token:kod,type:h.tur==='bagla'?'email_change':'email'}));if(error)throw error;
     if(data&&data.session)hesapGuncelle(data.session);
+    // güvenlik: hesaba rastgele bir şifre atanır (bu oyunda şifre yok; adresi başkası önceden şifreyle açtıysa o şifre geçersiz olsun). Hata sessiz.
+    try{await hesapSure(sb.auth.updateUser({password:rastgeleSifre()}))}catch(e){}
     if(h.tur==='gir'){if(h.N>0){h.adim='birlestir';h.yukleniyor=false;render();return}h.yukleniyor=false;return hesapBirlestir(true)}
     h.tur=null;
   }catch(err){h.hata=hesapHataMetni(err)}
@@ -352,7 +354,9 @@ async function hesapBirlestir(ekle){
   }catch(e){h.bilgi='Giriş yapıldı; geçmiş şu an taşınamadı.';render();setTimeout(()=>location.reload(),3000);return}
   location.reload();
 }
-async function hesapCikis(){try{if(sb)await hesapSure(sb.auth.signOut())}catch(e){}try{localStorage.removeItem('kg_token')}catch(e){}location.reload()}
+function rastgeleSifre(){const a=new Uint8Array(48);crypto.getRandomValues(a);return btoa(String.fromCharCode(...a))} // 64 karakter
+// yalnız bu cihaz: scope 'local' (varsayılan 'global' diğer cihazların yenileme token'larını da iptal eder)
+async function hesapCikis(){try{if(sb)await hesapSure(sb.auth.signOut({scope:'local'}))}catch(e){}try{localStorage.removeItem('kg_token')}catch(e){}location.reload()}
 function hesapBlok(pn){
   const h=ui.hesap;
   if(hesap.eposta&&!(h.tur==='gir'&&h.adim==='birlestir')){const d=el('p','small muted kimlik-notu hesap-durum','Hesabın: '+hesap.eposta);const b=el('button','small hesap-cikis','Bu cihazdan çık');b.onclick=()=>hesapCikis();const r=el('div','row');r.append(d,b);pn.append(r);return}

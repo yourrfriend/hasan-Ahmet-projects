@@ -62,7 +62,7 @@ function createServer(opts={}){
     if(!h||!['ES256','RS256'].includes(h.alg)||!h.kid)return false;return !(dogrulama.jwks&&dogrulama.jwks.keys.some(k=>k.kid===h.kid))}
   const ayarAcik=()=>({url:ayar.url||null,anonKey:ayar.anonKey||null,kurulum:ayar.kurulum||null,kayit:!!(ayar.url&&ayar.serviceKey),eposta:!!(ayar.url&&ayar.serviceKey&&ayar.kancaSirri)}); // eposta: bu kurulum GoTrue kancasının hedefi (sır var) → istemcide bağla/gir düğmeleri
   // E-posta (Plan 6): GoTrue "Send Email" kancası → tek gönderim fonksiyonu. Sır yoksa uç kapalı (404). webhook-id ile 10 dk tekilleştirme (GoTrue yeniden dener).
-  const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata:0,atlanan:0};const kancaGorulen=new Map();
+  const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata:0,atlanan:0,sinir:0};const kancaGorulen=new Map();const kancaAlici=new Map();const KANCA_ALICI_SAAT=opts.kancaAliciSaat||5;
   function govdeOku(req,sinir){return new Promise((res,rej)=>{let b='';let asim=false;req.on('data',d=>{if(asim)return;b+=d;if(b.length>sinir){asim=true;rej(Object.assign(new Error('büyük'),{kod:413}))}});req.on('end',()=>{if(!asim)res(b)});req.on('error',rej)})}
   async function kancaUcu(req,res){
     const json=(d,b)=>{res.writeHead(d,{'Content-Type':'application/json'});res.end(JSON.stringify(b))};
@@ -71,11 +71,21 @@ function createServer(opts={}){
     const d=Hesap.imzaDogrula({sirlar:ayar.kancaSirri,headers:req.headers,govde,simdiMs:Date.now()});
     if(!d.ok){log('kanca reddedildi',d.neden);return json(401,{error:{http_code:401,message:'imza: '+d.neden}})}
     const id=req.headers['webhook-id'];const simdi=Date.now();for(const [k,v] of kancaGorulen)if(simdi-v.zaman>600000)kancaGorulen.delete(k);
-    const onceki=kancaGorulen.get(id);if(onceki)return json(onceki.durum,onceki.govde);
-    let yuk;try{yuk=JSON.parse(govde)}catch(e){return json(400,{error:{http_code:400,message:'json'}})}
-    // sayfa: kurulumun kendi adresi (ALAN, kur.sh'nin env'i) — maildeki tek link
-    const r=await Hesap.kancaIsle({yuk,eposta,sayac:epostaSayac,sayfa:process.env.ALAN?'https://'+process.env.ALAN+'/':undefined});kancaGorulen.set(id,{zaman:simdi,durum:r.durum,govde:r.govde});
-    const c=Hesap.kancaYukunuCoz(yuk);log('kanca',c.tur||'atlandi',c.alici?Hesap.maskele(c.alici):'-',r.durum);
+    // tekilleştirme: süren işin promise'i saklanır (eşzamanlı tekrar aynı sonucu bekler); yalnız 200 sonuç 10 dk tutulur,
+    // başarısız gönderim silinir ki GoTrue'nun yeniden denemesi gerçekten yeniden göndersin (biz kendimiz denemeyiz)
+    let is=kancaGorulen.get(id);
+    if(!is){
+      is={zaman:simdi,sonuc:(async()=>{
+        let yuk;try{yuk=JSON.parse(govde)}catch(e){return {durum:400,govde:{error:{http_code:400,message:'json'}}}}
+        const c=Hesap.kancaYukunuCoz(yuk);
+        // alıcı başına saatte en çok 5 kod maili (anon anahtarla herkes kod isteyebilir; Resend kotası ve gönderici itibarı)
+        if(c.alici){const l=(kancaAlici.get(c.alici)||[]).filter(t=>simdi-t<3600000);if(l.length>=KANCA_ALICI_SAAT){epostaSayac.sinir++;log('kanca sınır',Hesap.maskele(c.alici));return {durum:500,govde:{error:{http_code:500,message:'e-posta gönderilemedi'}}}}l.push(simdi);kancaAlici.set(c.alici,l)}
+        // sayfa: kurulumun kendi adresi (ALAN, kur.sh'nin env'i) — maildeki tek link
+        const r=await Hesap.kancaIsle({yuk,eposta,sayac:epostaSayac,sayfa:process.env.ALAN?'https://'+process.env.ALAN+'/':undefined});
+        log('kanca',c.tur||'atlandi',c.alici?Hesap.maskele(c.alici):'-',r.durum);return r})()};
+      kancaGorulen.set(id,is);
+    }
+    const r=await is.sonuc;if(r.durum!==200&&kancaGorulen.get(id)===is)kancaGorulen.delete(id);
     return json(r.durum,r.govde);
   }
   const kayit=opts.kayit||Kayit.olustur({url:ayar.url,serviceKey:ayar.serviceKey,kurulum:ayar.kurulum,quiet:!!opts.quiet}); // olay günlüğünün gittiği yer (testler bellekte biriktiren bir sahte verir)

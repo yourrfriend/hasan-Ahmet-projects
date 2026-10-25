@@ -87,7 +87,7 @@ Kullanıcı B'yi seçti (2026-10-25): "tek gönderim fonksiyonu, sağlayıcı de
 ### 5.4 `eposta.js` — `sendTransactionalEmail({to, subject, text, html})`
 
 - Tek dışa açık fonksiyon; sağlayıcı `EPOSTA_SAGLAYICI` (varsayılan `resend`), `RESEND_API_KEY`, `EPOSTA_GONDEREN` (varsayılan `Kasaba Gecesi <oyun@munupixi.com>`). Anahtar yoksa `{ok:false, neden:'ayarsiz'}` döner (uç 500 verir; `/saglik` sayar).
-- Resend: `POST https://api.resend.com/emails`, `Authorization: Bearer`, JSON `{from,to,subject,text,html}`; 10 sn zaman aşımı (`AbortSignal.timeout`); 2xx → `{ok:true,id}`; 429/5xx → bir kez 1 sn sonra yeniden dener; sonra `{ok:false, neden, durum}`. Yanıt gövdesi günlüğe kısaltılmış yazılır (anahtar yok).
+- Resend: `POST https://api.resend.com/emails`, `Authorization: Bearer`, JSON `{from,to,subject,text,html}`; **4 sn** zaman aşımı (`AbortController`); 2xx → `{ok:true,id}`; başka durum → `{ok:false, neden:'saglayici', durum}`; **yeniden deneme yok** (GoTrue kancayı 3 kez dener). Günlüğe anahtar/kod yazılmaz.
 - Sağlayıcı eklemek = `saglayicilar.<ad>` haritasına bir fonksiyon; dışarıya aynı imza. Test için `olustur({fetch})` ile sahte `fetch` verilir (modül `olustur(ayar)` + varsayılan örnek).
 - Şablonlar aynı dosyada, saf fonksiyonlar: `kodMaili({tur:'baglama'|'giris', kod, sureDk})` → `{subject, text, html}`. Metin:
   - Konu: `Kasaba Gecesi doğrulama kodun: 123456` (giriş için `giriş kodun`).
@@ -115,11 +115,13 @@ Kullanıcı B'yi seçti (2026-10-25): "tek gönderim fonksiyonu, sağlayıcı de
 
 ### 5.7 Güvenlik ve kötüye kullanım
 
-- **Önceden hesap açma (pre-hijack) kapatıldı (uygulama sırasında eklendi):** e-posta sağlayıcısı açıkken biri başkasının adresiyle `/auth/v1/signup`'tan şifreli, doğrulanmamış hesap açabilir; sahibi kodla girince hesap doğrulanır ve saldırgan şifresiyle girebilirdi. Bu oyunda şifre olmadığı için `db/caddy.sh` dış kapıda `/auth/v1/token?grant_type=password` ve `/auth/v1/recover`'a 403 verir; kanca `recovery` maili üretmez. Sahibi "Hesabınla gir" ile boş hesabı devralır.
+- **Önceden hesap açma (pre-hijack) kapatıldı (uygulama sırasında eklendi; güvenlik taraması 2026-10-25):** e-posta sağlayıcısı açıkken biri başkasının adresiyle `/auth/v1/signup`'tan şifreli, doğrulanmamış hesap açabilir; sahibi kodla girince hesap doğrulanır ve saldırgan şifresiyle girebilirdi. İki katman: (1) `db/caddy.sh` dış kapıda `/auth/v1/token` için **izin listesi** — yalnız `grant_type=refresh_token` geçer, geri kalanı 403 (yasak listesi `grant_type=password` bozuk sorguyla — `&x=a;b` — aşılabiliyordu: Caddy `query` eşleyicisi çözümleme hatasında eşleşmez, GoTrue ise parametreyi okur); `/auth/v1/recover` 403; kanca `recovery` maili üretmez. (2) İstemci kodla doğrulamadan hemen sonra (bağla ve gir) hesaba **rastgele 64 karakterlik şifre** atar (`updateUser({password})`): önceden konmuş şifre geçersiz olur. Sahibi "Hesabınla gir" ile boş hesabı devralır. Doğrulama: `curl -X POST '…/auth/v1/token?grant_type=password&x=a;b'` → 403.
+- **"Bu cihazdan çık" yalnız bu cihaz:** `signOut({scope:'local'})` (varsayılan `global` diğer cihazların yenileme token'larını da iptal ediyordu).
+- **Kanca tekilleştirme:** süren işin promise'i saklanır (eşzamanlı tekrar tek mail), yalnız 200 sonuç 10 dk tutulur; başarısız gönderim silinir ki GoTrue'nun yeniden denemesi gerçekten yeniden göndersin.
 - **Mailde tek link:** kurulumun kendi adresi (`https://<ALAN>/`, env `ALAN`), "Sayfa kapandıysa" diye; başka link yok (kullanıcı isteği, 2026-10-25).
 
 - Kanca ucu imzasız/eski istekleri reddeder; sır yalnız env'de. Birleştirme ucu iki taze token ister; token'lar günlüğe yazılmaz.
-- Kod mailini kim isteyebilir: herkes (anon anahtarla GoTrue'ya erişen). Tavan: adres başına 60 sn, kurulum geneli saatte 30; metin link içermediği için oltalama değeri düşük. Resend kotası ayda 3.000.
+- Kod mailini kim isteyebilir: herkes (anon anahtarla GoTrue'ya erişen). Tavan: GoTrue'da adres başına 60 sn ve kurulum geneli saatte 60; **kanca ucunda alıcı başına saatte 5** (aşımda 500 → GoTrue istemciye hata döner, mail gitmez; `/saglik eposta.sinir`). Resend ücretsiz katman günde 100 / ayda 3.000.
 - `service_role` ve Resend anahtarı yalnız sunucu env'inde; `/ayar.json`'a girmez.
 - Birleştirmede `eski` anonim olmalı: kalıcı bir hesabın token'ını ele geçiren kişi başka hesaba taşıyamaz (zaten o hesapla girebilirdi; ek yüzey yok).
 
@@ -132,8 +134,8 @@ Kullanıcı B'yi seçti (2026-10-25): "tek gönderim fonksiyonu, sağlayıcı de
 
 ### 5.9 Test
 
-- `test/eposta.test.js`: `kodMaili` metinleri (Türkçe, kod geçer, link yok); `sendTransactionalEmail` sahte `fetch` ile: başarı, 429 → yeniden deneme, anahtarsız `ayarsiz`, zaman aşımı.
-- `test/server.test.js`: kanca — doğru imza → 200 ve sahte sağlayıcıya giden mail (alıcı, konu kod içerir); yanlış imza/eski zaman damgası → 401; bilinmeyen tür → 200, mail yok; sağlayıcı hatası → 500. Birleştirme — sahte PostgREST/GoTrue admin (HTTP taklidi, mevcut `kayit.test` deseni): iki taze token → RPC + delete; süresi dolmuş `eski` → 401; `yeni` anonim → 400; `sadeceSil` → yalnız delete; IP sınırı.
+- `test/eposta.test.js`: `kodMaili` metinleri (Türkçe, kod geçer, tek link kurulumun adresi); `sendTransactionalEmail` sahte `fetch` ile: başarı, 429 → `saglayici` (yeniden deneme yok), anahtarsız `ayarsiz`, zaman aşımı.
+- `test/server.test.js`: kanca — doğru imza → 200 ve sahte sağlayıcıya giden mail (alıcı, konu kod içerir); yanlış imza/eski zaman damgası → 401; bilinmeyen tür → 200, mail yok; sağlayıcı hatası → 500. Birleştirme — sahte PostgREST/GoTrue admin (HTTP taklidi, mevcut `kayit.test` deseni): iki taze token → RPC + delete; süresi dolmuş `eski` → 401; `yeni` anonim → 400; IP sınırı.
 - `test/e2e.js` (sahte Supabase `route`, Plan 5 altyapısı): kayıtlı-e-postasız giriş sayfasında iki düğme; bağla akışı (`PUT /auth/v1/user` → ok, `POST /auth/v1/verify` → e-postalı oturum) → "Hesabın: …"; ikinci cihaz (`POST /auth/v1/otp`, `/auth/v1/verify`) → N>0 sorusu → `/hesap/birlestir` çağrısı (sunucu testte sahte birleştirici ile) → yenileme; kayıt kapalıda düğme yok; `?bagla=1` formu açar; son ekranda hatırlatma yalnız e-postasız kayıtlıda.
 - kasaba-test'te gerçek deneme: Playwright ile bağla → kod maili Barış'ın Gmail'ine gider; kod **Gmail bağlayıcısıyla** (claude.ai Gmail: `search_threads`/`get_message`) okunur → forma yazılır → "Hesabın" görünür; ikinci tarayıcı bağlamında "Hesabınla gir" → kod → birleştirme → `/kasaba` ve giriş bloğunda geçmiş tek hesapta; `auth.users`'ta eski anonim kullanıcı yok (psql ile sayım). Ekran görüntüleri (telefon dikey dahil).
 
