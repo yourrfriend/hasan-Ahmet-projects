@@ -141,7 +141,7 @@ bilgi "$AD: dosyalar hazırlanıyor ($SURUM, $COMMIT)"
 rm -rf "$YENI" "$ESKI";mkdir -p "$YENI/sunucu"
 install -m 644 "$OYUN/index.html" "$YENI/index.html"
 for f in server.js game.js kayit.js kimlik.js package.json package-lock.json; do [ -f "$OYUN/sunucu/$f" ] && install -m 644 "$OYUN/sunucu/$f" "$YENI/sunucu/" || true; done # eski sürümlerde kayit.js/kimlik.js yok
-if [ -d "$OYUN/sayfa" ]; then mkdir -p "$YENI/sayfa"; for f in "$OYUN"/sayfa/*.js; do [ -f "$f" ] && install -m 644 "$f" "$YENI/sayfa/" || true; done; fi # gömülü supabase-js ve sayfa betikleri
+if [ -d "$OYUN/sayfa" ]; then mkdir -p "$YENI/sayfa"; for f in "$OYUN"/sayfa/*.js "$OYUN"/sayfa/*.css "$OYUN"/sayfa/*.html; do [ -f "$f" ] && install -m 644 "$f" "$YENI/sayfa/" || true; done; fi # gömülü supabase-js, geçmiş sayfaları ve ortak dosyalar
 # Caddy şablonu da sürümle birlikte durur: parça hep kurulu sürümün şablonundan üretilir (eski sürümlerde yoksa bu klasördeki)
 [ -f "$OYUN/sunucu/Caddyfile" ] && install -m 644 "$OYUN/sunucu/Caddyfile" "$YENI/sunucu/" || true
 (cd "$YENI/sunucu" && npm ci --omit=dev --no-audit --no-fund --loglevel=error)

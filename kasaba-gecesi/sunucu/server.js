@@ -85,10 +85,19 @@ function createServer(opts={}){
       });return;
     }
     if(url==='/ayar.json'){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-cache'});return res.end(JSON.stringify(ayarAcik()))}
-    if(/^\/sayfa\/[a-z0-9_-]+\.js$/.test(url)){
+    if(/^\/sayfa\/[a-z0-9_-]+\.(js|css)$/.test(url)){
+      const css=url.endsWith('.css');
       fs.readFile(path.join(SAYFA,url.slice(7)),(err,buf)=>{
         if(err){res.writeHead(404);return res.end('yok')}
-        res.writeHead(200,{'Content-Type':'application/javascript; charset=utf-8','Cache-Control':'public, max-age=86400'});res.end(req.method==='HEAD'?undefined:buf);
+        res.writeHead(200,{'Content-Type':(css?'text/css':'application/javascript')+'; charset=utf-8','Cache-Control':'public, max-age=86400'});res.end(req.method==='HEAD'?undefined:buf);
+      });return;
+    }
+    // geçmiş sayfaları (Plan 5): /oyun/<uuid> ve /kasaba/<uuid> → statik html; veriyi sayfa Supabase'den kendi oturumuyla okur
+    const sayfaYolu=url.match(/^\/(oyun|kasaba)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+    if(sayfaYolu){
+      fs.readFile(path.join(SAYFA,sayfaYolu[1]+'.html'),(err,buf)=>{
+        if(err){res.writeHead(404);return res.end('yok')}
+        res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-cache'});res.end(req.method==='HEAD'?undefined:buf);
       });return;
     }
     if(url==='/saglik'){const k=kayit.sayac||{};res.writeHead(200,{'Content-Type':'application/json'});return res.end(JSON.stringify({ok:true,rooms:rooms.size,surum:process.env.KG_SURUM||null,kayit:{kuyruk:k.kuyruk||0,yazilan:k.yazilan||0,hata:k.hata||0,dusen:k.dusen||0}}))} // kayıt sayaçları: yalnız sayılar

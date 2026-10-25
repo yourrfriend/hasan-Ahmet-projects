@@ -1,0 +1,9 @@
+<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kasaba Gecesi — Kasaba</title>
+<link rel="stylesheet" href="/sayfa/ortak.css"><script src="/sunucu/game.js"></script><script src="/sayfa/ortak.js"></script><script src="/sayfa/karsilastirma.js"></script></head>
+<body><main><a class="geri" href="/">← Kasaba Gecesi</a><h1>Kasaba</h1><div id="icerik" class="panel"><p class="muted">Yükleniyor…</p></div></main>
+<script>
+// /kasaba/<id>: ad, üyeler, tablo, karşılaştırmalar, son maçlar. (Task 3 doldurur.)
+(async()=>{const {not,kimlik}=KG_SAYFA;const k=kimlik();const {sb,session,neden}=await KG_SAYFA.oturum();
+  if(!sb||!session){not(neden==='kayit-kapali'?'Kayıt kapalı: bu kurulumda oyun geçmişi tutulmuyor.':'Bu cihazda kimlik yok: önce oyun sayfasını aç.',neden==='kayit-kapali'?'':'hata');document.getElementById('icerik').textContent='';return}
+})();
+</script></body></html>

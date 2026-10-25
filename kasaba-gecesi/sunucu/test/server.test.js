@@ -501,3 +501,13 @@ test('hızlı ifade: sohbete düşer, bekleme err soft, kopup dönen oyuncunun s
   assert.ok(!host.chat.some(m=>m.kisa==='koru'),'bekleme içinde ikinci ifade sohbete düşmez');
   for(const c of [host,cs[2],cs[3],geri])await c.close();
 });
+
+// ---------- Plan 5: sayfa yolları ----------
+test('geçmiş sayfaları: /oyun/<uuid> ve /kasaba/<uuid> html döner; geçersiz kimlik 404; /sayfa/*.css sunulur',async()=>{
+  const u='aaaaaaaa-0000-4000-8000-000000000001';
+  const o=await get(base,'/oyun/'+u);assert.strictEqual(o.s,200);assert.match(o.h['content-type'],/text\/html/);assert.match(o.b,/KG_HIKAYE|hikaye/);
+  const k=await get(base,'/kasaba/'+u);assert.strictEqual(k.s,200);assert.match(k.h['content-type'],/text\/html/);
+  assert.strictEqual((await get(base,'/oyun/abc')).s,404);assert.strictEqual((await get(base,'/oyun/')).s,404);assert.strictEqual((await get(base,'/kasaba/'+u+'/x')).s,404);
+  const c=await get(base,'/sayfa/ortak.css');assert.strictEqual(c.s,200);assert.match(c.h['content-type'],/text\/css/);
+  assert.strictEqual((await get(base,'/sayfa/../sunucu/server.js')).s,404);assert.strictEqual((await get(base,'/sayfa/oyun.html')).s,404,'sayfa html\'leri yalnız /oyun ve /kasaba yolundan');
+});
