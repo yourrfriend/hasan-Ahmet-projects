@@ -452,3 +452,38 @@ test('JWKS: ilk çekim başarısızsa yeniden dener; bilinmeyen kid gelince (ana
     assert.strictEqual(cagri,3,'bilinmeyen kid yeniden çekim tetikler');assert.strictEqual(b.kayitli,true,'döndürülen anahtarla imzalı token kabul edilir');await b.close();
   }finally{await new Promise(r=>s2.close(r))}
 });
+
+// ---------- Plan 4: kayıt ----------
+const {taklitRest}=require('./taklit-rest.js');
+test('kayıt: kayıtlı ev sahibinin maçı taklit Supabase\'e yazılır; rövanş aynı kasabaya; iptal; misafir ev sahibi yazılmaz',async()=>{
+  const t=await taklitRest();const GIZLI='k-gizli';const SUB='55555555-6666-4777-8888-999999999999';
+  const s2=createServer({quiet:true,tickMs:50,jwksAlma:false,ayar:{url:t.url,anonKey:'a',serviceKey:'srv',jwtSecret:GIZLI,kurulum:'test-kur'}});
+  await new Promise(r=>s2.server.listen(0,'127.0.0.1',r));const b2='127.0.0.1:'+s2.server.address().port;const R=code=>s2.rooms.get(code).game;
+  const tablo=n=>t.T[n];const kadar=async(f,ms=6000)=>{const t0=Date.now();while(!f()&&Date.now()-t0<ms)await bekle(30);assert.ok(f(),'beklenen kayıt gelmedi')};
+  try{
+    const tok=Kimlik.imzala({sub:SUB,exp:Math.floor(Date.now()/1000)+600},GIZLI);
+    const host=client('ky0','Ece',{host:true,token:tok},b2);await host.until(c=>c.P&&c.P.room);const room=host.P.room;
+    const cs=[host,...['ky1','ky2','ky3'].map(u=>client(u,u,{room},b2))];await host.until(c=>c.P.lobby.length===4);
+    host.send({t:'start'});await Promise.all(cs.map(c=>c.until(c=>c.P.phase==='night'&&c.priv.role)));const oyunId=host.P.oyunId;
+    await kadar(()=>tablo('oyunlar').length===1&&tablo('oyun_oyunculari').length===4&&tablo('olaylar').some(o=>o.tur==='baslangic'));
+    assert.deepStrictEqual([tablo('oyunlar')[0].id,tablo('oyunlar')[0].kurulum,tablo('oyunlar')[0].oda_kodu,tablo('oyunlar')[0].sonuc],[oyunId,'test-kur',room,'devam']);
+    assert.deepStrictEqual(tablo('kasabalar').map(k=>[k.ad,k.sahip]),[["Ece'nin Kasabası",SUB]]);
+    assert.strictEqual(tablo('oyun_oyunculari').filter(p=>p.uye).length,1,'yalnız ev sahibi kayıtlı');
+    hizliBitir(R(room));await Promise.all(cs.map(c=>c.until(c=>c.P.phase==='end')));
+    await kadar(()=>tablo('oyunlar')[0].sonuc==='bitti'&&tablo('oyun_oyunculari').every(p=>p.rol_key));
+    assert.strictEqual(tablo('oyunlar')[0].kazanan_takim,'imp');assert.ok(tablo('olaylar').some(o=>o.tur==='bitis'&&o.oyun_id===oyunId));
+    // rövanş: yeni oyun, aynı kasaba, olaylarda rovans_basladi
+    for(const c of cs)c.send({t:'hazir',v:true});await host.until(c=>c.P.hazir.length===4);host.send({t:'start',rovans:true});
+    await Promise.all(cs.map(c=>c.until(c=>c.P.phase==='night'&&c.P.oyunId!==oyunId)));const oyun2=host.P.oyunId;
+    await kadar(()=>tablo('oyunlar').length===2);assert.strictEqual(tablo('oyunlar')[1].kasaba_id,tablo('oyunlar')[0].kasaba_id);assert.strictEqual(tablo('kasabalar').length,1);
+    assert.ok(tablo('olaylar').some(o=>o.tur==='rovans_basladi'&&o.oyun_id===oyunId),'rövanş olayı önceki maça yazılır');
+    // süren maçta iptal
+    host.send({t:'cancel'});await host.until(c=>c.P.phase==='lobby');await kadar(()=>tablo('oyunlar')[1].sonuc==='iptal');assert.ok(tablo('oyunlar')[1].bitis);
+    for(const c of cs)await c.close();
+    // misafir ev sahibi: hiçbir istek yok
+    const n=t.istekler.length;const g=client('ky9','Mis',{host:true},b2);await g.until(c=>c.P&&c.P.room);const gr=g.P.room;
+    const gs=[g,...['ky8','ky7','ky6'].map(u=>client(u,u,{room:gr},b2))];await g.until(c=>c.P.lobby.length===4);g.send({t:'start'});await Promise.all(gs.map(c=>c.until(c=>c.P.phase==='night')));
+    await bekle(400);assert.strictEqual(t.istekler.length,n,'misafir ev sahibi: istek yok');assert.strictEqual(tablo('oyunlar').length,2);
+    for(const c of gs)await c.close();
+  }finally{await new Promise(r=>s2.close(r));await t.kapat()}
+});

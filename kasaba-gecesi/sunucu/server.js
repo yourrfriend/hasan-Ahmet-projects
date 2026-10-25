@@ -59,7 +59,7 @@ function createServer(opts={}){
   function kidBilinmiyor(token){const p=String(token).split('.');if(p.length!==3)return false;let h;try{h=JSON.parse(Buffer.from(p[0],'base64url').toString('utf8'))}catch(e){return false}
     if(!h||!['ES256','RS256'].includes(h.alg)||!h.kid)return false;return !(dogrulama.jwks&&dogrulama.jwks.keys.some(k=>k.kid===h.kid))}
   const ayarAcik=()=>({url:ayar.url||null,anonKey:ayar.anonKey||null,kurulum:ayar.kurulum||null,kayit:!!(ayar.url&&ayar.serviceKey)});
-  const kayit=opts.kayit||Kayit.olustur({url:ayar.url,serviceKey:ayar.serviceKey,quiet:!!opts.quiet}); // olay günlüğünün gittiği yer (testler bellekte biriktiren bir sahte verir)
+  const kayit=opts.kayit||Kayit.olustur({url:ayar.url,serviceKey:ayar.serviceKey,kurulum:ayar.kurulum,quiet:!!opts.quiet}); // olay günlüğünün gittiği yer (testler bellekte biriktiren bir sahte verir)
   // odanın biriken olaylarını kayıt yuvasına ver (R.log boşalır; R.gameLog oyunda kalır)
   function bosalt(room){const R=room.game;if(R.log.length)kayit.kuyrukla(room,R.log.splice(0))}
   // Bu Akşamın Skoru: biten maç bir kez işlenir (gameId); katılımcılar oynadı, P.winner.kazananlar kazandı. İptal işlenmez.
