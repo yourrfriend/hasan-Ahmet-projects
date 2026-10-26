@@ -135,7 +135,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 .box.center{top:50%;transform:translate(-50%,-50%);padding:18px 24px;min-width:min(92vw,360px)}
 .box .ok{margin-top:10px;border:0;border-radius:10px;background:var(--orange);color:#fff;font-weight:800;padding:8px 22px;min-height:0}
 .chat{left:10px;bottom:10px;width:min(300px,46vw);display:grid;gap:6px;z-index:3}
-.chat .log{display:grid;gap:3px;max-height:34vh;overflow-y:auto;scrollbar-width:none}
+.chat .log{display:grid;gap:3px;max-height:34vh;overflow-y:auto;scrollbar-width:none;pointer-events:none} /* günlük satırları dokunmayı yutmaz: 12 kişide altındaki ev seçilebilir kalır */
 .chat .log div{display:flex;align-items:flex-start;gap:6px;background:rgba(0,0,0,.4);color:#fff;font-size:clamp(10px,1.3vw,12px);padding:4px 9px 4px 4px;border-radius:12px;width:fit-content;max-width:100%;backdrop-filter:blur(2px)}
 .chat .log div.sys{background:rgba(255,179,71,.4);color:#fff3d6}
 .chat .log div.dead{background:rgba(120,90,200,.45)}
@@ -504,9 +504,9 @@ function visibleScene(){const vw=innerWidth||SW,vh=innerHeight||SH;const h=vw/vh
 // yoksa alt sıradaki evler ekrandan taşıyor ve sohbet/düğme kutularının altında kalıp dokunulamıyordu.
 // Kısa ekranda (telefon yatay, 7+ oyuncu) halka dikeyde sığmıyorsa önce sahne k oranında küçülür (halka yarıçapları, evler,
 // karakterler; en az 0,72): evler birbirine binmez, üst şeridin (ipucu balonu ~96px) altında ve alt kenarın içinde kalır. Yine
-// sığmıyorsa halka basılır. Dönüş dizisinin .k alanı ölçek; drawHouse/nightSpot/render bunu kullanır.
+// sığmıyorsa halka basılır. Dönüş dizisinin .k alanı ölçek; drawHouse/nightSpot/render bunu kullanır. (üst şerit 112 px: balon dahil)
 function ringPos(N){const t=Math.max(0,Math.min(1,(N-4)/6));const hrx0=300+(HRX-300)*t,hry0=170+(HRY-170)*t;
-  const vis=visibleScene();const alan=k=>({topY:vis.top+96*vis.unit+105*k,botY:vis.top+vis.h-12*vis.unit-40*k}); // ev: tepe -105 (ad etiketi dahil), taban +40
+  const vis=visibleScene();const alan=k=>({topY:vis.top+112*vis.unit+105*k,botY:vis.top+vis.h-12*vis.unit-40*k}); // üst şerit 112px: ipucu/gece balonu (~54–106px) üstteki evin adını örtmesin // ev: tepe -105 (ad etiketi dahil), taban +40
   let k=1,{topY,botY}=alan(1);
   if(botY-topY<2*hry0){k=Math.max(0.72,(botY-topY)/(2*hry0));({topY,botY}=alan(k))}
   const hrx=hrx0*k;let hry=hry0*k,hcy=SCY;

@@ -316,6 +316,8 @@ const step=t=>console.log('•',t);
       const sp=pages[aliveNames[0]];
       await sp.fill('#chatInput','merhaba kasaba');await sp.click('.chat button');
       for(const p of Object.values(pages))await p.waitForFunction(()=>(P.chat||[]).some(m=>m.t==='merhaba kasaba'));
+      { const gecer=await sp.evaluate(()=>{const d=document.querySelector('.chat .log div');if(!d)return 'yok';const r=d.getBoundingClientRect();const e=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return !(e&&e.closest('.chat .log'))});
+        assert.strictEqual(gecer,true,'sohbet günlüğü satırı dokunmayı yutmamalı (altındaki ev/çimen seçilebilir)')}
       // hızlı ifade: ⚡ → Rolüm → Doktor → herkeste sohbette; hemen ikinci dokunuş → "Biraz bekle" uyarısı
       await sp.evaluate(()=>{window.__gonderilen=[];const o=send;send=m=>{window.__gonderilen.push(m.t);return o(m)}}); // istemci bekleme engeli: ikinci dokunuş sunucuya gitmez
       await sp.click('button.hizli');
@@ -399,7 +401,10 @@ const step=t=>console.log('•',t);
       const p7=await open(c7,'Sığma',base);await p7.click('text=Yeni oda kur');await p7.fill('#nameInput','Ev');await p7.click('text=Lobiye gir');
       await p7.waitForFunction(()=>typeof P!=='undefined'&&!!P.room);const oda=await p7.evaluate(()=>P.room);
       const botlar=[];for(let i=1;i<7;i++){const w=new WebSocket('ws://127.0.0.1:'+srv.server.address().port+'/ws');await new Promise(r=>w.on('open',r));w.send(JSON.stringify({t:'join',room:oda,uid:'sig'+i,name:'Oyuncu'+i,color:G.COLORS[i],hat:'none'}));botlar.push(w)}
-      await p7.waitForFunction(()=>P.lobby&&P.lobby.length===7);await p7.evaluate(()=>send({t:'start'}));await p7.waitForFunction(()=>P.phase==='night');await p7.waitForTimeout(3000);
+      await p7.waitForFunction(()=>P.lobby&&P.lobby.length===7);await p7.evaluate(()=>send({t:'start'}));await p7.waitForFunction(()=>P.phase==='night');await p7.waitForTimeout(1500);
+      { const k=await p7.evaluate(()=>{const box=document.querySelector('.ov.box');const ev=[...document.querySelectorAll('svg.scene text')].find(t=>t.textContent==='Ev');if(!box||!ev)return 'yok';const a=box.getBoundingClientRect(),b=ev.getBoundingClientRect();return !(a.right<=b.left||b.right<=a.left||a.bottom<=b.top||b.bottom<=a.top)});
+        assert.strictEqual(k,false,'gece 1 balonu üstteki evin adını örtmemeli (k='+k+')')}
+      await p7.waitForTimeout(1500);
       const evler=await p7.evaluate(()=>P.players.map(x=>{const r=scene.houses[x.id].g.getBoundingClientRect();return{ad:x.name,l:Math.round(r.left),t:Math.round(r.top),r:Math.round(r.right),b:Math.round(r.bottom)}}));
       for(const e of evler)assert.ok(e.l>=0&&e.r<=844&&e.t>=60&&e.b<=390,'ev ekrana sığmalı (üst şerit 60px): '+JSON.stringify(e));
       for(let i=0;i<evler.length;i++)for(let j=i+1;j<evler.length;j++){const a=evler[i],b=evler[j];const ox=Math.min(a.r,b.r)-Math.max(a.l,b.l),oy=Math.min(a.b,b.b)-Math.max(a.t,b.t);assert.ok(ox<=6||oy<=6,'evler binişiyor: '+JSON.stringify([a,b]))}
