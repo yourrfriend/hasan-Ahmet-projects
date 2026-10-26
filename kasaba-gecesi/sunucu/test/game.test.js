@@ -786,6 +786,16 @@ test('iksir pasif: saldırıda kendiliğinden harcanır ve haber; saldırısız 
   G.act(R,'u0',{kill:'u2'});G.act(R,'u1',{ab:'u2'});G.advance(R);
   assert.ok(G.pl(R,'u2').alive,'iki saldırıdan da korur');assert.strictEqual(gs(R).esyalar.filter(e=>e.key==='iksir').length,1,'tek kayıt');assert.strictEqual((haber(R).match(/iksir içti/g)||[]).length,1);
 });
+test('inceleme düzeltmeleri: iki iksir aynı gece tek harcanır; asılan Hortlak\'ın vasiyeti hayalet hedefini söylemez',()=>{
+  let R=esyali(['hain','serikatil','masum','masum','masum','masum','masum','masum','masum'],{u2:'iksir'});R.g.esya.u2.push({key:'iksir',kaynak:'paket',kullanildi:false});
+  G.act(R,'u0',{kill:'u2'});G.act(R,'u1',{ab:'u2'});G.advance(R);
+  assert.ok(G.pl(R,'u2').alive);assert.deepStrictEqual(R.g.esya.u2.map(e=>e.kullanildi),[true,false],'ikinci iksir kalır');
+  assert.strictEqual(gs(R).esyalar.filter(e=>e.key==='iksir').length,1);assert.strictEqual((haber(R).match(/iksir içti/g)||[]).length,1);
+  R=esyali(['hain','hortlak','masum','masum','masum'],{u1:'vasiyet'});G.act(R,'u1',{ab:'u3'});G.advance(R);G.advance(R);
+  for(const id of ['u0','u2','u3','u4'])G.vote(R,id,'u1');G.vote(R,'u1','skip');
+  assert.ok(!G.pl(R,'u1').alive);assert.match(R.P.evening.summary,/vasiyeti/);assert.ok(!/hayalet|gideceksin/.test(R.P.evening.summary),'hayalet hedefi sızmaz: '+R.P.evening.summary);
+  assert.ok(R.g.haunt&&R.g.haunt.t==='u3','hortlak intikamı yine kurulur');
+});
 test('fener: kapına gelenlerin adları; hain geldiyse etki ve rozet',()=>{
   const R=esyali(['hain','doktor','masum','masum','masum'],{u2:'fener'});
   G.act(R,'u0',{kill:'u2'});G.act(R,'u1',{ab:'u2'});G.act(R,'u2',{esya:'fener'});G.advance(R);
@@ -864,7 +874,8 @@ test('meydan paketi: tartışmada planlanır, zamanında açılır (tür+sayı+s
   try{
     let R=esyali(['hain','masum','masum','masum','masum'],{});assert.ok(!R.g.paket,'gece planlanmaz');
     G.advance(R);assert.strictEqual(R.P.phase,'talk');const pk=R.g.paket;assert.ok(pk&&!pk.acik&&pk.keys.length===1&&G.ESYA[pk.keys[0]],'tartışmada planlandı');
-    assert.ok(pk.zaman>=t&&pk.zaman<=t+120*1000*2/3,'ilk üçte iki');assert.strictEqual(R.P.paket,null);noLeak(R.P);
+    assert.ok(pk.zaman>=t+7000&&pk.zaman<=t+7000+120*1000*2/3,'sabah animasyonundan (7 sn) sonra, ilk üçte iki');
+    { G.setRnd(()=>0);const R0=esyali(['hain','masum','masum','masum','masum'],{});G.advance(R0);assert.strictEqual(R0.g.paket.zaman,t+7000,'rnd=0 → tam animasyon sonu');G.setRnd(()=>0.1) }assert.strictEqual(R.P.paket,null);noLeak(R.P);
     assert.strictEqual(G.tick(R),false);t=pk.zaman;assert.strictEqual(G.tick(R),true,'açılış değişiklik');assert.strictEqual(R.P.phase,'talk');
     assert.deepStrictEqual(R.P.paket,{key:pk.keys[0],n:1,ends:t+5000});assert.strictEqual(R.g.paketSayisi,1);noLeak(R.P);
     assert.strictEqual(G.kap(R,'u1',1,R.P.gameId),true);assert.strictEqual(R.g.esya.u1.length,2);assert.deepStrictEqual(R.g.esya.u1[1],{key:pk.keys[0],kaynak:'paket',kullanildi:false});

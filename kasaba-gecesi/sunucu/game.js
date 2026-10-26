@@ -259,11 +259,11 @@ function setPhase(R,ph){
   if(ph==='night'){P.day++;g.acts={}}
   if(ph==='vote'){if(g.provoke&&g.provoke.day===P.day)P.provoked=g.provoke.t}
   if(ph!=='talk')P.morning=null;if(ph!=='night')P.evening=null;
-  if(ph==='talk')paketPlanla(R,secs);
+  if(ph==='talk')paketPlanla(R,secs,extra);
 }
 // ---------- Meydan paketi (eşya v2): tartışmada rastgele anda düşer, ilk dokunanlar alır; tür+sayı+süre açık, kimin aldığı gizli ----------
-function paketPlanla(R,secs){const g=R.g;if(!(R.settings&&R.settings.esyaModu))return;g.paketSayisi=g.paketSayisi||0;if(g.paketSayisi>=PAKET.maxMac||rnd()>=PAKET.sans)return;
-  const n=alivePlayers(R).length>=8?2:1;const key=paketEsya();g.paket={zaman:clock()+Math.floor(rnd()*secs*1000*2/3),keys:Array(n).fill(key),alanlar:[],acik:false,ends:null}}
+function paketPlanla(R,secs,extra){const g=R.g;if(!(R.settings&&R.settings.esyaModu))return;g.paketSayisi=g.paketSayisi||0;if(g.paketSayisi>=PAKET.maxMac||rnd()>=PAKET.sans)return;
+  const n=alivePlayers(R).length>=8?2:1;const key=paketEsya();g.paket={zaman:clock()+(extra||0)*1000+Math.floor(rnd()*secs*1000*2/3),keys:Array(n).fill(key),alanlar:[],acik:false,ends:null}}
 function paketKapat(R){const g=R.g,P=R.P;if(!g||!g.paket)return;const pk=g.paket;g.paket=null;P.paket=null;if(!pk.acik)return;
   const E=ESYA[pk.keys[0]];const son=pk.alanlar.length===0?'kimse kapmadı':pk.keys.length===2&&pk.alanlar.length===2?'ikisini de kaptılar':'biri kaptı';
   sysChat(R,'📦 Meydana '+E.ico+' '+E.n.toLowerCase()+' düştü — '+son);logEv(R,'paket',{key:pk.keys[0],n:pk.keys.length,alan:pk.alanlar.length,alanlar:pk.keys[0]==='fis'?[]:pk.alanlar.slice()})} // fiş: kapan kimliği ham günlüğe de yazılmaz (oy gizliliği; günlük maç sonunda okunur)
@@ -387,7 +387,7 @@ function resolveNight(R){
   for(const at of attacks){if(died.includes(at.v)){(L.sekiller[at.v]=L.sekiller[at.v]||[]).push(at.cause);if(at.cause==='bolt')L.boltIds[at.v]=at.ids} // aynı gece ikinci neden (ör. bıçak + yıldırım): kayda girer, kart çıkar
     if(!alive(at.v)||died.includes(at.v)){at.ids.forEach(i=>nt(i,nm(at.v)+' zaten ölmüştü.'));continue}
     if(!at.sure&&heals.has(at.v)){nt(at.v,'Saldırıya uğradın ama Doktor seni kurtardı!');for(const id of al)if(eff(id)==='doktor'&&tgt(id,'ab')===at.v){if(!L.kurtaranlar.some(k=>k.kim===id&&k.hedef===at.v))L.kurtaranlar.push({kim:id,hedef:at.v});nt(id,nm(at.v)+' saldırıya uğradı, onu kurtardın!')}at.ids.forEach(i=>nt(i,nm(at.v)+' saldırınızdan kurtuldu.'));if(!M.saved.includes(at.v))M.saved.push(at.v);continue}
-    if(!at.sure&&iksirli.has(at.v)){const e=esyaBul(R,at.v,'iksir');if(e){e.kullanildi=true;esyaLog.push({kim:at.v,key:'iksir',etki:'korudu',hedef:null})}nt(at.v,'Saldırıya uğradın, iksir seni kurtardı.');at.ids.forEach(i=>nt(i,nm(at.v)+' saldırınızdan kurtuldu.'));continue}
+    if(!at.sure&&iksirli.has(at.v)){if(!esyaLog.some(x=>x.kim===at.v&&x.key==='iksir')){const e=esyaBul(R,at.v,'iksir');if(e){e.kullanildi=true;esyaLog.push({kim:at.v,key:'iksir',etki:'korudu',hedef:null})}}nt(at.v,'Saldırıya uğradın, iksir seni kurtardı.');at.ids.forEach(i=>nt(i,nm(at.v)+' saldırınızdan kurtuldu.'));continue}
     if(!at.sure&&vested.has(at.v)){L.yelek.add(at.v);nt(at.v,'Saldırıya uğradın, yelek seni kurtardı.');at.ids.forEach(i=>nt(i,nm(at.v)+' saldırınızdan kurtuldu.'));continue}
     died.push(at.v);causes[at.v]=at.cause;L.sekiller[at.v]=[at.cause];L.killers[at.v]=at.ids;L.killerAd[at.v]=at.by;at.ids.forEach(i=>nt(i,nm(at.v)+' öldürüldü.'));
     if(at.thief){const vr=g.roles[at.v];const nr=vr.mad?{key:'masum',team:'inn'}:{key:vr.key,team:vr.team};g.roles[at.thief].orig='hirsiz';g.roles[at.thief].key=nr.key;g.roles[at.thief].team=nr.team;g.roles[at.thief].uses={};nt(at.thief,nm(at.v)+' rolünü çaldın: artık '+roleLabel(nr)+' olarak oynuyorsun.');causes[at.v]='vanish';L.sekiller[at.v]=['vanish'];L.caldi={hirsiz:at.thief,kurban:at.v,yeni_rol:roleLabel(nr)}}
@@ -437,11 +437,11 @@ function resolveVote(R){
   const sorted=Object.keys(tam).sort((a,b)=>tam[b]-tam[a]);
   let out=null;if(sorted.length&&(sorted.length===1||tam[sorted[0]]>tam[sorted[1]])&&(tally[sorted[0]]||0)>=2)out=sorted[0];
   const E={out:null,summary:''};
+  // vasiyet (pasif): asılanın o geceki notları oylama özetinde — Hortlak'ın "hayalet olarak gideceksin" notu yazılmadan önce toplanır (hedef sızmasın)
+  let vasiyet=null;if(out){const e=esyaBul(R,out,'vasiyet');if(e){e.kullanildi=true;const n=geceNotlari(R,out);vasiyet={kim:out,metin:n.length?'📜 '+ek(nm(out),'in')+' vasiyeti: '+n.join(' · '):'📜 '+ek(nm(out),'in')+' vasiyeti boştu.'}}}
   if(out){pl(R,out).alive=false;let shown=roleLabel(shownRole(R,out));if(g.blame&&g.blame.day===P.day&&g.blame.t===out)shown='Hain';P.dead.push({id:out,role:shown});E.out={id:out,role:shown};sysChat(R,'⚖️ Kasaba '+nm(out)+' kişisini gönderdi. Rolü: '+shown);
     if(g.roles[out].key==='hortlak'){g.hauntWins.push(out);const t=g.candle[out];if(t&&pl(R,t)&&pl(R,t).alive){g.haunt={t,night:P.day+1};note(R,out,'Asıldın! Bu gece '+nm(t)+' evine hayalet olarak gideceksin.')}else note(R,out,'Asıldın, kazandın! Mum koyduğun bir ev yoktu.')}}
   else sysChat(R,'⚖️ Oylar yetersiz, kimse gönderilmedi.');
-  // vasiyet (pasif): asılanın o geceki notları oylama özetinde
-  let vasiyet=null;if(out){const e=esyaBul(R,out,'vasiyet');if(e){e.kullanildi=true;const n=geceNotlari(R,out);vasiyet={kim:out,metin:n.length?'📜 '+ek(nm(out),'in')+' vasiyeti: '+n.join(' · '):'📜 '+ek(nm(out),'in')+' vasiyeti boştu.'}}}
   E.summary=Object.keys(tam).sort((a,b)=>tam[b]-tam[a]).map(id=>nm(id)+' '+tam[id]).concat(skip?['çekimser '+skip]:[]).join(', ')+(fisli.length?' · 🗳️ Biri oy fişi kullandı':'')+(vasiyet?' · '+vasiyet.metin:'');
   if(E.summary)sysChat(R,'🗳️ Oylar: '+E.summary);
   const prov=g.provoke&&g.provoke.day===P.day?g.provoke.t:null;
