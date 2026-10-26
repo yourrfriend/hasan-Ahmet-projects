@@ -100,7 +100,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
   // odanın biriken olaylarını kayıt yuvasına ver (R.log boşalır; R.gameLog oyunda kalır)
   function bosalt(room){const R=room.game;if(!R.log.length)return;const ol=R.log.splice(0);try{kayit.kuyrukla(room,ol)}catch(e){log('bosalt hatası',e.message)}} // yazıcı fırlatsa da oyun akışı sürer (tek yerde korunur)
   // Bu Akşamın Skoru: biten maç bir kez işlenir (gameId); katılımcılar oynadı, P.winner.kazananlar kazandı. İptal işlenmez.
-  const bitir=room=>{skorIsle(room);bosalt(room)}; // biten maçı kapat: skor bir kez + olaylar yazıcıya (yayınsız)
+  const bitir=room=>{skorIsle(room);ilerlemeIsle(room);bosalt(room)}; // biten maçı kapat: skor bir kez + olaylar yazıcıya (yayınsız)
   const HAZIR_OLAY_TAVAN=10;const oyuncuMu=(R,uid)=>(R.P.players||[]).some(p=>p.id===uid); // izleyici/lobi üyesi hazır-gördüm gönderemez
   function skorIsle(room){const P=room.game.P;if(P.phase!=='end'||!P.gameId||room.skorIslenen.has(P.gameId))return;room.skorIslenen.add(P.gameId);
     const kaz=new Set((P.winner&&P.winner.kazananlar)||[]);
@@ -168,6 +168,19 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
   }
   // Hesap birleştirme (Plan 6): ikinci cihazda e-postayla girince o cihazın anonim geçmişi hesaba taşınır. Yalnız kayıt açıkken; IP başına dakikada 5.
   const hesapFetch=opts.hesapFetch||((u,o)=>fetch(u,o));const birlestirmeSayac={ok:0,hata:0};
+  // dükkân (ilerleme): yıldızla kozmetik al; fiyat game.js katalogundan (istemci fiyat vermez); IP başına dakikada 10
+  const ipAl=new Map();
+  async function benAlUcu(req,res){
+    const json=(d,b)=>{res.writeHead(d,{'Content-Type':'application/json'});res.end(JSON.stringify(b))};
+    if(!(ayar.url&&ayar.serviceKey)||typeof kayit.kozmetikAl!=='function'){res.writeHead(404);return res.end('yok')}
+    const ip=ipOf(req),simdi=Date.now();const son=(ipAl.get(ip)||[]).filter(t=>simdi-t<60000);if(son.length>=10)return json(429,{error:'limit'});son.push(simdi);ipAl.set(ip,son);
+    const t=String(req.headers.authorization||'').replace(/^Bearer /,'');const kim=t?Kimlik.dogrula(t,dogrulama):null;if(!kim||kim.suresiDolmus)return json(401,{error:'token'});
+    let g;try{g=JSON.parse(await govdeOku(req,1024))}catch(e){return json(400,{error:'gecersiz_govde'})}
+    const [tur,anahtar]=String(g&&g.key||'').split(':');const has=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
+    if(!has(G.KOZMETIK,tur)||!has(G.KOZMETIK[tur],anahtar))return json(400,{error:'katalog'});
+    const r=await kayit.kozmetikAl(kim.sub,tur+':'+anahtar,G.NADIRLIK[G.KOZMETIK[tur][anahtar].nadir].fiyat);
+    if(!r)return json(503,{error:'ic'});if(r.hata)return json(409,{error:r.hata,yildiz:r.yildiz});return json(200,{ok:true,yildiz:r.yildiz});
+  }
   async function birlestirUcu(req,res){
     const json=(d,b)=>{res.writeHead(d,{'Content-Type':'application/json'});res.end(JSON.stringify(b))};
     if(!(ayar.url&&ayar.serviceKey)){res.writeHead(404);return res.end('yok')}
@@ -182,6 +195,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
   const server=http.createServer((req,res)=>{
     const url=(req.url||'/').split('?')[0],surumlu=/[?&]v=/.test(req.url||'');
     if(req.method==='POST'&&url==='/eposta/kanca'){kancaUcu(req,res).catch(e=>{log("kanca hata",e&&e.message);res.writeHead(500);res.end()});return}
+    if(req.method==='POST'&&url==='/ben/al'){benAlUcu(req,res).catch(()=>{res.writeHead(500);res.end()});return}
     if(req.method==='POST'&&url==='/hesap/birlestir'){birlestirUcu(req,res).catch(()=>{res.writeHead(500);res.end()});return}
     if(req.method==='POST'&&url==='/eposta/kod'){kodUcu(req,res).catch(e=>{log("kod hata",e&&e.message);res.writeHead(500);res.end()});return}
     if(req.method==='POST'&&url==='/hesap/anonim'){anonimUcu(req,res).catch(e=>{log("anonim hata",e&&e.message);res.writeHead(500);res.end()});return}
@@ -207,14 +221,14 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
       });return;
     }
     // geçmiş sayfaları (Plan 5): /oyun/<uuid> ve /kasaba/<uuid> → statik html; veriyi sayfa Supabase'den kendi oturumuyla okur
-    const sayfaYolu=url.match(/^\/(oyun|kasaba)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+    const sayfaYolu=url==='/ben'?[url,'ben']:url.match(/^\/(oyun|kasaba)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/); // /ben: kişisel sayfa (ilerleme)
     if(sayfaYolu){
       fs.readFile(path.join(SAYFA,sayfaYolu[1]+'.html'),(err,buf)=>{
         if(err){res.writeHead(404);return res.end('yok')}
         res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-cache'});res.end(req.method==='HEAD'?undefined:buf.toString('utf8').split('__V__').join(SURUM_V));
       });return;
     }
-    if(url==='/saglik'){const k=kayit.sayac||{};res.writeHead(200,{'Content-Type':'application/json'});return res.end(JSON.stringify({ok:true,rooms:rooms.size,surum:process.env.KG_SURUM||null,kayit:{kuyruk:k.kuyruk||0,yazilan:k.yazilan||0,hata:k.hata||0,dusen:k.dusen||0},eposta:{...epostaSayac},birlestirme:{...birlestirmeSayac},kod:{...tavan.sayac,...kodSayac},rolGecmisi:{okunan:k.gecmisOkunan||0,hata:k.gecmisHata||0}}))} // kayıt, e-posta, birleştirme, kod ve rol geçmişi sayaçları: yalnız sayılar
+    if(url==='/saglik'){const k=kayit.sayac||{};res.writeHead(200,{'Content-Type':'application/json'});return res.end(JSON.stringify({ok:true,rooms:rooms.size,surum:process.env.KG_SURUM||null,kayit:{kuyruk:k.kuyruk||0,yazilan:k.yazilan||0,hata:k.hata||0,dusen:k.dusen||0},eposta:{...epostaSayac},birlestirme:{...birlestirmeSayac},kod:{...tavan.sayac,...kodSayac},rolGecmisi:{okunan:k.gecmisOkunan||0,hata:k.gecmisHata||0},ilerleme:{kasa:k.kasa||0,hata:k.ilerlemeHata||0}}))} // kayıt, e-posta, birleştirme, kod ve rol geçmişi sayaçları: yalnız sayılar
     res.writeHead(404,{'Content-Type':'text/plain; charset=utf-8'});res.end('Bulunamadı');
   });
 
@@ -231,7 +245,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
   // lobi: bağlı ve adı olan üyeler, ev sahibi önde; aynı rengi seçen ikinciye boş renk
   function lobbyOf(room){
     const list=[];
-    for(const [id,m] of room.members)if(online(m)&&m.name)list.push({id,name:m.name,color:m.color,hat:m.hat});
+    for(const [id,m] of room.members)if(online(m)&&m.name)list.push({id,name:m.name,color:m.color,hat:m.hat,bayrak:m.bayrak||'none',efekt:m.efekt||'none'});
     list.sort((a,b)=>(b.id===room.hostId)-(a.id===room.hostId));
     const used=new Set();list.forEach(p=>{if(!p.color||used.has(p.color))p.color=G.COLORS.find(c=>!used.has(c))||G.COLORS[0];used.add(p.color);if(!p.hat)p.hat='none'});
     return list;
@@ -239,7 +253,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
   // sohbet state içinde gitmez; her sokete yalnız görmediği satırlar ayrıca yollanır (sendChat)
   // online: bağlı üyelerin açık kimlikleri; istemci kopuk oyuncuyu işaretler, gece sonu onları bekler
   const onlineIds=room=>[...room.members].filter(([,m])=>online(m)).map(([id])=>id);
-  function stateMsg(room){return JSON.stringify({t:'state',P:{...room.game.P,chat:undefined,lobby:lobbyOf(room),hostId:room.hostId,room:room.code,online:onlineIds(room),hazir:[...room.hazir],skor:skorListesi(room)},now:Date.now()})}
+  function stateMsg(room){return JSON.stringify({t:'state',P:{...room.game.P,chat:undefined,lobby:lobbyOf(room),settings:room.game.P.settings||room.game.settings,hostId:room.hostId,room:room.code,online:onlineIds(room),hazir:[...room.hazir],skor:skorListesi(room)},now:Date.now()})}
   function sendRaw(ws,str){if(ws.readyState===1){try{ws.send(str)}catch(e){}}}
   function send(ws,obj){sendRaw(ws,JSON.stringify(obj))}
   function sendChat(ws,room){
@@ -257,7 +271,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
   function flush(room){
     clearTimeout(room.flushT);room.flushT=null;
     if(!rooms.has(room.code))return;
-    skorIsle(room);bosalt(room);prune(room);
+    skorIsle(room);ilerlemeIsle(room);bosalt(room);prune(room);lobiEsyaGuncelle(room);
     const st=stateMsg(room);
     for(const [uid,m] of room.members){for(const ws of m.socks){sendRaw(ws,st);sendChat(ws,room)}sendPriv(room,uid)}
   }
@@ -327,12 +341,47 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
     // yeni bağlanana açık kimliği ve hemen tam durum; diğerlerine lobi değişikliği
     send(ws,{t:'you',id:uid,kayitli:!!k});
     sendRaw(ws,stateMsg(room));sendChat(ws,room);sendPriv(room,uid,true);
+    // ilerleme: kayıtlı üyenin envanteri (bir kez okunur; yeni sekmeye bellekten)
+    if(mem.uye&&typeof kayit.envanterOku==='function'){
+      if(mem.envanter)send(ws,{t:'envanter',d:mem.envanter});
+      else if(!mem.envanterYukleniyor){mem.envanterYukleniyor=true;kayit.envanterOku(mem.uye).then(e=>{mem.envanterYukleniyor=false;if(e&&rooms.get(room.code)===room)envanterAyarla(room,uid,mem,e)}).catch(()=>{mem.envanterYukleniyor=false})}
+    }
     schedule(room);
+  }
+  function envanterAyarla(room,uid,mem,e){
+    mem.envanter={yildiz:+e.yildiz||0,esyalar:{...(e.esyalar||{})},kozmetikler:Array.isArray(e.kozmetikler)?e.kozmetikler.slice():[]};
+    for(const ws of mem.socks)send(ws,{t:'envanter',d:mem.envanter});
+    if(mem.istenen)applyLook(room,uid,mem,{...mem.istenen});if(room.lobiEsya)room.lobiEsya.delete(uid);schedule(room);
+  }
+  // eşya modu: lobide (ve maç sonunda rövanş için) herkesin eşyası rol dağıtımından önce belli: envanterden seçilen ya da çekilen bedava
+  function lobiEsyaGuncelle(room){const R=room.game;const acikMi=R.settings&&R.settings.esyaModu&&(R.P.phase==='lobby'||R.P.phase==='end');
+    room.lobiEsya=room.lobiEsya||new Map();const keys=Object.keys(G.ESYA);
+    for(const [uid,mem] of room.members){let s=null;
+      if(acikMi&&mem.name){if(mem.esyaSecim&&mem.envanter&&(mem.envanter.esyalar[mem.esyaSecim]||0)>0)s={key:mem.esyaSecim,kaynak:'envanter'};
+        else{const eski=room.lobiEsya.get(uid);s=eski&&eski.kaynak==='bedava'?eski:{key:keys[Math.floor(Math.random()*keys.length)],kaynak:'bedava'}}
+        room.lobiEsya.set(uid,s)}
+      const str=JSON.stringify(s);if((mem.lobiEsyaGonderilen||'null')!==str){mem.lobiEsyaGonderilen=str;for(const ws of mem.socks)send(ws,{t:'lobiEsya',d:s})}}
+  }
+  // maç sonu ilerleme (gameId başına bir kez): kayıtlı her oyuncuya kasa + rozetler + eşya harcama; yalnız en az bir oylama yaşanmış maçta
+  function ilerlemeIsle(room){const R=room.game,P=R.P;if(P.phase!=='end'||!P.gameId||!P.oyunId||typeof kayit.macSonu!=='function')return;
+    room.ilerlemeIslenen=room.ilerlemeIslenen||new Set();if(room.ilerlemeIslenen.has(P.gameId))return;room.ilerlemeIslenen.add(P.gameId);
+    if(!(R.gameLog||[]).some(e=>e.tur==='gunduz_sonuc'))return;
+    const kaz=new Set((P.winner&&P.winner.kazananlar)||[]),kul=G.esyaKullanimi(R);
+    for(const p of P.players){const uye=(room.oyunUyeleri&&room.oyunUyeleri.get(p.id))||(room.members.get(p.id)||{}).uye;if(!uye)continue;
+      const odul=G.kasaOdulu();if(odul.tur==='kozmetik')odul.donusum=G.NADIRLIK[odul.nadir].donusum;
+      const k=kul[p.id];const harcanan=k&&k.kaynak==='envanter'&&k.kullanildi?k.key:null;
+      kayit.macSonu(uye,P.oyunId,{odul,rozetler:G.rozetlerFor(R,p.id),harcanan,bonus:kaz.has(p.id)?2:0}).then(r=>{if(!r)return;const mem=room.members.get(p.id);if(!mem)return;
+        for(const ws of mem.socks)send(ws,{t:'kasa',d:{odul:r.odul||null,donustu:!!r.donustu,yildiz:r.yildiz,rozetler:r.yeni_rozetler||[],tavan:!!r.tavan,tekrar:!!r.tekrar}});
+        if(mem.uye&&typeof kayit.envanterOku==='function')kayit.envanterOku(mem.uye).then(e=>{if(e)envanterAyarla(room,p.id,mem,e)}).catch(()=>{})}).catch(()=>{})}
   }
   function applyLook(room,uid,mem,m){
     const n=cleanName(m.name);if(n){mem.name=n;const sk=room.skor.get(uid);if(sk){sk.ad=n;room.skorCache=null}} // skor tablosu son adı gösterir
     if(G.COLORS.includes(m.color))mem.color=m.color;
-    if(G.HATS.includes(m.hat))mem.hat=m.hat;
+    // görünüm: temel şapkalar herkese; katalogdaki şapka/bayrak/efekt yalnız sahibine (envanter join'de arka planda gelir → istenen saklanır, gelince yeniden uygulanır)
+    const sahip=new Set(mem.envanter?mem.envanter.kozmetikler:[]);mem.istenen=mem.istenen||{};
+    if(typeof m.hat==='string'){mem.istenen.hat=m.hat;if(G.kozmetikGecerli('sapka',m.hat,sahip))mem.hat=m.hat}
+    for(const tur of ['bayrak','efekt'])if(typeof m[tur]==='string'){mem.istenen[tur]=m[tur];mem[tur]=G.kozmetikGecerli(tur,m[tur],sahip)?m[tur]:'none'}
+    if(m.esya!==undefined){const yeni=typeof m.esya==='string'&&Object.prototype.hasOwnProperty.call(G.ESYA,m.esya)?m.esya:null;if(yeni!==mem.esyaSecim){mem.esyaSecim=yeni;if(room.lobiEsya)room.lobiEsya.delete(uid)}}
     if(mem.uye&&mem.name)kayit.profil(mem.uye,{ad:mem.name,renk:mem.color,sapka:mem.hat}); // kayıtlı oyuncu: profil (arka planda, oyunu beklemez)
   }
   function onMessage(ws,m){
@@ -352,7 +401,11 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
         const liste=rovans?lobbyOf(room).filter(p=>p.id===uid||room.hazir.has(p.id)):lobbyOf(room);
         if(rovans&&(liste.length<4||liste.length>12)){send(ws,{t:'err',m:'Rövanş için 4–12 hazır ve bağlı oyuncu gerekir (şu an '+liste.length+').',code:'soft'});break}
         const onceki=R.P.gameId;if(rovans)G.olay(R,'rovans_basladi',{onceki,oyuncular:liste.map(p=>p.id)});
-        if(G.startGame(R,liste,rovans?{rovans:true,onceki}:null)){room.hazir.clear();room.hazirSayac.clear();room.gorduler.clear();room.lastPriv.clear();log(rovans?'rövanş başladı':'oyun başladı',room.code,R.P.players.length+' kişi');flush(room)}
+        let esyalar=null;if(R.settings&&R.settings.esyaModu){lobiEsyaGuncelle(room);esyalar={};for(const p of liste){const e=room.lobiEsya.get(p.id);if(e)esyalar[p.id]=e}}
+        if(G.startGame(R,liste,{...(rovans?{rovans:true,onceki}:{}),esyalar})){room.hazir.clear();
+          room.oyunUyeleri=new Map(liste.map(p=>[p.id,(room.members.get(p.id)||{}).uye||null]));
+          if(esyalar)for(const [id,e] of Object.entries(esyalar)){const mem=room.members.get(id);if(e.kaynak==='envanter'&&mem&&mem.envanter&&mem.envanter.esyalar[e.key]>0)mem.envanter.esyalar[e.key]--} // aynı odada rövanşta iki kez kullanılmasın
+          if(room.lobiEsya)room.lobiEsya.clear();for(const mem of room.members.values())mem.lobiEsyaGonderilen=null;room.hazirSayac.clear();room.gorduler.clear();room.lastPriv.clear();log(rovans?'rövanş başladı':'oyun başladı',room.code,R.P.players.length+' kişi');flush(room)}
         else send(ws,{t:'err',m:'Başlamak için 4–12 oyuncu gerekir.',code:'soft'});
         break}
       case 'cancel':if(isHost(ws)&&R.P.phase!=='lobby'){bitir(room);G.endToLobby(R);room.hazir.clear();flush(room)}break;

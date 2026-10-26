@@ -214,7 +214,7 @@ function startGame(R,lobby,secenek){ // secenek: {rovans:true, onceki:gameId} rÃ
   players.forEach(p=>R.g.notes[p.id]=[]);
   const settings={...R.settings};
   R.P={phase:'night',day:1,ends:clock()+settings.night*1000+6000,chat:[],dead:[],voted:[],settings,gameId:clock(),oyunId:yeniOyunId(),morning:null,evening:null,provoked:null,
-     players:players.map(p=>({id:p.id,name:p.name,alive:true,color:p.color,hat:p.hat})),
+     players:players.map(p=>({id:p.id,name:p.name,alive:true,color:p.color,hat:p.hat,bayrak:p.bayrak||'none',efekt:p.efekt||'none'})),
      roleList:bag.map(r=>({n:roleLabel(r),team:r.team})).sort((a,b)=>a.team.localeCompare(b.team))};
   logEv(R,'baslangic',{ayarlar:settings,roller:R.P.roleList,oyuncular:players.map(p=>({id:p.id,ad:p.name,renk:p.color,sapka:p.hat})),...(secenek&&secenek.rovans?{rovans:true,onceki:secenek.onceki}:{})});
   return true;

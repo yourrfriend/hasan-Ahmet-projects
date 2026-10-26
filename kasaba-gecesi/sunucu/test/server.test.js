@@ -18,11 +18,11 @@ test.after(()=>new Promise(r=>srv.close(r)));
 function client(uid,name,join,b=base){
   const ws=new WebSocket('ws://'+b+'/ws');
   // me: sunucunun verdiği açık kimlik (uid gizli anahtardır, state içinde geçmez); chat: parça parça gelen sohbet
-  const c={ws,uid,me:null,P:null,priv:null,privN:0,errs:[],states:0,chat:[],
+  const c={ws,uid,me:null,P:null,priv:null,privN:0,errs:[],states:0,chat:[],diger:[],
     send:m=>ws.send(JSON.stringify(m)),
     until(f,ms=3000){return new Promise((res,rej)=>{const t0=Date.now();const iv=setInterval(()=>{if(f(c)){clearInterval(iv);res(c)}else if(Date.now()-t0>ms){clearInterval(iv);rej(new Error(uid+' beklenen duruma gelmedi: '+f.toString().slice(0,120)+' · phase='+(c.P&&c.P.phase)+' errs='+JSON.stringify(c.errs)))}},10)})},
     close(){return new Promise(r=>{if(ws.readyState>=2)return r();ws.once('close',r);ws.close()})}}; // sunucu kapattıysa beklemeden döner
-  ws.on('message',d=>{const m=JSON.parse(d);if(m.t==='state'){c.P=m.P;c.states++;c.raw=String(d)}else if(m.t==='you'){c.me=m.id;c.kayitli=!!m.kayitli}else if(m.t==='chat')c.chat.push(...m.a);else if(m.t==='priv'){c.priv=m.d;c.privN++}else if(m.t==='err')c.errs.push(m)});
+  ws.on('message',d=>{const m=JSON.parse(d);if(m.t==='state'){c.P=m.P;c.states++;c.raw=String(d)}else if(m.t==='you'){c.me=m.id;c.kayitli=!!m.kayitli}else if(m.t==='chat')c.chat.push(...m.a);else if(m.t==='priv'){c.priv=m.d;c.privN++}else if(m.t==='err')c.errs.push(m);else c.diger.push(m)});
   ws.on('open',()=>c.send({t:'join',uid,name,color:G.COLORS[0],hat:'cap',...join}));
   return c;
 }
@@ -812,4 +812,79 @@ test('hızlı ifade: 8 sn bekleme sahte saatle (opts.clock) — bekleme bitince 
     cs[1].send({t:'hizli',k:'belirsiz',d:1,n:'c2'});await cs[1].until(c=>c.errs.some(e=>e.code==='soft'&&/Biraz bekle/.test(e.m)));
     t+=8001;cs[1].send({t:'hizli',k:'belirsiz',d:1,n:'c3'});await host.until(c=>c.chat.some(m=>m.kisa==='belirsiz'&&m.id===cs[1].me),3000);
   }finally{for(const c of cs)await c.close();await new Promise(r=>s2.close(r))}
+});
+
+// ---------- İlerleme (Task 5): envanter, görünüm doğrulama, eşya seçimi, maç sonu kasa, /ben uçları ----------
+async function ilerlemeSunucu(env){ // env: uye → envanter; macSonu çağrıları kaydedilir
+  const GIZLI='test-jwt-gizli';const cagri={mac:[],al:[],oku:0};
+  const sahte={kuyrukla(){},profil(){},kapat(){},sayac:{kasa:3,ilerlemeHata:1},
+    envanterOku:async u=>{cagri.oku++;return env[u]||{yildiz:0,esyalar:{},kozmetikler:[]}},
+    macSonu:async(u,o,x)=>{cagri.mac.push({u,o,x});return {odul:x.odul,donustu:false,yildiz:5,yeni_rozetler:x.rozetler,tavan:false}},
+    kozmetikAl:async(u,key,fiyat)=>{cagri.al.push({u,key,fiyat});return fiyat>50?{hata:'yildiz',yildiz:10}:{ok:true,yildiz:3}}};
+  const srv=createServer({quiet:true,tickMs:50,jwksAlma:false,kayit:sahte,ayar:{url:'https://x.example',anonKey:'a',serviceKey:'s',jwtSecret:GIZLI,kurulum:'t'}});
+  await new Promise(r=>srv.server.listen(0,'127.0.0.1',r));
+  const tok=sub=>Kimlik.imzala({sub,exp:Math.floor(Date.now()/1000)+3600,role:'authenticated',is_anonymous:true},GIZLI);
+  return {srv,b:'127.0.0.1:'+srv.server.address().port,cagri,tok,kapat:()=>new Promise(r=>srv.close(r))};
+}
+const SA='aaaaaaaa-1111-4222-8333-000000000001',SB='aaaaaaaa-1111-4222-8333-000000000002';
+test('ilerleme: kayıtlı join envanter alır; premium şapka yalnız sahibine, envanter gelince uygulanır; bayrak/efekt lobide',async()=>{
+  const I=await ilerlemeSunucu({[SA]:{yildiz:4,esyalar:{iksir:1},kozmetikler:['sapka:tac','bayrak:mavi']}});const acik=[];
+  try{
+    const a=client('il0','A',{host:true,token:I.tok(SA),hat:'tac',bayrak:'mavi',efekt:'yildiz'},I.b);acik.push(a);await a.until(c=>c.P&&c.P.room);
+    await a.until(c=>c.diger.some(m=>m.t==='envanter'));const e=a.diger.find(m=>m.t==='envanter').d;assert.deepStrictEqual(e,{yildiz:4,esyalar:{iksir:1},kozmetikler:['sapka:tac','bayrak:mavi']});
+    await a.until(c=>c.P.lobby.some(x=>x.id===c.me&&x.hat==='tac'&&x.bayrak==='mavi'));assert.strictEqual(a.P.lobby.find(x=>x.id===a.me).efekt,'none','sahip olunmayan efekt reddedilir');
+    const b=client('il1','B',{room:a.P.room,token:I.tok(SB),hat:'tac',bayrak:'ejder'},I.b);acik.push(b);await b.until(c=>c.diger.some(m=>m.t==='envanter'));await bekle(100);
+    const lb=a.P.lobby.find(x=>x.id===b.me);assert.strictEqual(lb.hat,'none','sahibi olmayan premium şapka kabul edilmez (varsayılanda kalır)');assert.strictEqual(lb.bayrak,'none');
+    const g=client('il2','G',{room:a.P.room,hat:'hale'},I.b);acik.push(g);await bekle(150);assert.strictEqual(a.P.lobby.find(x=>x.id===g.me).hat,'none','misafir premium alamaz');
+    assert.ok(!g.diger.some(m=>m.t==='envanter'),'misafire envanter yok');
+  }finally{for(const c of acik)await c.close();await I.kapat()}
+});
+test('ilerleme: eşya modu — lobide herkese eşya (envanterden seçilen ya da rastgele), başlayınca R.g.esya; bellekte adet düşer',async()=>{
+  const I=await ilerlemeSunucu({[SA]:{yildiz:0,esyalar:{iksir:1},kozmetikler:[]}});const acik=[];
+  try{
+    const a=client('ie0','A',{host:true,token:I.tok(SA),esya:'iksir'},I.b);acik.push(a);await a.until(c=>c.P&&c.P.room);const room=a.P.room;
+    a.send({t:'settings',night:30,talk:60,vote:30,esyaModu:true});
+    for(const u of ['ie1','ie2','ie3']){const c=client(u,u,{room},I.b);acik.push(c)}
+    await a.until(c=>c.P.lobby.length===4&&c.P.settings&&c.P.settings.esyaModu);
+    await a.until(c=>c.diger.some(m=>m.t==='lobiEsya'&&m.d&&m.d.key==='iksir'&&m.d.kaynak==='envanter'));
+    await acik[1].until(c=>c.diger.some(m=>m.t==='lobiEsya'&&m.d&&I.srv&&m.d.kaynak==='bedava'));
+    const once=acik[1].diger.filter(m=>m.t==='lobiEsya').pop().d.key;
+    a.send({t:'start'});await a.until(c=>c.P.phase==='night');const R=I.srv.rooms.get(room).game;
+    assert.deepStrictEqual(R.g.esya[a.me],{key:'iksir',kaynak:'envanter',kullanildi:false});assert.strictEqual(R.g.esya[acik[1].me].key,once,'lobide gösterilen bedava eşya maçta aynı');
+    assert.strictEqual(I.srv.rooms.get(room).members.get(a.me).envanter.esyalar.iksir,0,'bellekte ayrıldı');
+    await a.until(c=>c.priv&&c.priv.esya&&c.priv.esya.key==='iksir');
+  }finally{for(const c of acik)await c.close();await I.kapat()}
+});
+test('ilerleme: maç sonu kayıtlı her oyuncuya bir macSonu ve {t:kasa}; oylamasız maç kasa vermez; ikinci flush tekrar etmez',async()=>{
+  const I=await ilerlemeSunucu({});const acik=[];
+  try{
+    const a=client('im0','A',{host:true,token:I.tok(SA)},I.b);acik.push(a);await a.until(c=>c.P&&c.P.room);const room=a.P.room;
+    const b=client('im1','B',{room,token:I.tok(SB)},I.b);acik.push(b);for(const u of ['im2','im3']){acik.push(client(u,u,{room},I.b))}
+    await a.until(c=>c.P.lobby.length===4);a.send({t:'start'});await a.until(c=>c.P.phase==='night');
+    const R=I.srv.rooms.get(room).game;R.gameLog.push({sira:99,gun:1,faz:'vote',tur:'gunduz_sonuc',veri:{}});
+    R.P.phase='end';R.P.winner={team:'inn',kazananlar:[a.me]};a.send({t:'look',name:'A1'}); // look → schedule → flush
+    await a.until(c=>c.diger.some(m=>m.t==='kasa'));await b.until(c=>c.diger.some(m=>m.t==='kasa'));
+    assert.strictEqual(I.cagri.mac.length,2,'yalnız iki kayıtlı oyuncu');const ma=I.cagri.mac.find(x=>x.u===SA);
+    assert.strictEqual(ma.o,R.P.oyunId);assert.strictEqual(ma.x.bonus,2,'kazanan bonusu');assert.strictEqual(I.cagri.mac.find(x=>x.u===SB).x.bonus,0);assert.ok(ma.x.odul&&ma.x.odul.tur);
+    if(ma.x.odul.tur==='kozmetik')assert.ok(ma.x.odul.donusum>0);
+    a.send({t:'look',name:'A2'});await bekle(200);assert.strictEqual(I.cagri.mac.length,2,'ikinci flush tekrar etmez');
+    a.send({t:'cancel'});await a.until(c=>c.P.phase==='lobby');a.send({t:'start'});await a.until(c=>c.P.phase==='night');
+    const R2=I.srv.rooms.get(room).game;R2.P.phase='end';R2.P.winner={team:'imp',kazananlar:[]};a.send({t:'look',name:'A3'});await bekle(250);
+    assert.strictEqual(I.cagri.mac.length,2,'oylama yaşanmamış maç kasa vermez');
+  }finally{for(const c of acik)await c.close();await I.kapat()}
+});
+test('/ben/al: token, katalog fiyatı, hata kodları, kayıt kapalı 404; /ben sayfası; /saglik ilerleme',async()=>{
+  const I=await ilerlemeSunucu({});
+  try{
+    assert.strictEqual((await postJ(I.b,'/ben/al',JSON.stringify({key:'sapka:tac'}))).s,401);
+    const h={Authorization:'Bearer '+I.tok(SA)};
+    assert.strictEqual((await postJ(I.b,'/ben/al',JSON.stringify({key:'sapka:yok'}),h)).s,400);
+    const ok=await postJ(I.b,'/ben/al',JSON.stringify({key:'bayrak:mavi'}),h);assert.strictEqual(ok.s,200,ok.b);assert.deepStrictEqual(JSON.parse(ok.b),{ok:true,yildiz:3});
+    assert.deepStrictEqual(I.cagri.al[0],{u:SA,key:'bayrak:mavi',fiyat:12},'fiyat katalogdan');
+    const az=await postJ(I.b,'/ben/al',JSON.stringify({key:'sapka:tac'}),h);assert.strictEqual(az.s,409);assert.deepStrictEqual(JSON.parse(az.b),{error:'yildiz',yildiz:10});assert.strictEqual(I.cagri.al[1].fiyat,80);
+    const sg=JSON.parse((await get(I.b,'/saglik')).b);assert.deepStrictEqual(sg.ilerleme,{kasa:3,hata:1});
+    assert.strictEqual((await get(I.b,'/ben')).s,200);
+  }finally{await I.kapat()}
+  const s2=createServer({quiet:true,tickMs:50});await new Promise(r=>s2.server.listen(0,'127.0.0.1',r));
+  try{assert.strictEqual((await postJ('127.0.0.1:'+s2.server.address().port,'/ben/al','{}')).s,404)}finally{await new Promise(r=>s2.close(r))}
 });
