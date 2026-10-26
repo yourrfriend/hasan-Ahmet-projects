@@ -391,7 +391,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
     const R=room.game,uid=ws.uid;
     switch(m.t){
       case 'look':{const mem=room.members.get(uid);if(mem){applyLook(room,uid,mem,m);schedule(room)}break}
-      case 'settings':if(isHost(ws)&&R.P.phase==='lobby')R.settings=G.cleanSettings(m);break;
+      case 'settings':if(isHost(ws)&&R.P.phase==='lobby'){R.settings=G.cleanSettings(m);schedule(room)}break; // lobi durumu ayarları taşır (eşya modu herkese görünür)
       case 'start':{
         // lobiden: bağlı herkes. Oyun sonundan rövanş (rovans:true): yalnız hazır ∧ bağlı üyeler; başlatan ev sahibi hazır sayılır
         if(!isHost(ws))break;

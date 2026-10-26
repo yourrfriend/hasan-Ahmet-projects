@@ -111,6 +111,7 @@ const step=t=>console.log('•',t);
         assert.ok(await p5.$('text=Yeni oda kur'),'oyun kurma düğmesi yerinde');
         assert.ok(istekler.some(i=>/^oyunlar\?.*sonuc=eq\.bitti/.test(i)&&/order=bitis\.desc/.test(i)&&/kurulum=eq\.e2e/.test(i)),'oyunlar: yalnız bu kurulumun bitmiş maçları, bitiş sırasıyla: '+istekler.join(' | '));
         assert.match(await p5.textContent('.kimlik-notu'),/Kimliğin bu tarayıcıda/);
+        assert.strictEqual(await p5.getAttribute('a.profil','href'),'/ben','kayıt açıkken giriş sayfasında Profilim bağlantısı');
         // /oyun dalları (aynı oturum): göremediğim/olmayan oyun; süren oyun (roller gizli, kimse ölü görünmez, hikâye notu); bitmiş oyun
         const oyunSayfa=async id=>{await p5.goto(o3+'/oyun/'+id);await p5.waitForFunction(()=>document.querySelector('.not')||document.querySelector('#icerik .gun, #icerik h2'),null,{timeout:8000}); // not ya da içerik (tablo+hikâye birlikte eklenir)
           return p5.evaluate(()=>({not:[...document.querySelectorAll('.not')].map(n=>n.textContent).join(' '),icerik:document.getElementById('icerik').textContent,olu:document.querySelectorAll('#icerik tr.olu').length,satir:document.querySelectorAll('#icerik tr').length-1,gun:document.querySelectorAll('.gun').length,roller:[...document.querySelectorAll('#icerik td .tag')].map(t=>t.textContent)}))};
@@ -256,6 +257,7 @@ const step=t=>console.log('•',t);
     // rol rehberi gece de açılır, sahneyi kaplamaz, kendi rolünü işaretlemez, 19 rolü ve dağılımı listeler
     { const rp=pages.Ali;await rp.click('button.rehber-dugme');await rp.waitForSelector('.rehber');
       const r=await rp.evaluate(()=>{const e=document.querySelector('.rehber');const t=e.textContent;return{w:e.getBoundingClientRect().width/innerWidth,roller:Object.values(ROLES).filter(x=>t.includes(x.n)).length,dagilim:/Dağılım/.test(t),ben:!!e.querySelector('.ben'),gizli:t.includes('Hain arkadaşların')||t.includes((priv.notes||[]).join(''))&&(priv.notes||[]).length>0}});
+      assert.ok(await rp.evaluate(()=>/Eşyalar/.test(document.querySelector('.rehber').textContent)&&/İksir/.test(document.querySelector('.rehber').textContent)),'rehberde Eşyalar bölümü');
       assert.ok(r.w<0.6,'çekmece sahnenin yarısından azını kaplar');assert.strictEqual(r.roller,Object.keys(await rp.evaluate(()=>ROLES)).length,'tüm roller listelenir');assert.ok(r.dagilim);assert.strictEqual(r.ben,false);assert.strictEqual(r.gizli,false);
       await rp.evaluate(()=>{document.querySelector('.rehber').scrollTop=180});await rp.waitForTimeout(3200);assert.ok(await rp.evaluate(()=>document.querySelector('.rehber').scrollTop)>100,'rehber kaydırması render ile sıfırlanmamalı');
       await rp.click('.rehber .kapat');assert.strictEqual(await rp.$('.rehber'),null);
@@ -436,6 +438,38 @@ const step=t=>console.log('•',t);
       for(const e of evler)assert.ok(e.l>=0&&e.r<=844&&e.t>=60&&e.b<=390,'ev ekrana sığmalı (üst şerit 60px): '+JSON.stringify(e));
       for(let i=0;i<evler.length;i++)for(let j=i+1;j<evler.length;j++){const a=evler[i],b=evler[j];const ox=Math.min(a.r,b.r)-Math.max(a.l,b.l),oy=Math.min(a.b,b.b)-Math.max(a.t,b.t);assert.ok(ox<=6||oy<=6,'evler binişiyor: '+JSON.stringify([a,b]))}
       for(const w of botlar)w.close();await c7.close();
+    }
+
+    step('eşya modu: ev sahibi açar, lobide eşya görünür; dolap premium; gece eşya düğmesi → act.esya, sabah anonim haber; kasa kartı; bayrak çizimi');
+    { const WebSocket=require('ws');const ce=await newCtx();const pe=await open(ce,'Esya',base);
+      await pe.click('text=Yeni oda kur');await pe.fill('#nameInput','Ev');await pe.click('text=Lobiye gir');await pe.waitForFunction(()=>typeof P!=='undefined'&&!!P.room);
+      const oda=await pe.evaluate(()=>P.room);const botlar=[];
+      for(let i=1;i<4;i++){const w=new WebSocket('ws://127.0.0.1:'+srv.server.address().port+'/ws');await new Promise(r=>w.on('open',r));w.send(JSON.stringify({t:'join',room:oda,uid:'esy'+i,name:'Bot'+i,color:G.COLORS[i],hat:'none'}));botlar.push(w)}
+      await pe.waitForFunction(()=>P.lobby&&P.lobby.length===4);
+      await pe.click('.gear');await pe.click('text=Eşya modu: kapalı');await pe.waitForFunction(()=>P.settings&&P.settings.esyaModu===true,null,{timeout:4000});
+      await pe.waitForFunction(()=>/Eşyan:/.test((document.querySelector('.lobi-esya')||{}).textContent||''),null,{timeout:4000});
+      // dolap: envanter gelmiş gibi (Supabase yok) → premium şapka, bayrak ve eşya seçenekleri görünür
+      await pe.evaluate(()=>{envanter={yildiz:5,esyalar:{iksir:2},kozmetikler:['sapka:tac','bayrak:mavi']};ui.custom=true;render()});
+      const dolap=await pe.textContent('.ov.custom');assert.match(dolap,/Taç/);assert.match(dolap,/Mavi bayrak/);assert.match(dolap,/İksir ×2/);
+      await pe.evaluate(()=>{ui.custom=false;render()});
+      // bayrak çizimi: drawHouse bayrak rengini taşır
+      assert.strictEqual(await pe.evaluate(()=>{const s=document.createElementNS('http://www.w3.org/2000/svg','g');const h=drawHouse(s,0,0,'x',1,'mavi');return !!s.querySelector('[fill="#3b7bff"]')}),true,'bayrak çizilir');
+      await pe.evaluate(()=>send({t:'start'}));await pe.waitForFunction(()=>P.phase==='night');
+      const R=[...srv.rooms.values()].find(r=>r.code===oda).game;const benId=await pe.evaluate(()=>myId);
+      R.g.esya[benId]={key:'iksir',kaynak:'bedava',kullanildi:false};R.P.ends=Date.now()+60000;pe.evaluate(()=>send({t:'look',name:'Ev'}));
+      await pe.waitForTimeout(5500);const ok=await pe.$('text=Anladım');if(ok)await ok.click();
+      await pe.waitForSelector('.ov.esya-cip',{timeout:5000});assert.match(await pe.textContent('.ov.esya-cip'),/İksir/);
+      await pe.click('button.esya-kullan');await pe.waitForFunction(()=>local.act&&local.act.esya===true);
+      await new Promise(r=>setTimeout(r,200));assert.strictEqual(R.g.acts[benId]&&R.g.acts[benId].esya,true,'sunucu act.esya aldı');
+      R.P.waited=true;R.P.ends=Date.now()-1;await pe.waitForFunction(()=>P.phase==='talk',null,{timeout:8000});
+      assert.ok(await pe.evaluate(()=>(P.morning.news||[]).some(n=>/biri iksir içti/.test(n))),'sabah anonim iksir haberi');
+      // kasa kartı (sunucu mesajı gibi)
+      R.P.phase='end';R.P.winner={team:'inn',t:'Masumlar kazandı!',kazananlar:[benId]};pe.evaluate(()=>send({t:'look',name:'Ev'}));
+      await pe.waitForFunction(()=>P.phase==='end'&&document.querySelector('.endcard'),null,{timeout:8000});
+      await pe.evaluate(()=>{kasaSonuc={odul:{tur:'kozmetik',key:'sapka:tac',nadir:'efsanevi'},donustu:false,yildiz:7,rozetler:['ilk_mac']};render()});
+      await pe.waitForFunction(()=>document.querySelector('.endcard .kasa'),null,{timeout:12000});const kt=await pe.textContent('.endcard .kasa');
+      assert.match(kt,/Taç/);assert.match(kt,/İlk maç/);assert.match(kt,/7/);
+      for(const w of botlar)w.close();await ce.close();
     }
 
     assert.deepStrictEqual(errors,[],'sayfa hataları');
