@@ -848,12 +848,42 @@ test('ilerleme: eşya modu — lobide herkese eşya (envanterden seçilen ya da 
     await a.until(c=>c.P.lobby.length===4&&c.P.settings&&c.P.settings.esyaModu);
     await a.until(c=>c.diger.some(m=>m.t==='lobiEsya'&&m.d&&m.d.key==='iksir'&&m.d.kaynak==='envanter'));
     await acik[1].until(c=>c.diger.some(m=>m.t==='lobiEsya'&&m.d&&I.srv&&m.d.kaynak==='bedava'));
-    const once=acik[1].diger.filter(m=>m.t==='lobiEsya').pop().d.key;
+    const once=acik[1].diger.filter(m=>m.t==='lobiEsya').pop().d.key;assert.ok(['fis','kum','pusula','zar'].includes(once),'bedava havuz sıradan+zar: '+once);
     a.send({t:'start'});await a.until(c=>c.P.phase==='night');const R=I.srv.rooms.get(room).game;
     assert.deepStrictEqual(R.g.esya[a.me],[{key:'iksir',kaynak:'envanter',kullanildi:false}]);const e1=R.g.esya[acik[1].me][0];assert.ok(once==='zar'?e1.zar===true:e1.key===once,'lobide gösterilen bedava eşya maçta aynı (zar nadir eşyaya döner)');
     assert.deepStrictEqual(I.srv.rooms.get(room).ayirma,[{uye:SA,key:'iksir',pid:a.me,oyun:R.P.gameId}],'maç süresince sunucu çapında ayrıldı');
     await a.until(c=>c.priv&&c.priv.esya&&c.priv.esya[0]&&c.priv.esya[0].key==='iksir');
   }finally{for(const c of acik)await c.close();await I.kapat()}
+});
+test('eşya v2: esya{k:kum} tartışmayı uzatır ve herkese sys satırı; kap{d,g} ilk dokunana ikinci eşya, P.paket herkese, kimin aldığı gizli; paket eşyası düşüme gitmez; mod kapalıyken yok sayılır',async()=>{
+  const I=await ilerlemeSunucu({[SA]:{yildiz:0,esyalar:{},kozmetikler:[]}});const acik=[];
+  try{
+    const a=client('ev0','A',{host:true,token:I.tok(SA)},I.b);acik.push(a);await a.until(c=>c.P&&c.P.room);const kod=a.P.room;
+    a.send({t:'settings',night:30,talk:60,vote:30,esyaModu:true});for(const u of ['ev1','ev2','ev3'])acik.push(client(u,u,{room:kod},I.b));
+    await a.until(c=>c.P.lobby.length===4&&c.P.settings&&c.P.settings.esyaModu);a.send({t:'start'});await a.until(c=>c.P.phase==='night');
+    const room=I.srv.rooms.get(kod),R=room.game;const b=acik[1];await b.until(c=>c.priv&&c.priv.esya);
+    R.g.esya[a.me]=[{key:'kum',kaynak:'bedava',kullanildi:false}];R.P.waited=true;R.P.ends=Date.now()-1;await a.until(c=>c.P.phase==='talk');
+    R.g.paket=null; // zamanlamayı test belirler
+    const ends=R.P.ends;a.send({t:'esya',k:'kum',d:1,g:R.P.gameId});
+    await a.until(c=>c.chat.some(m=>m.sys&&/⏳ Biri kum saatini çevirdi: \+30 sn/.test(m.t)));await b.until(c=>c.chat.some(m=>m.sys&&/kum saatini/.test(m.t)));
+    assert.strictEqual(R.P.ends,ends+30000);await a.until(c=>c.P.ends===ends+30000);await a.until(c=>c.priv.esya[0].kullanildi===true);
+    // paket: sunucu tick'i açar
+    R.g.paket={zaman:0,keys:['fis'],alanlar:[],acik:false,ends:null};await a.until(c=>c.P.paket&&c.P.paket.key==='fis'&&c.P.paket.n===1);await b.until(c=>c.P.paket&&c.P.paket.key==='fis');
+    assert.deepStrictEqual(Object.keys(a.P.paket).sort(),['ends','key','n']);
+    b.send({t:'kap',d:1,g:R.P.gameId});await b.until(c=>c.priv.esya.length===2&&c.priv.esya[1].key==='fis');
+    await a.until(c=>c.P.paket===null);await a.until(c=>c.chat.some(m=>m.sys&&/📦 Meydana 🗳️ oy fişi düştü — biri kaptı/.test(m.t)));
+    assert.strictEqual(a.priv.esya.length,1,'kapmayanın envanteri değişmez');assert.ok(!a.raw.includes(b.me+'"]')&&!/alanlar/.test(a.raw),'kimin kaptığı state\'te yok');
+    acik[2].send({t:'kap',d:1,g:R.P.gameId});await bekle(120);assert.strictEqual(R.g.esya[acik[2].me].length,1,'kapanmış paket');
+    // maç sonu: paket eşyası harcanan olarak gitmez; envanterden gelen (sahte) gider
+    R.g.esya[b.me][1].kullanildi=true;R.g.esya[a.me]=[{key:'iksir',kaynak:'envanter',kullanildi:true}];
+    R.gameLog.push({sira:99,gun:1,faz:'vote',tur:'gunduz_sonuc',veri:{}});R.P.phase='end';R.P.winner={team:'inn',kazananlar:[]};a.send({t:'look',name:'A1'});
+    await bekle(150);assert.strictEqual(I.cagri.mac.length,1);assert.strictEqual(I.cagri.mac[0].u,SA);assert.strictEqual(I.cagri.mac[0].x.harcanan,'iksir');
+  }finally{for(const c of acik)await c.close();await I.kapat()}
+  // eşya modu kapalı: mesajlar yok sayılır
+  const h=client('ek0','H',{host:true});await h.until(c=>c.P&&c.P.room);const k2=h.P.room;const ot=['ek1','ek2','ek3'].map(u=>client(u,u,{room:k2}));
+  await h.until(c=>c.P.lobby.length===4);h.send({t:'start'});await h.until(c=>c.P.phase==='night');const R2=srv.rooms.get(k2).game;R2.P.waited=true;R2.P.ends=Date.now()-1;await h.until(c=>c.P.phase==='talk');
+  const e2=R2.P.ends;h.send({t:'esya',k:'kum',d:1,g:R2.P.gameId});h.send({t:'kap',d:1,g:R2.P.gameId});await bekle(120);assert.strictEqual(R2.P.ends,e2);assert.ok(!R2.g.esya||!Object.keys(R2.g.esya).length);assert.strictEqual(h.errs.length,0);
+  for(const c of [h,...ot])await c.close();
 });
 test('ilerleme: maç sonu kayıtlı her oyuncuya bir macSonu ve {t:kasa}; oylamasız maç kasa vermez; ikinci flush tekrar etmez',async()=>{
   const I=await ilerlemeSunucu({});const acik=[];

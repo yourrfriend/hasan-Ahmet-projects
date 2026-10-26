@@ -359,10 +359,10 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
   function musaitEsya(mem,key){if(!mem.uye||!mem.envanter)return 0;let n=mem.envanter.esyalar[key]||0;
     for(const r of rooms.values())for(const a of r.ayirma||[])if(a.uye===mem.uye&&a.key===key)n--;return n}
   function lobiEsyaGuncelle(room){const R=room.game;const acikMi=R.settings&&R.settings.esyaModu&&(R.P.phase==='lobby'||R.P.phase==='end');
-    room.lobiEsya=room.lobiEsya||new Map();const keys=Object.keys(G.ESYA);
+    room.lobiEsya=room.lobiEsya||new Map();
     for(const [uid,mem] of room.members){let s=null;
       if(acikMi&&mem.name){if(mem.esyaSecim&&musaitEsya(mem,mem.esyaSecim)>0)s={key:mem.esyaSecim,kaynak:'envanter'};
-        else{const eski=room.lobiEsya.get(uid);s=eski&&eski.kaynak==='bedava'?eski:{key:keys[Math.floor(Math.random()*keys.length)],kaynak:'bedava'}}
+        else{const eski=room.lobiEsya.get(uid);s=eski&&eski.kaynak==='bedava'?eski:{key:G.bedavaEsya(),kaynak:'bedava'}} // bedava havuz: sıradan + zar (katalog)
         room.lobiEsya.set(uid,s)}
       const str=JSON.stringify(s);if((mem.lobiEsyaGonderilen||'null')!==str){mem.lobiEsyaGonderilen=str;for(const ws of mem.socks)send(ws,{t:'lobiEsya',d:s})}}
   }
@@ -429,6 +429,8 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
       case 'close':if(isHost(ws))deleteRoom(room,'Ev sahibi odayı kapattı.');break;
       case 'act':G.act(R,uid,m);break; // gece hamlesi gizli: kimseye yayın yok
       case 'vote':if(G.vote(R,uid,m.v,m.d,m.g,m.esya===true))schedule(room);break;
+      case 'esya':if(typeof m.k==='string'&&G.esyaKullan(R,uid,m.k))schedule(room);break; // tartışma eşyası (kum saati): sohbet sys satırı + P.ends
+      case 'kap':if(G.kap(R,uid,m.d,m.g))schedule(room);break; // meydan paketi: yalnız kapanın priv'i (ve kapanışta P.paket) değişir
       case 'msg':if(G.chat(R,uid,m.x))schedule(room);break;
       case 'hizli':{const r=G.hizli(R,uid,m);if(r.ok)schedule(room);else if(r.kod==='bekle')send(ws,{t:'err',m:'Biraz bekle ('+r.kalan+' sn).',code:'soft'});else if(r.kod==='gun')send(ws,{t:'err',m:'Bugünlük hızlı ifade hakkın bitti ('+G.HIZLI_GUN+').',code:'soft'});break}
       case 'dmsg':if(G.deadChat(R,uid,m.x))schedule(room);break;
