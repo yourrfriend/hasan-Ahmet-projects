@@ -899,6 +899,9 @@ test('meydan paketi: tartışmada planlanır, zamanında açılır (tür+sayı+s
     const seq=a=>{let i=0;return()=>a[i++%a.length]};G.setRnd(seq([0.1,0.5,0.9,0.999,0.3]));R=esyali(['hain','masum','masum','masum','masum'],{});G.advance(R);
     assert.strictEqual(R.g.paket.keys[0],'zar');t=R.g.paket.zaman;G.tick(R);assert.strictEqual(R.P.paket.key,'zar');assert.strictEqual(G.kap(R,'u1',1,R.P.gameId),true);
     const z=R.g.esya.u1[1];assert.strictEqual(G.ESYA[z.key].nadir,'nadir');assert.strictEqual(z.zar,true);assert.strictEqual(z.kaynak,'paket');assert.match(R.g.notes.u1.join(' | '),/🎲 Zar: .* çıktı/);
+    // fiş paketi: kapan kimliği günlüğe yazılmaz
+    G.setRnd(seq([0.1,0.5,0.0,0.3]));R=esyali(['hain','masum','masum','masum','masum'],{});G.advance(R);assert.strictEqual(R.g.paket.keys[0],'fis');t=R.g.paket.zaman;G.tick(R);
+    assert.strictEqual(G.kap(R,'u2',1,R.P.gameId),true);const pf=R.gameLog.filter(e=>e.tur==='paket').pop().veri;assert.deepStrictEqual(pf,{key:'fis',n:1,alan:1,alanlar:[]});
   }finally{G.setClock();G.setRnd(null)}
 });
 test('gazete 2: eşya kartı önceliği (iksir korudu > kilit > fener hain > vasiyet > diğer), en çok bir paket kartı; P.ozet eşya açıklaması (fiş gizli)',()=>{

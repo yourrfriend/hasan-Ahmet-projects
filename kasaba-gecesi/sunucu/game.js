@@ -266,7 +266,7 @@ function paketPlanla(R,secs){const g=R.g;if(!(R.settings&&R.settings.esyaModu))r
   const n=alivePlayers(R).length>=8?2:1;const key=paketEsya();g.paket={zaman:clock()+Math.floor(rnd()*secs*1000*2/3),keys:Array(n).fill(key),alanlar:[],acik:false,ends:null}}
 function paketKapat(R){const g=R.g,P=R.P;if(!g||!g.paket)return;const pk=g.paket;g.paket=null;P.paket=null;if(!pk.acik)return;
   const E=ESYA[pk.keys[0]];const son=pk.alanlar.length===0?'kimse kapmadı':pk.keys.length===2&&pk.alanlar.length===2?'ikisini de kaptılar':'biri kaptı';
-  sysChat(R,'📦 Meydana '+E.ico+' '+E.n.toLowerCase()+' düştü — '+son);logEv(R,'paket',{key:pk.keys[0],n:pk.keys.length,alan:pk.alanlar.length,alanlar:pk.alanlar.slice()})}
+  sysChat(R,'📦 Meydana '+E.ico+' '+E.n.toLowerCase()+' düştü — '+son);logEv(R,'paket',{key:pk.keys[0],n:pk.keys.length,alan:pk.alanlar.length,alanlar:pk.keys[0]==='fis'?[]:pk.alanlar.slice()})} // fiş: kapan kimliği ham günlüğe de yazılmaz (oy gizliliği; günlük maç sonunda okunur)
 // tick içinden: açılış / süre dolumu. Değişiklik olduysa true.
 function paketTik(R){const g=R.g,P=R.P;if(!g||!g.paket||P.phase!=='talk')return false;const pk=g.paket;
   if(!pk.acik&&clock()>=pk.zaman){if(clock()+PAKET.sure>P.ends){g.paket=null;return false} // faz bitmek üzereyse açılmaz

@@ -267,7 +267,7 @@ const step=t=>console.log('•',t);
     // rol rehberi gece de açılır, sahneyi kaplamaz, kendi rolünü işaretlemez, 19 rolü ve dağılımı listeler
     { const rp=pages.Ali;await rp.click('button.rehber-dugme');await rp.waitForSelector('.rehber');
       const r=await rp.evaluate(()=>{const e=document.querySelector('.rehber');const t=e.textContent;return{w:e.getBoundingClientRect().width/innerWidth,roller:Object.values(ROLES).filter(x=>t.includes(x.n)).length,dagilim:/Dağılım/.test(t),ben:!!e.querySelector('.ben'),gizli:t.includes('Hain arkadaşların')||t.includes((priv.notes||[]).join(''))&&(priv.notes||[]).length>0}});
-      assert.ok(await rp.evaluate(()=>/Eşyalar/.test(document.querySelector('.rehber').textContent)&&/İksir/.test(document.querySelector('.rehber').textContent)),'rehberde Eşyalar bölümü');
+      assert.ok(await rp.evaluate(()=>/Eşyalar/.test(document.querySelector('.rehber').textContent)&&/İksir/.test(document.querySelector('.rehber').textContent)&&/Kum saati/.test(document.querySelector('.rehber').textContent)&&/paket/.test(document.querySelector('.rehber').textContent)),'rehberde Eşyalar bölümü (v2)');
       assert.ok(r.w<0.6,'çekmece sahnenin yarısından azını kaplar');assert.strictEqual(r.roller,Object.keys(await rp.evaluate(()=>ROLES)).length,'tüm roller listelenir');assert.ok(r.dagilim);assert.strictEqual(r.ben,false);assert.strictEqual(r.gizli,false);
       await rp.evaluate(()=>{document.querySelector('.rehber').scrollTop=180});await rp.waitForTimeout(3200);assert.ok(await rp.evaluate(()=>document.querySelector('.rehber').scrollTop)>100,'rehber kaydırması render ile sıfırlanmamalı');
       await rp.click('.rehber .kapat');assert.strictEqual(await rp.$('.rehber'),null);
@@ -458,6 +458,7 @@ const step=t=>console.log('•',t);
       await pe.waitForFunction(()=>P.lobby&&P.lobby.length===4);
       await pe.click('.gear');await pe.click('text=Eşya modu: kapalı');await pe.waitForFunction(()=>P.settings&&P.settings.esyaModu===true,null,{timeout:4000});
       await pe.waitForFunction(()=>/Eşyan:/.test((document.querySelector('.lobi-esya')||{}).textContent||''),null,{timeout:4000});
+      await pe.evaluate(()=>{lobiEsya={key:'zar',kaynak:'bedava'};render()});assert.match(await pe.textContent('.lobi-esya'),/Zar.*nadir/);
       // dolap: envanter gelmiş gibi (Supabase yok) → premium şapka, bayrak ve eşya seçenekleri görünür
       await pe.evaluate(()=>{envanter={yildiz:5,esyalar:{iksir:2},kozmetikler:['sapka:tac','bayrak:mavi']};ui.custom=true;render()});
       const dolap=await pe.textContent('.ov.custom');assert.match(dolap,/Taç/);assert.match(dolap,/Mavi bayrak/);assert.match(dolap,/İksir ×2/);
@@ -466,18 +467,40 @@ const step=t=>console.log('•',t);
       assert.strictEqual(await pe.evaluate(()=>{const s=document.createElementNS('http://www.w3.org/2000/svg','g');const h=drawHouse(s,0,0,'x',1,'mavi');return !!s.querySelector('[fill="#3b7bff"]')}),true,'bayrak çizilir');
       await pe.evaluate(()=>send({t:'start'}));await pe.waitForFunction(()=>P.phase==='night');
       const R=[...srv.rooms.values()].find(r=>r.code===oda).game;const benId=await pe.evaluate(()=>myId);
-      R.g.esya[benId]={key:'iksir',kaynak:'bedava',kullanildi:false};R.P.ends=Date.now()+60000;pe.evaluate(()=>send({t:'look',name:'Ev'}));
+      const botId=R.P.players.find(p=>p.id!==benId).id;
+      R.g.esya[benId]=[{key:'iksir',kaynak:'bedava',kullanildi:false},{key:'kilit',kaynak:'paket',kullanildi:false}];R.P.ends=Date.now()+60000;pe.evaluate(()=>send({t:'look',name:'Ev'}));
       await pe.waitForTimeout(5500);const ok=await pe.$('text=Anladım');if(ok)await ok.click();
-      await pe.waitForSelector('.ov.esya-cip',{timeout:5000});assert.match(await pe.textContent('.ov.esya-cip'),/İksir/);
-      { const k=await pe.evaluate(()=>{const r=s=>{const e=document.querySelector(s);return e?e.getBoundingClientRect():null};const c=r('.ov.esya-cip');return ['.notesbtn','.ov.mine'].map(s=>{const o=r(s);return o&&!(c.right<=o.left||o.right<=c.left||c.bottom<=o.top||o.bottom<=c.top)})});
-        assert.deepStrictEqual(k,[false,false],'eşya çipi Notlar ve rol kartıyla çakışmaz')}
-      await pe.click('button.esya-kullan');await pe.waitForFunction(()=>local.act&&local.act.esya===true);
-      await new Promise(r=>setTimeout(r,200));assert.strictEqual(R.g.acts[benId]&&R.g.acts[benId].esya,true,'sunucu act.esya aldı');
+      await pe.waitForFunction(()=>document.querySelectorAll('.ov.esya-cip').length===2,null,{timeout:5000});
+      const cips=await pe.$$eval('.ov.esya-cip',e=>e.map(x=>x.textContent));assert.match(cips[0],/İksir.*kendiliğinden/);assert.match(cips[1],/Kilit/);
+      { const k=await pe.evaluate(()=>{const r=e=>e.getBoundingClientRect();const cs=[...document.querySelectorAll('.ov.esya-cip')].map(r);return ['.notesbtn','.ov.mine'].map(s=>{const o=r(document.querySelector(s));return cs.some(c=>!(c.right<=o.left||o.right<=c.left||c.bottom<=o.top||o.bottom<=c.top))})});
+        assert.deepStrictEqual(k,[false,false],'eşya çipleri Notlar ve rol kartıyla çakışmaz')}
+      assert.strictEqual(await pe.$('button.esya-kullan[data-key="iksir"]'),null,'pasif eşyada düğme yok');
+      await pe.click('button.esya-kullan[data-key="kilit"]');await pe.waitForFunction(()=>sel.mode==='esya:kilit');
+      await pe.evaluate(id=>scene.houses[id].g.onclick(),botId);await pe.waitForFunction(()=>local.act&&local.act.esya==='kilit'&&!!local.act.esyaHedef);
+      assert.match(await pe.textContent('button.esya-kullan[data-key="kilit"]'),/Bot/);
+      await new Promise(r=>setTimeout(r,200));assert.strictEqual(R.g.acts[benId]&&R.g.acts[benId].esya,'kilit','sunucu act.esya aldı');assert.strictEqual(R.g.acts[benId].esyaHedef,botId);
+      assert.ok(await pe.evaluate(()=>!!document.querySelector('svg .iz.esya')),'kapıda eşya simgesi');
       R.P.waited=true;R.P.ends=Date.now()-1;await pe.waitForFunction(()=>P.phase==='talk',null,{timeout:8000});
-      assert.ok(await pe.evaluate(()=>(P.morning.news||[]).some(n=>/biri iksir içti/.test(n))),'sabah anonim iksir haberi');
+      assert.ok(await pe.evaluate(()=>(P.morning.news||[]).some(n=>/kapısı kilitlendi/.test(n))),'sabah anonim kilit haberi');
+      // kum saati: tartışmada düğme → sunucu süreyi uzatır, sohbette anonim satır
+      R.g.esya[benId]=[{key:'kum',kaynak:'bedava',kullanildi:false}];pe.evaluate(()=>send({t:'look',name:'Ev'}));
+      await pe.waitForSelector('button.kum-kullan',{timeout:5000});const ends0=R.P.ends;await pe.click('button.kum-kullan');
+      await pe.waitForFunction(()=>(P.chat||[]).some(m=>m.sys&&/kum saatini çevirdi/.test(m.t)),null,{timeout:5000});assert.strictEqual(R.P.ends,ends0+30000);
+      // meydan paketi (telefon ölçüsü): sahnede görünür, sohbet/düğmelerle çakışmaz, dokununca ikinci eşya, kapanış satırı
+      await pe.setViewportSize({width:844,height:390});R.g.paket={zaman:0,keys:['fis'],alanlar:[],acik:false,ends:null};
+      await pe.waitForFunction(()=>P.paket&&P.paket.key==='fis'&&!!document.querySelector('svg .paket'),null,{timeout:5000});
+      { const k=await pe.evaluate(()=>{const r=e=>e&&e.getBoundingClientRect();const c=r(document.querySelector('svg .paket'));return ['.ov.chat','.notesbtn','.ov.mine'].map(s=>{const o=r(document.querySelector(s));return !!o&&!(c.right<=o.left||o.right<=c.left||c.bottom<=o.top||o.bottom<=c.top)})});
+        assert.deepStrictEqual(k,[false,false,false],'paket sohbet/Notlar/rol kartıyla çakışmaz')}
+      await pe.evaluate(()=>document.querySelector('svg .paket').dispatchEvent(new MouseEvent('click',{bubbles:true})));
+      await pe.waitForFunction(()=>priv.esya&&priv.esya.length===2&&priv.esya[1].key==='fis',null,{timeout:5000});
+      await pe.waitForFunction(()=>P.paket===null&&!document.querySelector('svg .paket')&&(P.chat||[]).some(m=>m.sys&&/oy fişi düştü — biri kaptı/.test(m.t)),null,{timeout:5000});
+      await pe.setViewportSize({width:900,height:520});
+      // son ekran: eşya sütunu (fiş yok), sonraki eşya, kasa kartı
+      R.P.ozet={kazanan:{takim:'inn',metin:'Masumlar kazandı!'},oyuncular:R.P.players.map(p=>({id:p.id,ad:p.name,rol:'Masum',takim:'inn',sag:true,olum:null,esyalar:p.id===benId?[{key:'kilit',kullanildi:true,kaynak:'paket'},{key:'kum',kullanildi:false,kaynak:'bedava'}]:[]}))};
       // kasa kartı (sunucu mesajı gibi)
       R.P.phase='end';R.P.winner={team:'inn',t:'Masumlar kazandı!',kazananlar:[benId]};pe.evaluate(()=>send({t:'look',name:'Ev'}));
       await pe.waitForFunction(()=>P.phase==='end'&&document.querySelector('.endcard'),null,{timeout:8000});
+      await pe.waitForFunction(()=>!!document.querySelector('.endcard .ozet .esya'),null,{timeout:8000});const es=await pe.textContent('.endcard .ozet .esya');assert.match(es,/🔒 ✓/);assert.match(es,/⏳ ✗/);
       await pe.waitForFunction(()=>/Sonraki maçta eşyan/.test((document.querySelector('.endcard .lobi-esya')||{}).textContent||''),null,{timeout:12000});
       await pe.evaluate(()=>{kasaSonuc={odul:{tur:'kozmetik',key:'sapka:tac',nadir:'efsanevi'},donustu:false,yildiz:7,rozetler:['ilk_mac']};render()});
       await pe.waitForFunction(()=>document.querySelector('.endcard .kasa'),null,{timeout:12000});const kt=await pe.textContent('.endcard .kasa');
