@@ -60,8 +60,9 @@ function hikaye(olaylar,oyuncular,ROLES){
       if(v.provoke)b.satirlar.push('🔥 '+nm(v.provoke)+' kışkırtılmıştı (oy alırsa +2)');
       if(parcalar.length)b.satirlar.push('🗳️ Oylar: '+parcalar.join(', '));
       b.satirlar.push(v.asilan?'⚖️ Kasaba '+ek(nm(v.asilan),'i')+' gönderdi'+(v.rol_goruntu?' ('+v.rol_goruntu+')':''):'⚖️ Oylar yetersiz, kimse gönderilmedi')}
+    // paket: oy fişi kapanın adı bitmiş oyunda da yazılmaz (oy gizliliği)
     else if(e.tur==='paket'){const b=al('☀️ Gün '+gun);const E=G&&G.ESYA&&G.ESYA[v.key];const ad=E?E.ico+' '+E.n.toLowerCase():v.key;const bitmis=[...oy.values()].every(p=>p.rol_key);
-      const son=!v.alan?'kimse kapmadı':bitmis&&v.alanlar&&v.alanlar.length?v.alanlar.map(nm).join(' ve ')+' kaptı':v.alan===2?'ikisini de kaptılar':'biri kaptı';b.satirlar.push('📦 Meydana '+ad+' düştü; '+son)}
+      const son=!v.alan?'kimse kapmadı':bitmis&&v.key!=='fis'&&v.alanlar&&v.alanlar.length?v.alanlar.map(nm).join(' ve ')+' kaptı':v.alan===2?'ikisini de kaptılar':'biri kaptı';b.satirlar.push('📦 Meydana '+ad+' düştü; '+son)}
     else if(e.tur==='bitis'){al('🏁 Bitiş').satirlar.push(v.kazanan_metin||'Oyun bitti')}
     else if(e.tur==='iptal'){al('🏁 Bitiş').satirlar.push('Oyun iptal edildi (Gün '+(v.gun||gun)+', '+(FAZ[v.faz]||v.faz||'')+')')}
     // baslangic, hazir, kopus, dondu, son_ekran_goruldu, rovans_basladi, hizli ve bilinmeyenler: satır üretmez

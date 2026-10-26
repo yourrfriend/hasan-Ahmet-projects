@@ -487,7 +487,7 @@ function ozetFor(R){const P=R.P;const olum={};
     if(e.tur==='gece_sonuc')for(const o of e.veri.olenler)olum[o.kim]={gun:e.gun,faz:'gece',sekil:o.sekil,kimden:o.kimden};
     else if(e.tur==='gunduz_sonuc'&&e.veri.asilan)olum[e.veri.asilan]={gun:e.gun,faz:'gunduz',sekil:'asildi',kimden:[]};
   }
-  const esy=id=>((R.g.esya&&R.g.esya[id])||[]).map(e=>e.key==='fis'?{key:'fis',gizli:true}:{key:e.key,kullanildi:e.kullanildi,kaynak:e.kaynak}); // maç sonu açıklama; fiş oy gizliliği gereği açıklanmaz
+  const esy=id=>((R.g.esya&&R.g.esya[id])||[]).filter(e=>e.key!=='fis').map(e=>({key:e.key,kullanildi:e.kullanildi,kaynak:e.kaynak})); // maç sonu açıklama; fiş listeye hiç girmez (taşıdığı bile oy gizliliğini bozar)
   return{kazanan:{takim:P.winner.team,metin:P.winner.t},oyuncular:P.reveal.map(r=>({id:r.id,ad:r.name,rol:r.role,takim:r.team,sag:r.alive,olum:olum[r.id]||null,esyalar:esy(r.id)}))};
 }
 // "Senin payın" (kişiye özel, yalnız oyun bitince): öldürdüklerin, kurtardıkların, yakaladıkların, tuttukların.

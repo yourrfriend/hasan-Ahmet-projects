@@ -913,7 +913,7 @@ test('gazete 2: eşya kartı önceliği (iksir korudu > kilit > fener hain > vas
   const oz=Object.fromEntries(R.P.ozet.oyuncular.map(p=>[p.id,p.esyalar]));
   assert.deepStrictEqual(oz.u3,[{key:'iksir',kullanildi:true,kaynak:'envanter'}]);assert.deepStrictEqual(oz.u1,[{key:'kilit',kullanildi:true,kaynak:'envanter'}]);
   assert.deepStrictEqual(oz.u2,[{key:'fener',kullanildi:true,kaynak:'envanter'}]);assert.deepStrictEqual(oz.u5,[{key:'vasiyet',kullanildi:false,kaynak:'envanter'}]);
-  assert.deepStrictEqual(oz.u4,[{key:'fis',gizli:true}],'fiş kullanımı maç sonunda da açıklanmaz');assert.deepStrictEqual(oz.u0,[{key:'fis',gizli:true}]);
+  assert.deepStrictEqual(oz.u4,[],'fiş listeye hiç girmez (taşıdığı bile oy gizliliğini bozar)');assert.deepStrictEqual(oz.u0,[]);assert.ok(!JSON.stringify(R.P.ozet).includes('fis'));
   noLeak(R.P);
   // öncelik: kilit kilitledi > fener hain gördü > vasiyet
   const R2=esyali(['hain','masum','masum','masum','masum'],{u1:'fener',u2:'kilit',u3:'vasiyet'});
