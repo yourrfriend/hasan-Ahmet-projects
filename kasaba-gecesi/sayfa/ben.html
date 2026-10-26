@@ -37,6 +37,8 @@
   const elde=esyalar.filter(e=>e.adet>0&&G.ESYA[e.key]);if(!elde.length)p2.append(el('p','muted','Henüz eşyan yok; maç sonu kasalarından çıkar.'));
   for(const e of elde){const E=G.ESYA[e.key];const r=el('div','urun');r.append(el('span','ad',E.ico+' '+E.n+' ×'+e.adet),el('span','small muted',E.desc));
     const b=el('button',look().esya===e.key?'giyili':'',look().esya===e.key?'Yanında ✓':'Yanına al');b.onclick=()=>{giy('esya',e.key);location.reload()};r.append(b);p2.append(r)}
+  if(elde.length){const r=el('div','urun');r.append(el('span','ad','🎲 Rastgele'),el('span','small muted','Seçim yapma; maç başında bedava havuzdan rastgele bir eşya al.'));
+    const secili=!look().esya;const b=el('button',secili?'giyili':'',secili?'Rastgele ✓':'Rastgele al');b.onclick=()=>{const l=look();delete l.esya;localStorage.setItem('kg_look',JSON.stringify(l));location.reload()};r.append(b);p2.append(r)}
   icerik.append(p2);
   // rozetler
   const p3=el('div','panel');p3.append(el('h2',null,'Rozetler ('+kazanilan.size+'/'+Object.keys(G.ROZETLER).length+')'));

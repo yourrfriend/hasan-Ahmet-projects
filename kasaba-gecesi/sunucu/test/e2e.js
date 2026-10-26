@@ -138,6 +138,10 @@ const step=t=>console.log('•',t);
           await p5.click('.urun[data-key="bayrak:mavi"] button');await p5.waitForFunction(()=>/⭐ 8/.test(document.querySelector('main').textContent),null,{timeout:8000});
           assert.deepStrictEqual(alimlar.map(a=>a.key),['bayrak:mavi']);assert.match(alimlar[0].auth,/^Bearer ey/,'oturum tokenıyla');
           await p5.click('.urun[data-key="sapka:tac"] button');await p5.waitForFunction(()=>{try{return JSON.parse(localStorage.getItem('kg_look')).hat==='tac'}catch(e){return false}},null,{timeout:8000});
+          await Promise.all([p5.waitForNavigation(),p5.click('.urun button:has-text("Yanına al")')]);await p5.waitForFunction(()=>[...document.querySelectorAll('#icerik h2')].some(h=>/Koleksiyon/.test(h.textContent)),null,{timeout:8000});
+          assert.strictEqual(await p5.evaluate(()=>JSON.parse(localStorage.getItem('kg_look')).esya),'iksir');assert.match(await p5.textContent('main'),/Yanında ✓/);
+          await Promise.all([p5.waitForNavigation(),p5.click('button:has-text("Rastgele al")')]);await p5.waitForFunction(()=>[...document.querySelectorAll('#icerik h2')].some(h=>/Koleksiyon/.test(h.textContent)),null,{timeout:8000});
+          assert.strictEqual(await p5.evaluate(()=>JSON.parse(localStorage.getItem('kg_look')).esya),undefined,'Rastgele: seçim silinir');assert.match(await p5.textContent('main'),/Rastgele ✓/);
           await p5.unroute('**/ben/al') }
         restHata='kasabalar';await p5.goto(o3+'/kasaba/'+k1);await p5.waitForSelector('.not',{timeout:8000});assert.match(await p5.textContent('.not'),/Bağlantı hatası/,'kasaba sayfası sunucu hatası');restHata=null;assert.deepStrictEqual(ks.maclar,['/oyun/'+g3,'/oyun/'+g1],'son maçlar: kasabanın bitmiş maçları, yeniden eskiye');
         assert.ok(istekler.some(i=>/^oyunlar\?.*kasaba_id=eq\./.test(i)&&/kurulum=eq\.e2e/.test(i)),'kasaba son maçları kurulum süzgeciyle: '+istekler.join(' | '));
@@ -478,11 +482,14 @@ const step=t=>console.log('•',t);
       // çipe dokununca bilgi kutusu: ne yapar + nasıl kullanılır (katalogdan)
       await pe.click('button.esya-cip[data-key="kilit"]');await pe.waitForSelector('.ov.esya-bilgi',{timeout:3000});const bilgi=await pe.textContent('.ov.esya-bilgi');
       assert.match(bilgi,/Kilit/);assert.match(bilgi,/EFSANEVİ/i);assert.ok(bilgi.includes(G.ESYA.kilit.desc)&&bilgi.includes(G.ESYA.kilit.nasil),'katalog metinleri');await pe.click('.ov.esya-bilgi button:has-text("Kapat")');await pe.waitForFunction(()=>!document.querySelector('.ov.esya-bilgi'));
+      const rolEski=R.g.roles[benId];R.g.roles[benId]={key:'gozcu',team:'imp',mad:null,uses:{},vest:3,planted:[]};pe.evaluate(()=>send({t:'look',name:'Ev'}));await pe.waitForFunction(()=>priv.role&&priv.role.key==='gozcu'&&priv.role.team==='imp');
+      await pe.evaluate(()=>{sel.mode='ab';render()});assert.strictEqual(await pe.evaluate(()=>sel.mode),'ab','ikinci mod seçildi (Gözcü-hain: kill + ab)');
       await pe.click('button.esya-kullan[data-key="kilit"]');await pe.waitForFunction(()=>sel.mode==='esya:kilit');
       await pe.evaluate(id=>scene.houses[id].g.onclick(),botId);await pe.waitForFunction(()=>local.act&&local.act.esya==='kilit'&&!!local.act.esyaHedef);
-      assert.match(await pe.textContent('button.esya-kullan[data-key="kilit"]'),/Bot/);
+      assert.match(await pe.textContent('button.esya-kullan[data-key="kilit"]'),/Bot/);assert.strictEqual(await pe.evaluate(()=>sel.mode),'ab','hedefli eşya seçimi önceki rol modunu geri getirir');
       await new Promise(r=>setTimeout(r,200));assert.strictEqual(R.g.acts[benId]&&R.g.acts[benId].esya,'kilit','sunucu act.esya aldı');assert.strictEqual(R.g.acts[benId].esyaHedef,botId);
       assert.ok(await pe.evaluate(()=>!!document.querySelector('svg .iz.esya')),'kapıda eşya simgesi');
+      R.g.roles[benId]=rolEski; // ikinci hain oyunu bitirmesin (takım sayısı)
       R.P.waited=true;R.P.ends=Date.now()-1;await pe.waitForFunction(()=>P.phase==='talk',null,{timeout:8000});
       assert.ok(await pe.evaluate(()=>(P.morning.news||[]).some(n=>/kapısı kilitlendi/.test(n))),'sabah anonim kilit haberi');
       // kum saati: tartışmada düğme → sunucu süreyi uzatır, sohbette anonim satır
@@ -494,6 +501,7 @@ const step=t=>console.log('•',t);
       await pe.waitForFunction(()=>P.paket&&P.paket.key==='fis'&&!!document.querySelector('svg .paket'),null,{timeout:5000});
       { const k=await pe.evaluate(()=>{const r=e=>e&&e.getBoundingClientRect();const c=r(document.querySelector('svg .paket'));return ['.ov.chat','.notesbtn','.ov.mine'].map(s=>{const o=r(document.querySelector(s));return !!o&&!(c.right<=o.left||o.right<=c.left||c.bottom<=o.top||o.bottom<=c.top)})});
         assert.deepStrictEqual(k,[false,false,false],'paket sohbet/Notlar/rol kartıyla çakışmaz')}
+      { const h=()=>pe.evaluate(()=>+document.querySelector('svg .paket .halka').getAttribute('stroke-dashoffset'));const h1=await h();await pe.waitForTimeout(400);const h2=await h();assert.ok(h2>h1,'paket halkası 400 ms içinde küçülür: '+h1+' → '+h2)}
       await pe.evaluate(()=>document.querySelector('svg .paket').dispatchEvent(new MouseEvent('click',{bubbles:true})));
       await pe.waitForFunction(()=>priv.esya&&priv.esya.length===2&&priv.esya[1].key==='fis',null,{timeout:5000});
       await pe.waitForFunction(()=>P.paket===null&&!document.querySelector('svg .paket')&&(P.chat||[]).some(m=>m.sys&&/oy fişi düştü — biri kaptı/.test(m.t)),null,{timeout:5000});
@@ -508,6 +516,8 @@ const step=t=>console.log('•',t);
       await pe.evaluate(()=>{kasaSonuc={odul:{tur:'kozmetik',key:'sapka:tac',nadir:'efsanevi'},donustu:false,yildiz:7,rozetler:['ilk_mac']};render()});
       await pe.waitForFunction(()=>document.querySelector('.endcard .kasa'),null,{timeout:12000});const kt=await pe.textContent('.endcard .kasa');
       assert.match(kt,/Taç/);assert.match(kt,/İlk maç/);assert.match(kt,/7/);
+      await pe.evaluate(()=>{kasaSonuc={tekrar:true};render()});await pe.waitForFunction(()=>/daha önce açıldı/.test((document.querySelector('.endcard .kasa')||{}).textContent||''),null,{timeout:5000});
+      assert.strictEqual(await pe.$('.endcard .kasa .odul'),null,'tekrar kasada ödül satırı yok');
       for(const w of botlar)w.close();await ce.close();
     }
 
