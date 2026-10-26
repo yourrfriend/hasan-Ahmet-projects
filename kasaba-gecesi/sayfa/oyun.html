@@ -8,7 +8,8 @@
   const {el,not,kimlik,tarih,rolAdi,ROLES}=KG_SAYFA;const {hikaye}=KG_HIKAYE;const k=kimlik();const icerik=document.getElementById('icerik');
   const {sb,session,neden}=await KG_SAYFA.oturum();
   if(!sb||!session){not(neden==='kayit-kapali'?'Kayıt kapalı: bu kurulumda oyun geçmişi tutulmuyor.':'Bu cihazda kimlik yok: önce oyun sayfasını aç, sonra buraya dön.',neden==='kayit-kapali'?'':'hata');icerik.textContent='';return}
-  const {data:oyun}=await sb.from('oyunlar').select('id,kasaba_id,kurulum,baslama,bitis,sonuc,kazanan_takim,kazanan_metin,oyuncu_sayisi').eq('id',k.id).maybeSingle();
+  const {data:oyun,error:oyunHata}=await sb.from('oyunlar').select('id,kasaba_id,kurulum,baslama,bitis,sonuc,kazanan_takim,kazanan_metin,oyuncu_sayisi').eq('id',k.id).maybeSingle();
+  if(oyunHata){not('Bağlantı hatası, sayfayı yenile. ('+(oyunHata.message||oyunHata.code||'')+')','hata');icerik.textContent='';return} // ağ/sunucu hatası: "göremezsin" değil
   if(!oyun){not('Bu oyunu göremezsin (oyuncusu ya da kasaba üyesi değilsin) ya da henüz yazılmadı — birkaç saniye sonra yenile.','hata');icerik.textContent='';return}
   icerik.textContent='';
   const [{data:kasaba},{data:oyuncular},{data:olaylar}]=await Promise.all([

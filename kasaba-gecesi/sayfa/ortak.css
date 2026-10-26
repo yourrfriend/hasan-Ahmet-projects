@@ -7,7 +7,7 @@ h1{font-size:24px;margin:0}h2{font-size:17px;margin:0 0 6px}h3{font-size:14px;ma
 .muted{opacity:.7}.small{font-size:13px}.not{background:#fff3d6;border:1px solid #e8c98a;border-radius:10px;padding:8px 12px;margin:0}.not.hata{background:#fde3e3;border-color:#e89a9a}
 a{color:#1e3a8a}a.geri{text-decoration:none;font-weight:700}
 .tablo{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;opacity:.7}
-.tag{display:inline-block;border-radius:999px;padding:1px 8px;font-size:12px;font-weight:700;color:#fff;background:#999}.tag.inn{background:var(--inn)}.tag.imp{background:var(--imp)}.tag.neu{background:var(--neu)}
+.tag{display:inline-block;border-radius:999px;padding:1px 8px;font-size:12px;font-weight:700;color:#fff;background:#999}.tag.inn{background:var(--inn)}.tag.sahip{background:#b8860b}.tag.imp{background:var(--imp)}.tag.neu{background:var(--neu)}
 .olu{opacity:.6}.gun{border-left:4px solid var(--line);padding-left:10px;margin:6px 0}.gun h3{margin-top:6px}.gun div{margin:2px 0}
 .kazanan{font-weight:800;font-size:18px}.kazanan.inn{color:var(--inn)}.kazanan.imp{color:var(--imp)}.kazanan.neu{color:var(--neu)}
 .satir{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.satir .ad{font-weight:800}

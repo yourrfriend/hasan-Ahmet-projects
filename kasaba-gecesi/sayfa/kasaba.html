@@ -9,7 +9,8 @@
   const {ayar,sb,session,neden}=await KG_SAYFA.oturum();
   if(!sb||!session){not(neden==='kayit-kapali'?'Kayıt kapalı: bu kurulumda oyun geçmişi tutulmuyor.':'Bu cihazda kimlik yok: önce oyun sayfasını aç, sonra buraya dön.',neden==='kayit-kapali'?'':'hata');icerik.textContent='';return}
   const ben=session.user.id;
-  const {data:kasaba}=await sb.from('kasabalar').select('id,ad,sahip,olusturma').eq('id',k.id).maybeSingle();
+  const {data:kasaba,error:kasabaHata}=await sb.from('kasabalar').select('id,ad,sahip,olusturma').eq('id',k.id).maybeSingle();
+  if(kasabaHata){not('Bağlantı hatası, sayfayı yenile. ('+(kasabaHata.message||kasabaHata.code||'')+')','hata');icerik.textContent='';return} // ağ/sunucu hatası: "göremezsin" değil
   if(!kasaba){not('Bu kasabayı göremezsin (üyesi değilsin) ya da böyle bir kasaba yok.','hata');icerik.textContent='';return}
   icerik.textContent='';document.getElementById('baslik').textContent=kasaba.ad;document.title='Kasaba Gecesi — '+kasaba.ad;
   // ad düzenleme (yalnız sahip; RLS de yalnız sahibe izin verir)
@@ -24,7 +25,7 @@
   const adlar=new Map((profiller||[]).map(p=>[p.uye,p.ad]));
   // üyeler
   const p1=el('div','panel');p1.append(el('h2',null,'Üyeler ('+uyeIds.length+')'));const ul=el('div','satir');
-  (uyeler||[]).forEach(u=>{const s=el('span','tag '+(u.rol==='sahip'?'imp':'inn'),(adlar.get(u.uye)||'?')+(u.rol==='sahip'?' · sahip':'')+(u.uye===ben?' (sen)':''));ul.append(s)});p1.append(ul);icerik.append(p1);
+  (uyeler||[]).forEach(u=>{const s=el('span','tag '+(u.rol==='sahip'?'sahip':'inn'),(adlar.get(u.uye)||'?')+(u.rol==='sahip'?' · sahip':'')+(u.uye===ben?' (sen)':''));ul.append(s)});p1.append(ul);icerik.append(p1);
   // tablo
   const p2=el('div','panel');p2.append(el('h2',null,'Bu kasabada'));
   if(!tablo||!tablo.length)p2.append(el('p','muted','Henüz bitmiş maç yok.'));

@@ -11,7 +11,7 @@ window.KG_SAYFA=(function(){
     try{
       if(!window.supabase)await yukle('/sayfa/supabase.js');
       const sb=window.supabase.createClient(a.url,a.anonKey,{auth:{persistSession:true,autoRefreshToken:true}});
-      const r=await Promise.race([sb.auth.getSession(),new Promise(res=>setTimeout(()=>res({data:{session:null}}),2000))]);
+      const r=await Promise.race([sb.auth.getSession(),new Promise(res=>setTimeout(()=>res({data:{session:null}}),5000))]); // yavaş yenilemede 2 sn 'kimlik yok' diyordu; 5 sn
       const session=r&&r.data&&r.data.session||null;return {ayar:a,sb,session,neden:session?null:'oturum-yok'};
     }catch(e){return {ayar:a,sb:null,session:null,neden:'hata'}}
   }

@@ -74,13 +74,13 @@ const step=t=>console.log('•',t);
                                 {oyun_id:g4,pub_id:'p9',uye:null,ad:'Bot',rol_key:null,takim:null,deli_gibi:null,calinan_rol:null,sonunda_sag:null,olum_gunu:null,olum_sekli:null}],
           olaylar:[{oyun_id:g1,sira:1,gun:1,faz:'night',tur:'gece_hamle',veri:{kim:'p9',tur:'kill',hedef:'p1'}},{oyun_id:g1,sira:2,gun:1,faz:'night',tur:'gece_sonuc',veri:{olenler:[],kurtaranlar:[{kim:'p1',hedef:'p1'}]}},
                    {oyun_id:g1,sira:3,gun:1,faz:'vote',tur:'gunduz_sonuc',veri:{asilan:'p9',rol_goruntu:'Hain',toplamlar:{p9:4},cekimser:1}},{oyun_id:g1,sira:4,gun:1,faz:'end',tur:'bitis',veri:{kazanan_metin:'Masumlar kazandı'}}],
-          kasaba_uyeleri:[{kasaba_id:k1,uye:ben,rol:'uye',katilma:'2026-10-24T18:40:00Z'}],kasabalar:[{id:k1,ad:"Barış'ın Kasabası",sahip:'22222222-2222-4333-8444-555555555555',olusturma:'2026-10-24T18:40:00Z'}],
+          kasaba_uyeleri:[{kasaba_id:k1,uye:ben,rol:'uye',katilma:'2026-10-24T18:40:00Z'},{kasaba_id:k1,uye:'22222222-2222-4333-8444-555555555555',rol:'sahip',katilma:'2026-10-24T18:39:00Z'}],kasabalar:[{id:k1,ad:"Barış'ın Kasabası",sahip:'22222222-2222-4333-8444-555555555555',olusturma:'2026-10-24T18:40:00Z'}],
           kasaba_tablo:[{kasaba_id:k1,kurulum:'e2e',uye:ben,ad:'Ben',oyun:1,kazanma:1,en_cok_rol:'doktor'}],profiller:[{uye:ben,ad:'Ben',renk:'#3b7bff'}]};
         // PostgREST süzgeç taklidi: sütun=eq.x ve sütun=in.(a,b); select/order/limit yok sayılır (sıra sabit listedeki gibi)
         const suz=(satir,sp)=>{let r=satir;for(const [k,v] of sp){const m=/^(eq|in)\.(.*)$/.exec(v);if(!m)continue;const vals=m[1]==='in'?m[2].replace(/^\(|\)$/g,'').split(','):[m[2]];r=r.filter(x=>vals.includes(String(x[k])))}return r};
         const istekler=[];
         const c5=await newCtx();
-        const c5Rota={desen:u=>/\/(auth|rest)\/v1\//.test(u.pathname)||u.pathname==='/ayar.json'||u.hostname==='challenges.cloudflare.com',isle:async route=>{
+        let restHata=null;const c5Rota={desen:u=>/\/(auth|rest)\/v1\//.test(u.pathname)||u.pathname==='/ayar.json'||u.hostname==='challenges.cloudflare.com',isle:async route=>{
           if(new URL(route.request().url()).hostname==='challenges.cloudflare.com'){if(apiJsDurum!==200)return route.fulfill({status:apiJsDurum,body:''});
             return route.fulfill({status:200,contentType:'application/javascript',body:"window.turnstile={_n:0,_o:{},render(el,o){const id='w'+(++this._n);this._o[id]=o;el.setAttribute('data-widget',id);return id},execute(id){const o=this._o[id];setTimeout(()=>o.callback('sahte-'+o.action+'-'+Date.now()+'-'+(++this._n)),10)},reset(){},remove(){}}"})}
           const u=new URL(route.request().url());const json=(b,st)=>route.fulfill({status:st||200,contentType:'application/json',body:JSON.stringify(b)});
@@ -95,6 +95,7 @@ const step=t=>console.log('•',t);
             return json(/signup|token/.test(u.pathname)?oturum:oturum.user)}
           if(route.request().method()==='HEAD')return route.fulfill({status:200,headers:{'content-range':'0-1/2','content-type':'application/json'},body:''}); // count=exact → N=2
           const t=u.pathname.split('/').pop();istekler.push(t+'?'+u.searchParams.toString());
+          if(restHata===t)return json({message:'taklit sunucu hatası'},500); // ağ/sunucu hatası dalı: sayfa "göremezsin" dememeli
           if(!tablo[t])return json({message:'yok: '+t},404);
           return json(suz(tablo[t],u.searchParams))}};
         await c5.route(c5Rota.desen,c5Rota.isle);
@@ -113,6 +114,7 @@ const step=t=>console.log('•',t);
         const oyunSayfa=async id=>{await p5.goto(o3+'/oyun/'+id);await p5.waitForFunction(()=>document.querySelector('.not')||document.querySelector('#icerik .gun, #icerik h2'),null,{timeout:8000}); // not ya da içerik (tablo+hikâye birlikte eklenir)
           return p5.evaluate(()=>({not:[...document.querySelectorAll('.not')].map(n=>n.textContent).join(' '),icerik:document.getElementById('icerik').textContent,olu:document.querySelectorAll('#icerik tr.olu').length,satir:document.querySelectorAll('#icerik tr').length-1,gun:document.querySelectorAll('.gun').length,roller:[...document.querySelectorAll('#icerik td .tag')].map(t=>t.textContent)}))};
         const bos=await oyunSayfa(g9);assert.match(bos.not,/göremezsin/);assert.strictEqual(bos.icerik,'');
+        restHata='oyunlar';const hatali=await oyunSayfa(g1);restHata=null;assert.match(hatali.not,/Bağlantı hatası/,'sunucu hatasında "göremezsin" değil bağlantı hatası: '+hatali.not);assert.ok(!/göremezsin/.test(hatali.not));
         const suren=await oyunSayfa(g4);assert.strictEqual(suren.not,'');assert.strictEqual(suren.satir,2);assert.deepStrictEqual(suren.roller,['?','?']);
         assert.strictEqual(suren.olu,0,'süren oyunda kimse ölü sınıfında olmamalı');assert.ok(!/💀/.test(suren.icerik),'süren oyunda kurukafa yok: '+suren.icerik);assert.match(suren.icerik,/Oyun sürüyor/);assert.match(suren.icerik,/Oyun bitince hikâye/);
         const biten=await oyunSayfa(g1);assert.strictEqual(biten.satir,2);assert.strictEqual(biten.olu,1);assert.deepStrictEqual(biten.roller,['Doktor','Hain']);assert.match(biten.icerik,/Ben \(sen\)/);assert.match(biten.icerik,/Masumlar kazandı/);
@@ -120,7 +122,9 @@ const step=t=>console.log('•',t);
         // /kasaba: tablo + son maçlar yalnız bu kurulumdan
         istekler.length=0;await p5.goto(o3+'/kasaba/'+k1);await p5.waitForFunction(()=>document.querySelector('.not')||[...document.querySelectorAll('#icerik h2')].some(h=>/Son maçlar/.test(h.textContent)),null,{timeout:8000});
         const ks=await p5.evaluate(()=>({t:document.querySelector('main').textContent,maclar:[...document.querySelectorAll('a[href^="/oyun/"]')].map(a=>a.getAttribute('href'))}));
-        assert.match(ks.t,/Barış'ın Kasabası/);assert.match(ks.t,/Ben \(sen\)/);assert.ok(!/%/.test(ks.t),'yüzde yok');assert.deepStrictEqual(ks.maclar,['/oyun/'+g3,'/oyun/'+g1],'son maçlar: kasabanın bitmiş maçları, yeniden eskiye');
+        assert.match(ks.t,/Barış'ın Kasabası/);assert.match(ks.t,/Ben \(sen\)/);assert.ok(!/%/.test(ks.t),'yüzde yok');
+        { const sahipSinif=await p5.evaluate(()=>{const t=[...document.querySelectorAll('.tag')].find(x=>/sahip/.test(x.textContent));return t?t.className:null});assert.ok(sahipSinif&&/\bsahip\b/.test(sahipSinif)&&!/\bimp\b/.test(sahipSinif),'sahip rozeti hain kırmızısı olmamalı: '+sahipSinif)}
+        restHata='kasabalar';await p5.goto(o3+'/kasaba/'+k1);await p5.waitForSelector('.not',{timeout:8000});assert.match(await p5.textContent('.not'),/Bağlantı hatası/,'kasaba sayfası sunucu hatası');restHata=null;assert.deepStrictEqual(ks.maclar,['/oyun/'+g3,'/oyun/'+g1],'son maçlar: kasabanın bitmiş maçları, yeniden eskiye');
         assert.ok(istekler.some(i=>/^oyunlar\?.*kasaba_id=eq\./.test(i)&&/kurulum=eq\.e2e/.test(i)),'kasaba son maçları kurulum süzgeciyle: '+istekler.join(' | '));
         await c5.close();
         step('e-posta (Plan 6): e-postasız kayıtlı → iki düğme; ?bagla=1 formu açar; kod ile bağla (yanlış kod → hata); Hesabın + çıkış');
