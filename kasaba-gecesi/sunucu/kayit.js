@@ -11,28 +11,31 @@
 // oyun_oyunculari güncellenir. Misafir ev sahibinin maçı hiç yazılmaz (§5.3). 5xx/ağ hatası → aynı iş artan aralıkla tekrar;
 // 4xx → iş düşer (log). Açılışta 3 saatten eski "devam" oyunları iptal edilir (servis yeniden başlamış, kuyruk gitmiş).
 const DENEME=[1000,5000,15000,60000,300000];
-const {ek}=require('./game.js'); // kasaba adı: "Ece'nin Kasabası" (game.js saf; tek kaynak)
+const {ek,TEKRAR}=require('./game.js'); // kasaba adı: "Ece'nin Kasabası" (game.js saf; tek kaynak); TEKRAR.gecmisUz: rol geçmişi uzunluğu
 function olustur(opts={}){
   const sayac={olay:0,yazilan:0,hata:0,dusen:0,atlanan:0,profil:0,kuyruk:0,gecmisOkunan:0,gecmisHata:0};
   const acik=!!(opts.url&&opts.serviceKey);const bekleMs=opts.bekleMs??2000,zamanAsimi=opts.zamanAsimiMs??5000;
   const deneme=opts.deneme||DENEME,kuyrukSinir=opts.kuyrukSinir||10000,kurulum=opts.kurulum||'bilinmiyor';
   const log=opts.quiet?()=>{}:(...a)=>console.log(new Date().toISOString(),'kayit:',...a);
   const bekleyen=new Map(); // uye → {veri, t}  (profil tekilleştirme)
+  const sonProfil=new Map(); // uye → JSON {ad,renk,sapka}: aynıysa yeniden yazılmaz (süreç ömrü)
   let kapali=false;
   const kok=()=>opts.url.replace(/\/+$/,'')+'/rest/v1/';
-  async function istek(yontem,yol,govde,prefer){
+  async function istek(yontem,yol,govde,prefer,sayma){
     const r=await fetch(kok()+yol,{method:yontem,headers:{apikey:opts.serviceKey,Authorization:'Bearer '+opts.serviceKey,'Content-Type':'application/json',...(prefer?{Prefer:prefer}:{})},body:govde==null?undefined:JSON.stringify(govde),signal:AbortSignal.timeout(zamanAsimi)});
     if(!r.ok){const e=new Error('HTTP '+r.status+' '+yontem+' '+yol.split('?')[0]+' '+(await r.text().catch(()=>'')).slice(0,160));e.durum=r.status;throw e}
+    if(yontem!=='GET'&&!sayma)sayac.yazilan++; // yazilan = başarılı yazma istekleri (açılış temizliği hariç)
     const metin=await r.text();return metin?JSON.parse(metin):null;
   }
   const gonder=(yol,govde,prefer)=>istek('POST',yol,govde,prefer);
   // ---------- profil (upsert; aynı üye için bekleMs içindeki son değer tek istekte) ----------
   function profil(uye,veri){
     if(!acik||kapali||!uye)return;
+    const imza=JSON.stringify({ad:veri.ad||'',renk:veri.renk||null,sapka:veri.sapka||null});if(sonProfil.get(uye)===imza)return;
     const b=bekleyen.get(uye);if(b)clearTimeout(b.t);
     const t=setTimeout(()=>{bekleyen.delete(uye);
       gonder('profiller',{uye,ad:veri.ad||'',renk:veri.renk||null,sapka:veri.sapka||null,guncellenme:new Date().toISOString()},'resolution=merge-duplicates,return=minimal')
-        .then(()=>{sayac.profil++}).catch(e=>{sayac.hata++;log('profil yazılamadı',uye.slice(0,8),e.message)})},bekleMs);
+        .then(()=>{sayac.profil++;sonProfil.set(uye,imza)}).catch(e=>{sayac.hata++;log('profil yazılamadı',uye.slice(0,8),e.message)})},bekleMs);
     bekleyen.set(uye,{veri,t});
   }
   // ---------- maç ve olay kuyruğu ----------
@@ -89,35 +92,33 @@ function olustur(opts={}){
       // baslama: maçın gerçek başlangıcı (gameId = startGame anındaki ms), kuyruk gecikmesi değil
       await gonder('oyunlar',{id:oyunId,kasaba_id:kasabaId,kurulum,oda_kodu:is.oda,baslama:new Date(o.oyun||o.zaman||Date.now()).toISOString(),sonuc:'devam',oyuncu_sayisi:oyuncular.length,ayarlar:o.veri.ayarlar||null},'resolution=ignore-duplicates,return=minimal');
       await gonder('oyun_oyunculari',oyuncular.map(p=>({oyun_id:oyunId,pub_id:p.id,uye:is.uyeler[p.id]||null,ad:p.ad||null,renk:p.renk||null,sapka:p.sapka||null})),'resolution=ignore-duplicates,return=minimal');
-      sayac.yazilan+=3;
     }
     // olayın kendisi (gizli alanlar dahil; RLS yalnız bitmiş oyunlar için okutur)
-    await gonder('olaylar',[{oyun_id:oyunId,sira:o.sira,gun:o.gun,faz:o.faz,tur:o.tur,veri:o.veri}],'resolution=ignore-duplicates,return=minimal');sayac.yazilan++;
+    await gonder('olaylar',[{oyun_id:oyunId,sira:o.sira,gun:o.gun,faz:o.faz,tur:o.tur,veri:o.veri}],'resolution=ignore-duplicates,return=minimal');
     const zaman=new Date(o.zaman||Date.now()).toISOString();
     if(o.tur==='bitis'){
       await istek('PATCH','oyunlar?id=eq.'+oyunId,{bitis:zaman,sonuc:'bitti',kazanan_takim:o.veri.kazanan||null,kazanan_metin:o.veri.kazanan_metin||null},'return=minimal');
       for(const p of o.veri.oyuncular||[])await istek('PATCH','oyun_oyunculari?oyun_id=eq.'+oyunId+'&pub_id=eq.'+encodeURIComponent(p.id),{rol_key:p.rol_key,takim:p.takim,deli_gibi:p.deli_gibi,calinan_rol:p.calinan_rol,sonunda_sag:p.sag,olum_gunu:p.olum_gunu,olum_sekli:p.olum_sekli},'return=minimal');
-      sayac.yazilan++;
     }else if(o.tur==='iptal'){
-      await istek('PATCH','oyunlar?id=eq.'+oyunId,{bitis:zaman,sonuc:'iptal'},'return=minimal');sayac.yazilan++;
+      await istek('PATCH','oyunlar?id=eq.'+oyunId,{bitis:zaman,sonuc:'iptal'},'return=minimal');
     }
   }
   // açılış temizliği: servis yeniden başlamış, kuyruk gitmiş → 3 saatten eski "devam" oyunları iptal
   if(acik){const esik=new Date(Date.now()-3*3600*1000).toISOString();
-    istek('PATCH','oyunlar?sonuc=eq.devam&kurulum=eq.'+encodeURIComponent(kurulum)+'&baslama=lt.'+encodeURIComponent(esik),{sonuc:'iptal',bitis:new Date().toISOString()},'return=minimal').then(()=>log('eski devam oyunları iptal edildi')).catch(e=>{sayac.hata++;log('açılış temizliği yapılamadı',e.message)})}
+    istek('PATCH','oyunlar?sonuc=eq.devam&kurulum=eq.'+encodeURIComponent(kurulum)+'&baslama=lt.'+encodeURIComponent(esik),{sonuc:'iptal',bitis:new Date().toISOString()},'return=minimal',true).then(()=>log('eski devam oyunları iptal edildi')).catch(e=>{sayac.hata++;log('açılış temizliği yapılamadı',e.message)})}
   // ---------- rol geçmişi tohumu (geri bildirim paketi §5.4): oyuncunun bu kurulumdaki son 5 bitmiş maçtaki rolleri ----------
   // En yeni önde; Hırsız'ın kayıtlı rol_key'i çalınan roldür → başlangıç rolü 'hirsiz'. Hata/zaman aşımı/ayarsız → null (sessiz).
   async function sonRoller(uye){
     if(!acik||kapali||!uye)return null;
     try{
-      const rows=await istek('GET','oyun_oyunculari?select=rol_key,takim,calinan_rol,oyunlar!inner(bitis)&uye=eq.'+encodeURIComponent(uye)+'&rol_key=not.is.null&oyunlar.kurulum=eq.'+encodeURIComponent(kurulum)+'&oyunlar.sonuc=eq.bitti&order=oyunlar(bitis).desc&limit=5');
+      const rows=await istek('GET','oyun_oyunculari?select=rol_key,takim,calinan_rol,oyunlar!inner(bitis)&uye=eq.'+encodeURIComponent(uye)+'&rol_key=not.is.null&oyunlar.kurulum=eq.'+encodeURIComponent(kurulum)+'&oyunlar.sonuc=eq.bitti&order=oyunlar(bitis).desc&limit='+TEKRAR.gecmisUz);
       sayac.gecmisOkunan++;
-      return (rows||[]).map(r=>({key:r.calinan_rol?'hirsiz':r.rol_key,team:r.takim})).filter(r=>r.key&&r.team);
+      return (rows||[]).map(r=>({key:r.calinan_rol?'hirsiz':r.rol_key,team:r.calinan_rol?'neu':r.takim})).filter(r=>r.key&&r.team); // Hırsız: başlangıç rolü ve takımı (oda belleğiyle aynı)
     }catch(e){sayac.gecmisHata++;log('rol geçmişi okunamadı',String(uye).slice(0,8),e.message);return null}
   }
   return{
     kuyrukla,profil,sonRoller,
-    kapat(){kapali=true;clearTimeout(zamanlayici);for(const b of bekleyen.values())clearTimeout(b.t);bekleyen.clear()},
+    async kapat(){kapali=true;clearTimeout(zamanlayici);for(const b of bekleyen.values())clearTimeout(b.t);bekleyen.clear();if(isci)await Promise.race([isci.catch(()=>{}),new Promise(r=>setTimeout(r,3000))])}, // süren işi en çok 3 sn bekler
     sayac
   };
 }

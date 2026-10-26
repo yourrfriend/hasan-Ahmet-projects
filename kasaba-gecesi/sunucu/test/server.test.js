@@ -686,3 +686,16 @@ test('join: kayıtlı oyuncunun rol geçmişi Supabase\'den tohumlanır; misafir
     try{const e=client('rg5','E',{host:true,token:tok1},b3);await e.until(c=>c.P&&c.P.room);assert.deepStrictEqual(e.errs,[]);await e.close()}finally{await new Promise(r=>s3.close(r))}
   }finally{for(const c of acik)await c.close();await new Promise(r=>s2.close(r))}
 });
+
+test('rol geçmişi tohumu: boş geçmiş de yazılır, aynı oyuncu yeniden bağlanınca sorgu tekrarlanmaz',async()=>{
+  const GIZLI='test-jwt-gizli';const simdi=Math.floor(Date.now()/1000);const SUB='11111111-2222-4333-8444-555555555559';
+  let cagri=0;const sahte={kuyrukla(){},profil(){},kapat(){},sayac:{},sonRoller:()=>{cagri++;return Promise.resolve([])}};
+  const s2=createServer({quiet:true,tickMs:50,jwksAlma:false,kayit:sahte,ayar:{url:'https://x.example',anonKey:'a',serviceKey:'s',jwtSecret:GIZLI,kurulum:'t'}});
+  await new Promise(r=>s2.server.listen(0,'127.0.0.1',r));const b2='127.0.0.1:'+s2.server.address().port;const acik=[];
+  try{
+    const tok=Kimlik.imzala({sub:SUB,exp:simdi+3600,role:'authenticated',is_anonymous:true},GIZLI);
+    const a=client('bg0','A',{host:true,token:tok},b2);await a.until(c=>c.P&&c.P.room);acik.push(a);const room=a.P.room;const R=s2.rooms.get(room).game;
+    await bekle(100);assert.strictEqual(cagri,1);assert.deepStrictEqual(R.rolGecmisi[a.me],[],'boş geçmiş yazıldı');
+    const a2=client('bg1','A',{room,token:tok},b2);await a2.until(c=>c.me);acik.push(a2);await bekle(100);assert.strictEqual(cagri,1,'ikinci bağlanışta sorgu yok');
+  }finally{for(const c of acik)await c.close();await new Promise(r=>s2.close(r))}
+});

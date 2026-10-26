@@ -128,7 +128,7 @@ test('sonRoller: bu kurulumdaki son 5 bitmiş maç, en yeni önde; Hırsız baş
     t.T.oyunlar.push({id:'devam',kurulum:'kasaba-test',sonuc:'devam',bitis:null});t.T.oyun_oyunculari.push({oyun_id:'devam',pub_id:'p',uye:'u1',rol_key:null,takim:null});
     t.T.oyunlar.push({id:'baska',kurulum:'kasaba',sonuc:'bitti',bitis:'2026-10-25T12:00:00Z'});t.T.oyun_oyunculari.push({oyun_id:'baska',pub_id:'p',uye:'u1',rol_key:'deli',takim:'inn'});
     const h=await k.sonRoller('u1');
-    assert.deepStrictEqual(h,[{key:'hirsiz',team:'inn'},{key:'dedektif',team:'inn'},{key:'hain',team:'imp'},{key:'izci',team:'inn'},{key:'gozcu',team:'inn'}]);
+    assert.deepStrictEqual(h,[{key:'hirsiz',team:'neu'},{key:'dedektif',team:'inn'},{key:'hain',team:'imp'},{key:'izci',team:'inn'},{key:'gozcu',team:'inn'}],'Hırsız başlangıç rolü ve takımı (neu)');
     const r=t.istekler.find(x=>x.tablo==='oyun_oyunculari'&&x.yontem==='GET');assert.ok(r,'GET isteği');
     assert.match(r.yol,/uye=eq\.u1/);assert.match(r.yol,/oyunlar\.kurulum=eq\.kasaba-test/);assert.match(r.yol,/oyunlar\.sonuc=eq\.bitti/);assert.match(r.yol,/limit=5/);
     assert.strictEqual(k.sayac.gecmisOkunan,1);assert.strictEqual(k.sayac.gecmisHata,0);
@@ -145,4 +145,34 @@ test('sonRoller: sunucu hatası, zaman aşımı ve ayarsız kurulum → null, sa
     await kadar(()=>t.istekler.filter(x=>x.tablo==='oyun_oyunculari').length>=2); // gecikmeli istek taklitte yanıt anında kaydedilir
     const k3=Kayit.olustur({quiet:true});assert.strictEqual(await k3.sonRoller('u1'),null);await bekle(50);assert.strictEqual(t.istekler.filter(x=>x.tablo==='oyun_oyunculari').length,2,'ayarsızken istek yok');k3.kapat();
   }finally{await t.kapat()}
+});
+
+// ---------- Ertelenen küçükler 1 / Task 4 ----------
+const G=require('../game.js');
+test('profil: aynı {ad,renk,sapka} yeniden yazılmaz; değişince yazılır',async()=>{
+  const t=await taklitRest();const k=Kayit.olustur({url:t.url,serviceKey:'srv',bekleMs:30,quiet:true});
+  try{
+    k.profil('u1',{ad:'Ece',renk:'#fff',sapka:'cap'});await kadar(()=>k.sayac.profil===1);
+    k.profil('u1',{ad:'Ece',renk:'#fff',sapka:'cap'});await bekle(120);assert.strictEqual(t.istekler.filter(x=>x.tablo==='profiller').length,1,'aynı profil tekrar yazılmaz');
+    k.profil('u1',{ad:'Ece2',renk:'#fff',sapka:'cap'});await kadar(()=>k.sayac.profil===2);assert.strictEqual(t.istekler.filter(x=>x.tablo==='profiller').length,2);
+  }finally{k.kapat();await t.kapat()}
+});
+test('yazilan sayacı gerçek yazma isteklerini sayar; kapat() süren işi bekler; sonRoller limit TEKRAR.gecmisUz',async()=>{
+  const t=await taklitRest();const k=Kayit.olustur({url:t.url,serviceKey:'srv',kurulum:'kasaba-test',quiet:true,deneme:[20,20,20]});
+  const r=oda({p0:UUID[0],p1:UUID[1],p2:null,p3:null,p4:UUID[2]});
+  try{
+    k.kuyrukla(r,[baslangic()]);await kadar(()=>t.T.olaylar.length===1,5000);
+    const yazma=()=>t.istekler.filter(x=>x.yontem!=='GET'&&!(x.tablo==='oyunlar'&&x.yontem==='PATCH'&&/sonuc=eq\.devam/.test(x.yol))).length;
+    assert.strictEqual(k.sayac.yazilan,yazma(),'başlangıç: kasaba, üyeler, oyun, oyuncular, olay = 5');assert.strictEqual(yazma(),5);
+    k.kuyrukla(r,[bitis()]);await kadar(()=>t.T.oyunlar[0].sonuc==='bitti'&&t.T.oyun_oyunculari.every(x=>x.rol_key),5000);
+    assert.strictEqual(k.sayac.yazilan,yazma(),'bitiş: olay + oyun + 5 oyuncu');
+    const eski=G.TEKRAR.gecmisUz;G.TEKRAR.gecmisUz=3;try{await k.sonRoller(UUID[0]);const g=t.istekler.filter(x=>x.tablo==='oyun_oyunculari'&&x.yontem==='GET').pop();assert.match(g.yol,/limit=3/,'limit TEKRAR.gecmisUz')}finally{G.TEKRAR.gecmisUz=eski}
+  }finally{await k.kapat();await t.kapat()}
+  // kapat: süren iş tamamlanır
+  const t2=await taklitRest();t2.gecikmeAyarla(250);const k2=Kayit.olustur({url:t2.url,serviceKey:'srv',kurulum:'kasaba-test',quiet:true,deneme:[20,20,20]});
+  try{
+    k2.kuyrukla(oda({p0:UUID[0]}),[baslangic()]);await bekle(50);
+    const sonuc=k2.kapat();assert.ok(sonuc&&typeof sonuc.then==='function','kapat promise döner');await sonuc;
+    assert.ok(t2.istekler.some(x=>x.tablo==='oyunlar'&&x.yontem==='POST'),'kapat süren maç başlangıcını bekledi');
+  }finally{t2.gecikmeAyarla(0);await t2.kapat()}
 });

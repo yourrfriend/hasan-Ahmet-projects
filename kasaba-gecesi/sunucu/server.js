@@ -311,7 +311,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
     applyLook(room,uid,mem,m);
     // rol geçmişi tohumu (geri bildirim paketi §5.4): kayıtlı oyuncu, oda belleğinde kaydı yoksa, arka planda; yalnız hâlâ boşsa yazılır (maç başladıysa oda belleği kazanır)
     if(mem.uye&&typeof kayit.sonRoller==='function'&&!room.game.rolGecmisi[uid]){
-      kayit.sonRoller(mem.uye).then(h=>{if(h&&h.length&&rooms.get(room.code)===room&&!room.game.rolGecmisi[uid])room.game.rolGecmisi[uid]=h}).catch(()=>{});
+      kayit.sonRoller(mem.uye).then(h=>{if(Array.isArray(h)&&rooms.get(room.code)===room&&!room.game.rolGecmisi[uid])room.game.rolGecmisi[uid]=h}).catch(()=>{}); // boş dizi de yazılır: aynı oyuncu için sorgu tekrarlanmaz
     }
     mem.socks.add(ws);
     if(uid===room.hostId){room.hostGoneSince=null;if(m.settings&&room.game.P.phase==='lobby')room.game.settings=G.cleanSettings(m.settings)}
@@ -399,7 +399,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
     }
   },opts.tickMs||500);
 
-  function close(cb){clearInterval(pingIv);clearInterval(tickIv);clearTimeout(jwksZamanlayici);for(const r of [...rooms.values()]){clearTimeout(r.flushT);bosalt(r)}kayit.kapat();for(const ws of wss.clients)ws.terminate();wss.close();server.close(cb)}
+  function close(cb){clearInterval(pingIv);clearInterval(tickIv);clearTimeout(jwksZamanlayici);for(const r of [...rooms.values()]){clearTimeout(r.flushT);bosalt(r)}for(const ws of wss.clients)ws.terminate();wss.close();Promise.resolve(kayit.kapat()).catch(()=>{}).then(()=>server.close(cb))} // kayıt kuyruğundaki süren iş bitsin (en çok 3 sn)
   return {server,wss,rooms,close};
 }
 
