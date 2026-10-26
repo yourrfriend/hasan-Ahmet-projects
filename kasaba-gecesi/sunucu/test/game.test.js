@@ -677,8 +677,13 @@ test('inceleme: A→B→A iddia sırası son iddiayla biter; yanlış iddialar d
 
 // ---------- İlerleme (Task 1): katalog, kasa ödülü, rozetler ----------
 test('katalog: eşyalar, kozmetikler, nadirlik, kasa ağırlıkları, rozetler tanımlı',()=>{
-  assert.deepStrictEqual(Object.keys(G.ESYA).sort(),['duman','fener','fis','iksir','maske']);
-  for(const e of Object.values(G.ESYA)){assert.ok(e.n&&e.ico&&e.desc&&['night','vote'].includes(e.faz))}
+  assert.deepStrictEqual(Object.keys(G.ESYA).sort(),['duman','fener','fis','iksir','kilit','kum','maske','pusula','vasiyet','zar']);
+  for(const e of Object.values(G.ESYA)){assert.ok(e.n&&e.ico&&e.desc&&['night','talk','vote','pasif','none'].includes(e.faz)&&G.NADIRLIK[e.nadir],JSON.stringify(e))}
+  assert.deepStrictEqual(Object.keys(G.ESYA).filter(k=>G.ESYA[k].hedef).sort(),['kilit','pusula']);
+  assert.deepStrictEqual(Object.keys(G.ESYA).filter(k=>G.ESYA[k].pasif).sort(),['vasiyet']); // iksir Task 2'de pasif olur
+  assert.deepStrictEqual(G.ESYA_KATMAN('siradan').sort(),['fis','kum','pusula','zar']);assert.deepStrictEqual(G.ESYA_KATMAN('nadir').sort(),['duman','fener','iksir','maske','vasiyet']);
+  assert.deepStrictEqual(G.ESYA_KATMAN('efsanevi'),['kilit']);assert.strictEqual(G.ESYA_YUVA,2);
+  assert.deepStrictEqual(G.KASA_ESYA,{siradan:50,nadir:40,efsanevi:10});assert.deepStrictEqual(G.PAKET,{sans:0.6,sure:5000,nadirP:0.25,maxMac:3,uzat:30000});
   assert.deepStrictEqual(Object.keys(G.KOZMETIK).sort(),['bayrak','efekt','sapka']);
   assert.strictEqual(Object.keys(G.KOZMETIK.sapka).length,9);assert.strictEqual(Object.keys(G.KOZMETIK.bayrak).length,8);assert.strictEqual(Object.keys(G.KOZMETIK.efekt).length,4);
   for(const tur of Object.values(G.KOZMETIK))for(const k of Object.values(tur))assert.ok(k.n&&G.NADIRLIK[k.nadir],JSON.stringify(k));
@@ -697,6 +702,18 @@ test('kasaOdulu: her dal ve oranlar',()=>{
   const say={};for(let i=0;i<10000;i++){const o=G.kasaOdulu();const k=o.tur==='kozmetik'?o.nadir:o.tur;say[k]=(say[k]||0)+1}
   for(const [k,w] of Object.entries(G.KASA))assert.ok(Math.abs(say[k]/100-w)<2.5,k+' %'+say[k]/100);
   for(let i=0;i<500;i++){const o=G.kasaOdulu();if(o.tur==='esya')assert.ok(G.ESYA[o.key]&&o.adet===1);if(o.tur==='kozmetik'){const [t,k]=o.key.split(':');assert.strictEqual(G.KOZMETIK[t][k].nadir,o.nadir)}}
+});
+test('eşya çekilişleri 2: bedava havuz sıradan+zar, paket %25 nadir, zar nadir verir, kasa katmanları 50/40/10, setRnd',()=>{
+  const say=(f,n)=>{const c={};for(let i=0;i<n;i++){const k=f();c[k]=(c[k]||0)+1}return c};
+  const b=say(()=>G.bedavaEsya(),10000);assert.deepStrictEqual(Object.keys(b).sort(),['fis','kum','pusula','zar']);
+  for(const k of Object.keys(b))assert.ok(Math.abs(b[k]/100-25)<2.5,k+' %'+b[k]/100);
+  const p=say(()=>G.paketEsya(),10000);let nadir=0;for(const [k,n] of Object.entries(p)){assert.notStrictEqual(G.ESYA[k].nadir,'efsanevi',k);if(G.ESYA[k].nadir==='nadir')nadir+=n}
+  assert.ok(Math.abs(nadir/100-25)<2.5,'paket nadir %'+nadir/100);assert.ok(p.zar>0,'paket zar çıkarır');
+  const z=say(()=>G.zarAt(),2000);assert.deepStrictEqual(Object.keys(z).sort(),G.ESYA_KATMAN('nadir').sort());
+  const kk={};let esyaN=0;for(let i=0;i<20000;i++){const o=G.kasaOdulu();if(o.tur!=='esya')continue;esyaN++;assert.notStrictEqual(o.key,'zar');const t=G.ESYA[o.key].nadir;kk[t]=(kk[t]||0)+1}
+  for(const [t,w] of Object.entries(G.KASA_ESYA))assert.ok(Math.abs(kk[t]/esyaN*100-w)<2.5,t+' %'+(kk[t]/esyaN*100).toFixed(1));
+  G.setRnd(()=>0);try{assert.strictEqual(G.bedavaEsya(),'fis');assert.strictEqual(G.paketEsya(),G.ESYA_KATMAN('nadir')[0]);assert.strictEqual(G.zarAt(),G.ESYA_KATMAN('nadir')[0]);assert.strictEqual(G.kasaOdulu().tur,'esya')}finally{G.setRnd(null)}
+  G.setRnd(()=>0.999);try{assert.strictEqual(G.bedavaEsya(),'zar');assert.strictEqual(G.paketEsya(),'zar')}finally{G.setRnd(null)}
 });
 test('kozmetikGecerli: temel şapka herkese, premium yalnız sahibine',()=>{
   const sahip=new Set(['sapka:tac','bayrak:mavi']);

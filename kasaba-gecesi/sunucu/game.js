@@ -44,13 +44,28 @@ const COLORS=['#3b7bff','#ff6fae','#2fb55a','#ffd23f','#8e4bff','#2fd3c8','#ff7a
 const HATS=['none','beanie','cap','ears','bow','glasses','hood'];
 const DEFAULT_SETTINGS={night:30,talk:120,vote:45};
 // ---------- İlerleme ve eşya modu (tasarım docs/superpowers/specs/2026-10-26-kasaba-gecesi-ilerleme-esya-design.md) ----------
-const ESYA={
-  iksir:{n:'İksir',ico:'🧪',faz:'night',desc:'Bir gece saldırılara karşı korunursun (yıldırım ve hayalet hariç).'},
-  fener:{n:'Fener',ico:'🏮',faz:'night',desc:'Bir gece evine gelenlerin adlarını öğrenirsin.'},
-  duman:{n:'Duman',ico:'💨',faz:'night',desc:'Bir gece ziyaretin görünmez olur: Gözcü, İzci ve fener seni görmez.'},
-  maske:{n:'Maske',ico:'🎭',faz:'night',desc:'Bir gece Dedektif ve İspiyoncu seni Masum görür.'},
-  fis:{n:'Oy fişi',ico:'🗳️',faz:'vote',desc:'Bir oylamada oyun 2 sayılır (tek başına kimseyi astıramaz).'}
+const ESYA={ // faz: night (düğme) · talk · vote · pasif (kendiliğinden) · none (elde tutulmaz); hedef: ev seçilir; nadir: katman
+  fis:{n:'Oy fişi',ico:'🗳️',faz:'vote',nadir:'siradan',desc:'Bir oylamada oyun 2 sayılır (tek başına kimseyi astıramaz).'},
+  kum:{n:'Kum saati',ico:'⏳',faz:'talk',nadir:'siradan',desc:'Tartışma 30 saniye uzar (günde bir kez işler).'},
+  pusula:{n:'Pusula',ico:'🧭',faz:'night',nadir:'siradan',hedef:true,desc:'Bir gece seçtiğin kişinin evinden çıkıp çıkmadığını öğrenirsin.'},
+  zar:{n:'Zar',ico:'🎲',faz:'none',nadir:'siradan',desc:'Maç başında rastgele nadir bir eşyaya dönüşür.'},
+  iksir:{n:'İksir',ico:'🧪',faz:'night',nadir:'nadir',desc:'Saldırıya uğrarsan kendiliğinden içilir ve seni kurtarır (yıldırım ve hayalet hariç).'},
+  fener:{n:'Fener',ico:'🏮',faz:'night',nadir:'nadir',desc:'Bir gece evine gelenlerin adlarını öğrenirsin.'},
+  duman:{n:'Duman',ico:'💨',faz:'night',nadir:'nadir',desc:'Bir gece ziyaretin görünmez olur: Gözcü, İzci, fener ve pusula seni görmez.'},
+  maske:{n:'Maske',ico:'🎭',faz:'night',nadir:'nadir',desc:'Bir gece Dedektif ve İspiyoncu seni Masum görür.'},
+  vasiyet:{n:'Vasiyet',ico:'📜',faz:'pasif',nadir:'nadir',pasif:true,desc:'Ölürsen o gece öğrendiklerin sabah herkese okunur.'},
+  kilit:{n:'Kilit',ico:'🔒',faz:'night',nadir:'efsanevi',hedef:true,desc:'Bir gece seçtiğin kişinin kapısını kilitlersin: o gece hamle yapamaz.'}
 };
+const ESYA_YUVA=2; // oyuncu başına en çok iki eşya (lobi + paket)
+const ESYA_KATMAN=nadir=>Object.keys(ESYA).filter(k=>ESYA[k].nadir===nadir); // zar sıradan katmanda (kasa onu atlar)
+const KASA_ESYA={siradan:50,nadir:40,efsanevi:10}; // kasanın eşya dilimi içinde katman yüzdeleri (zar kasadan çıkmaz)
+const PAKET={sans:0.6,sure:5000,nadirP:0.25,maxMac:3,uzat:30000}; // meydan paketi: tartışma başına olasılık, açık kalma süresi, nadir oranı, maç tavanı; kum saati uzatması
+let rnd=Math.random;
+function setRnd(f){rnd=f||Math.random}
+const sec=(a,r)=>a[Math.min(a.length-1,Math.floor(r*a.length))];
+function bedavaEsya(r){r=r||rnd;return sec(ESYA_KATMAN('siradan'),r())}
+function paketEsya(r){r=r||rnd;return r()<PAKET.nadirP?sec(ESYA_KATMAN('nadir'),r()):bedavaEsya(r)}
+function zarAt(r){r=r||rnd;return sec(ESYA_KATMAN('nadir'),r())}
 const NADIRLIK={siradan:{fiyat:12,donusum:3},nadir:{fiyat:30,donusum:8},efsanevi:{fiyat:80,donusum:20}};
 const KOZMETIK={
   sapka:{cicek:{n:'Çiçek',nadir:'siradan'},parti:{n:'Parti külahı',nadir:'siradan'},kask:{n:'Kask',nadir:'siradan'},sef:{n:'Aşçı şapkası',nadir:'siradan'},
@@ -70,12 +85,12 @@ const ROZETLER={
   fener_gordu:{n:'Gece nöbeti',ico:'🏮',desc:'Fenerin kapına gelen bir haini gördü.'}
 };
 const TEK_KAZANAN=['serikatil','bombaci','hirsiz','buyucu'];
-function kasaOdulu(rnd){rnd=rnd||Math.random;const r=rnd()*100,r2=rnd();let t=0;const sec=a=>a[Math.min(a.length-1,Math.floor(r2*a.length))];
-  if(r<(t+=KASA.esya))return {tur:'esya',key:sec(Object.keys(ESYA)),adet:1};
-  if(r<(t+=KASA.yildiz))return {tur:'yildiz',adet:3+Math.min(2,Math.floor(r2*3))};
-  const nadir=r<(t+=KASA.siradan)?'siradan':r<(t+=KASA.nadir)?'nadir':'efsanevi';
+function kasaOdulu(r){r=r||rnd;const x=r()*100,r2=r();let t=0;const sec2=a=>sec(a,r2);
+  if(x<(t+=KASA.esya)){const y=x/KASA.esya*100;const kat=y<KASA_ESYA.siradan?'siradan':y<KASA_ESYA.siradan+KASA_ESYA.nadir?'nadir':'efsanevi';return {tur:'esya',key:sec2(ESYA_KATMAN(kat).filter(k=>k!=='zar')),adet:1}}
+  if(x<(t+=KASA.yildiz))return {tur:'yildiz',adet:3+Math.min(2,Math.floor(r2*3))};
+  const nadir=x<(t+=KASA.siradan)?'siradan':x<(t+=KASA.nadir)?'nadir':'efsanevi';
   const havuz=[];for(const [tur,ks] of Object.entries(KOZMETIK))for(const [k,v] of Object.entries(ks))if(v.nadir===nadir)havuz.push(tur+':'+k);
-  return {tur:'kozmetik',key:sec(havuz),nadir};
+  return {tur:'kozmetik',key:sec2(havuz),nadir};
 }
 // kozmetik doğrulama: temel şapkalar ve 'none' herkese; katalogdakiler yalnız sahibine (sahip: Set('tur:anahtar'))
 function kozmetikGecerli(tur,key,sahip){if(typeof key!=='string')return false;
@@ -579,7 +594,7 @@ function privFor(R,id){
 function esyaKullanimi(R){const out={};for(const [id,e] of Object.entries(R.g&&R.g.esya||{}))out[id]={key:e.key,kaynak:e.kaynak,kullanildi:e.kullanildi};return out
 }
 
-return{ROLES,SETUP,COLORS,HATS,DEFAULT_SETTINGS,ESYA,NADIRLIK,KOZMETIK,KASA,ROZETLER,kasaOdulu,kozmetikGecerli,rozetlerFor,DAGILIM,TEKRAR,tekrarCezasi,rolDagit,roleLabel,rolEtiketi,autoSetup,cleanSettings,setClock,
+return{ROLES,SETUP,COLORS,HATS,DEFAULT_SETTINGS,ESYA,ESYA_YUVA,ESYA_KATMAN,KASA_ESYA,PAKET,setRnd,bedavaEsya,paketEsya,zarAt,NADIRLIK,KOZMETIK,KASA,ROZETLER,kasaOdulu,kozmetikGecerli,rozetlerFor,DAGILIM,TEKRAR,tekrarCezasi,rolDagit,roleLabel,rolEtiketi,autoSetup,cleanSettings,setClock,
   lobbyState,createGame,startGame,setPhase,advance,tick,resolveNight,resolveVote,checkWin,kazananlar,gazeteFor,GAZETE_EN_COK,ek,endToLobby,olay,
   act,vote,chat,deadChat,esyaKullanimi,hizli,HIZLI_BEKLE_MS,HIZLI_GUN,HIZLI_TUR,privFor,pl,alivePlayers,inGame};
 });
