@@ -231,7 +231,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 <div id="app"><div class="panel"><p class="muted">Yükleniyor…</p></div></div>
 <script>
 // Script daha başlamadan çökerse "Yükleniyor…" yerine hatayı göster (sürüm damgasıyla).
-window.KG_VER='2026-10-31i';
+window.KG_VER='2026-10-31j';
 window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ff6b6b"><p><b>Sayfa açılamadı.</b> Sürüm '+KG_VER+'</p><p class="small" style="word-break:break-all">'+String(e.message||e.error||e)+(e.filename?' @'+e.lineno:'')+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}});
 setTimeout(function(){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ffb347"><p><b>Sayfa yüklenemedi.</b> Sürüm '+KG_VER+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}},8000);
 </script>
@@ -339,12 +339,15 @@ async function turnstileBelirtec(action){
   await turnstileYukle();const el=document.querySelector('.hesap-turnstile');
   if(!window.turnstile||!el)throw Object.assign(new Error('turnstile_yuk'),{code:'turnstile_yuk'});
   return new Promise((res,rej)=>{const hata=(neden)=>Object.assign(new Error('turnstile'),{code:'turnstile',neden});
-    const t=setTimeout(()=>rej(hata('ag')),120000);const bitir=f=>v=>{clearTimeout(t);f(v)}; // Managed kutu çıkarsa oyuncuya tıklama süresi
+    const t=setTimeout(()=>rej(hata('ag')),120000);const bitir=f=>v=>{clearTimeout(t);ui.hesap.dogrulama=false;f(v)}; // Managed kutu çıkarsa oyuncuya tıklama süresi
+    // Cloudflare etkileşim isterse ("Verify you are human" kutusu): düğme bunu söyler, kutu görünür alana kaydırılır (telefonda yatayda alt kenarda kalıyordu)
+    const kutuGeldi=()=>{ui.hesap.dogrulama=true;render();const k=document.querySelector('.hesap-turnstile');if(k&&k.scrollIntoView)try{k.scrollIntoView({block:'center',behavior:'smooth'})}catch(e){}};
+    const kutuGitti=()=>{ui.hesap.dogrulama=false;render()};
     turnstileSifirla();
-    try{turnstileWidget=turnstile.render(el,{sitekey:ayar.turnstile,action,appearance:'interaction-only',execution:'execute',callback:bitir(res),'error-callback':()=>bitir(rej)(hata('hata')),'expired-callback':()=>bitir(rej)(hata('hata'))});turnstile.execute(turnstileWidget)}
+    try{turnstileWidget=turnstile.render(el,{sitekey:ayar.turnstile,action,appearance:'interaction-only',execution:'execute','before-interactive-callback':kutuGeldi,'after-interactive-callback':kutuGitti,callback:bitir(res),'error-callback':()=>bitir(rej)(hata('hata')),'expired-callback':()=>bitir(rej)(hata('hata'))});turnstile.execute(turnstileWidget)}
     catch(e){bitir(rej)(hata('hata'))}})}
 function turnstileSifirla(){try{if(window.turnstile&&turnstileWidget)turnstile.remove(turnstileWidget)}catch(e){}turnstileWidget=null}
-function hesapAc(tur){ui.hesap={tur,adim:'eposta',eposta:'',hata:'',bekleBitis:0,N:0,eski:null,yukleniyor:false,bilgi:''};render()}
+function hesapAc(tur){ui.hesap={tur,adim:'eposta',eposta:'',hata:'',bekleBitis:0,N:0,eski:null,yukleniyor:false,bilgi:'',dogrulama:false};render()}
 function hesapKapat(){ui.hesap.tur=null;ui.hesap.hata='';render()}
 async function hesapKodGonder(){
   const h=ui.hesap;const e=(document.getElementById('hesapEposta')||{}).value||h.eposta;h.eposta=String(e||'').trim().toLowerCase();
@@ -397,7 +400,8 @@ function hesapBlok(pn){
   if(h.adim==='eposta'){f.append(el('p','small muted',h.tur==='bagla'?'Adresine 6 haneli bir kod göndereceğiz; geçmişin, kasaban ve adın aynen kalır.':'Bağladığın e-postaya 6 haneli bir kod göndereceğiz.'));
     const i=el('input');i.id='hesapEposta';i.type='email';i.autocomplete='email';i.placeholder='e-posta adresin';i.value=h.eposta;i.onkeydown=e=>{if(e.key==='Enter')hesapKodGonder()};f.append(i);
     if(ayar&&ayar.turnstile)f.append(el('div','hesap-turnstile')); // Turnstile kapsayıcısı: görünmez kalır, gerekirse kutu burada çıkar
-    const r=el('div','row');const g=el('button','primary hesap-gonder',h.yukleniyor?'Gönderiliyor…':'Kod gönder');g.disabled=h.yukleniyor;g.onclick=()=>hesapKodGonder();const v=el('button','hesap-vazgec','Vazgeç');v.onclick=()=>hesapKapat();r.append(g,v);f.append(r)}
+    if(h.dogrulama)f.append(el('p','small muted hesap-dogrulama','Cloudflare kutusunu işaretleyince kod gönderilir.'));
+    const r=el('div','row');const g=el('button','primary hesap-gonder',h.yukleniyor?(h.dogrulama?'Doğrulama kutusunu işaretle':'Gönderiliyor…'):'Kod gönder');g.disabled=h.yukleniyor;g.onclick=()=>hesapKodGonder();const v=el('button','hesap-vazgec','Vazgeç');v.onclick=()=>hesapKapat();r.append(g,v);f.append(r)}
   else if(h.adim==='kod'){f.append(el('p','small muted',h.eposta+' adresine kod gönderildi; 15 dk geçerli. Mail birkaç dakika gecikebilir; gelmediyse gereksiz klasörüne bak.'));
     const i=el('input');i.id='hesapKod';i.inputMode='numeric';i.autocomplete='one-time-code';i.maxLength=6;i.placeholder='6 haneli kod';i.onkeydown=e=>{if(e.key==='Enter')hesapDogrula()};f.append(i);
     const r=el('div','row');const d=el('button','primary hesap-dogrula',h.yukleniyor?'Doğrulanıyor…':'Doğrula');d.disabled=h.yukleniyor;d.onclick=()=>hesapDogrula();

@@ -82,7 +82,7 @@ const step=t=>console.log('•',t);
         const c5=await newCtx();
         let restHata=null;const c5Rota={desen:u=>/\/(auth|rest)\/v1\//.test(u.pathname)||u.pathname==='/ayar.json'||u.hostname==='challenges.cloudflare.com',isle:async route=>{
           if(new URL(route.request().url()).hostname==='challenges.cloudflare.com'){if(apiJsDurum!==200)return route.fulfill({status:apiJsDurum,body:''});
-            return route.fulfill({status:200,contentType:'application/javascript',body:"window.turnstile={_n:0,_o:{},render(el,o){const id='w'+(++this._n);this._o[id]=o;el.setAttribute('data-widget',id);return id},execute(id){const o=this._o[id];setTimeout(()=>o.callback('sahte-'+o.action+'-'+Date.now()+'-'+(++this._n)),10)},reset(){},remove(){}}"})}
+            return route.fulfill({status:200,contentType:'application/javascript',body:"window.turnstile={_n:0,_o:{},render(el,o){const id='w'+(++this._n);this._o[id]=o;el.setAttribute('data-widget',id);return id},execute(id){const o=this._o[id];if(window.__tsKutu&&o['before-interactive-callback']){o['before-interactive-callback']();setTimeout(()=>{o['after-interactive-callback']&&o['after-interactive-callback']();o.callback('sahte-'+o.action+'-'+Date.now()+'-'+(++this._n))},600)}else setTimeout(()=>o.callback('sahte-'+o.action+'-'+Date.now()+'-'+(++this._n)),10)},reset(){},remove(){}}"})}
           const u=new URL(route.request().url());const json=(b,st)=>route.fulfill({status:st||200,contentType:'application/json',body:JSON.stringify(b)});
           if(u.pathname==='/ayar.json')return json({url:o3,anonKey:'anon',kurulum:'e2e',kayit:true,eposta:epostaBayragi,turnstile:'site-sahte'});
           if(u.pathname.startsWith('/auth/v1/')){const m=route.request().method();let g=null;try{g=JSON.parse(route.request().postData()||'null')}catch(e){}if(u.pathname==='/auth/v1/signup')signupRota++;
@@ -160,7 +160,11 @@ const step=t=>console.log('•',t);
         await c6.close();
         step('e-posta: ikinci cihaz — kod ile gir, 2 oyunu ekle → /hesap/birlestir; Hayır → çağrı yok; yavaş Supabase → zaman aşımı metni');
         const c7=await newCtx();await c7.route(c5Rota.desen,c5Rota.isle);const p7=await open(c7,'İkinci',base3);
-        await p7.waitForSelector('button.hesap-gir',{timeout:8000});await p7.click('button.hesap-gir');await p7.fill('#hesapEposta','ben@ornek.com');await p7.click('button.hesap-gonder');
+        await p7.waitForSelector('button.hesap-gir',{timeout:8000});await p7.click('button.hesap-gir');await p7.fill('#hesapEposta','ben@ornek.com');
+        await p7.evaluate(()=>{window.__tsKutu=true});await p7.click('button.hesap-gonder'); // Cloudflare kutu gösterirse: düğme bunu söyler, kutu görünür alana gelir
+        await p7.waitForFunction(()=>/işaretle/i.test((document.querySelector('button.hesap-gonder')||{}).textContent||''),null,{timeout:4000});
+        { const g=await p7.evaluate(()=>{const r=document.querySelector('.hesap-turnstile').getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight});assert.strictEqual(g,true,'doğrulama kutusu görünür alanda') }
+        await p7.evaluate(()=>{window.__tsKutu=false});
         await kodBekle(p7,'gir');await p7.fill('#hesapKod','123456');await p7.click('button.hesap-dogrula');
         await p7.waitForSelector('.hesap-birlestir',{timeout:8000});assert.match(await p7.textContent('.hesap-birlestir'),/2 oyunu/);
         await p7.click('.hesap-birlestir button.ekle');
