@@ -501,7 +501,7 @@ function privFor(R,id){
     uses:r.uses,vest:r.vest,planted:r.planted.slice(),candle:g.candle[id]||null,payin:P.phase==='end'?payinFor(R,id):null};
 }
 
-return{ROLES,SETUP,COLORS,HATS,DEFAULT_SETTINGS,DAGILIM,TEKRAR,tekrarCezasi,rolDagit,roleLabel,rolEtiketi,autoSetup,cleanSettings,setClock,
+return{ROLES,SETUP,COLORS,HATS,DEFAULT_SETTINGS,DAGILIM,TEKRAR,tekrarCezasi,rolDagit,roleLabel,rolEtiketi,HIZLI_TUR,HIZLI_GUN,HIZLI_BEKLE_MS,autoSetup,cleanSettings,setClock,
   lobbyState,createGame,startGame,setPhase,advance,tick,resolveNight,resolveVote,checkWin,kazananlar,gazeteFor,GAZETE_EN_COK,ek,endToLobby,olay,
   act,vote,chat,deadChat,hizli,HIZLI_BEKLE_MS,HIZLI_GUN,HIZLI_TUR,privFor,pl,alivePlayers,inGame};
 });

@@ -230,14 +230,14 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 <div id="app"><div class="panel"><p class="muted">Yükleniyor…</p></div></div>
 <script>
 // Script daha başlamadan çökerse "Yükleniyor…" yerine hatayı göster (sürüm damgasıyla).
-window.KG_VER='2026-10-31f';
+window.KG_VER='2026-10-31g';
 window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ff6b6b"><p><b>Sayfa açılamadı.</b> Sürüm '+KG_VER+'</p><p class="small" style="word-break:break-all">'+String(e.message||e.error||e)+(e.filename?' @'+e.lineno:'')+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}});
 setTimeout(function(){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ffb347"><p><b>Sayfa yüklenemedi.</b> Sürüm '+KG_VER+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}},8000);
 </script>
 <script src="sunucu/game.js?v=__V__"></script>
 <script>
 // ---------- Rol tanımları: sunucu/game.js ile tek kaynak (window.KG_GAME) ----------
-const {ROLES,SETUP,COLORS,HATS:HAT_IDS,roleLabel,rolEtiketi,DAGILIM}=window.KG_GAME;
+const {ROLES,SETUP,COLORS,HATS:HAT_IDS,roleLabel,rolEtiketi,DAGILIM,HIZLI_TUR,HIZLI_GUN,HIZLI_BEKLE_MS}=window.KG_GAME;
 const HAT_NAMES={none:'Yok',beanie:'Bere',cap:'Kasket',ears:'Kulak',bow:'Fiyonk',glasses:'Gözlük',hood:'Kapüşon'};
 const HATS=HAT_IDS.map(k=>[k,HAT_NAMES[k]||k]);
 const TEAMN={inn:'Masum',imp:'Hain',neu:'Tarafsız'};
@@ -251,7 +251,7 @@ let isHost=false,myId=null,active=false,myName=ls('kg_name')||'',roomCode=null,w
 // Oturum en çok 2 sn beklenir; gelmezse bu sayfa yüklemesi boyunca misafir (kg_uid). Son token kg_token'da durur: Supabase'e
 // ulaşılamasa da (süresi dolmuş olsa da) aynı kimlikle bağlanılır. kayitli: sunucunun join yanıtı (you.kayitli).
 let ayar=null,kayitli=false,token=ls('kg_token')||null,sb=null,kimlikSoz=null;
-let hesap={uuid:null,eposta:null,anonim:true}; // Supabase oturumu (Plan 6): e-posta bağlıysa eposta dolu; kimlikHazirla doldurur, doğrulama günceller
+let hesap={uuid:null,eposta:null}; // Supabase oturumu (Plan 6): e-posta bağlıysa eposta dolu; kimlikHazirla doldurur, doğrulama günceller
 let gecmis=null; // giriş sayfası geçmiş bloğu (Plan 5): {ozet, oyunlar, kasabalar}; Supabase'ten arka planda gelir, 3 sn zaman aşımı, hata sessiz
 let chatLog=[]; // sohbet state ile değil, parça parça gelir ({t:'chat'}); P.chat buna bağlanır
 let myLook=ls('kg_look')||{color:COLORS[Math.floor(Math.random()*COLORS.length)],hat:HATS[Math.floor(Math.random()*HATS.length)][0]};
@@ -261,7 +261,7 @@ let lobby=[];let local={act:{},vote:null};
 let settings=ls('kg_settings')||{night:30,talk:120,vote:45};
 let lastKey=null,sel={},skew=0,connSince=Date.now();
 let ui={menu:false,notes:false,custom:false,roleCard:false,rules:false,hizli:false,hizliAlt:null,rehber:false,hesap:{tur:null,adim:'eposta',eposta:'',hata:'',bekleBitis:0,N:0,eski:null,yukleniyor:false,bilgi:''}}; // hesap: bağla/gir formu (yalnız giriş sayfası)
-let hizliSon=0,hizliUyari='',hizliUyariT=null; // ⚡ hızlı ifade: yerel bekleme göstergesi ve sunucunun err soft uyarısı (sunucu yetkili)
+let hizliSon=0,hizliUyari='',hizliUyariT=null,hizliSayac={gun:0,n:0}; // hizliSayac: bu gün gönderilen ifade sayısı (sunucu yetkili; gösterge ve yerel engel) // ⚡ hızlı ifade: yerel bekleme göstergesi ve sunucunun err soft uyarısı (sunucu yetkili)
 function now(){return Date.now()-skew}
 const app=document.getElementById('app');
 const uid=ls('kg_uid')||('u'+(crypto.randomUUID?crypto.randomUUID().replace(/-/g,'').slice(0,24):Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,10)));ls('kg_uid',uid);
@@ -308,9 +308,10 @@ async function kimlikHazirla(){
 }
 // ---------- Hesap: e-posta ile bağlama ve ikinci cihaz (Plan 6; tasarım …eposta-kod-design.md §5.1, §5.6) ----------
 // Yalnız giriş sayfasında (odadayken kimlik değişmez). Kod GoTrue'dan gelir; mail sunucudaki kancayla gider. Düğmeler ayar.eposta ile görünür.
-function hesapGuncelle(session){hesap={uuid:session.user.id,eposta:session.user.email||null,anonim:session.user.is_anonymous!==false&&!session.user.email};token=session.access_token;ls('kg_token',token)}
+function hesapGuncelle(session){hesap={uuid:session.user.id,eposta:session.user.email||null};token=session.access_token;ls('kg_token',token)}
 function hatirlatGoster(ayar,kayitli,hesapEposta){return !!(ayar&&ayar.eposta&&kayitli&&!hesapEposta)} // son ekran hatırlatması: e-postasız kayıtlı oyuncu
 const HESAP_SURE_MS=10000;
+const HESAP_HATA_KODU={otp_expired:'Kod yanlış ya da süresi dolmuş.',over_email_send_rate_limit:'Çok sık istek; 1 dk bekle.',over_request_rate_limit:'Çok sık istek; 1 dk bekle.',email_exists:"Bu e-posta başka bir hesaba bağlı; o hesapla girmek için 'Hesabınla gir'.",user_already_exists:"Bu e-posta başka bir hesaba bağlı; o hesapla girmek için 'Hesabınla gir'.",signup_disabled:'Bu e-posta kayıtlı değil; önce ilk cihazında bağla.',otp_disabled:'Bu e-posta kayıtlı değil; önce ilk cihazında bağla.',user_not_found:'Bu e-posta kayıtlı değil; önce ilk cihazında bağla.',validation_failed:'Geçersiz e-posta adresi.',email_address_invalid:'Geçersiz e-posta adresi.'};
 function hesapHataMetni(e){const k=e&&e.code;
   if(k==='limit')return 'Çok sık istek; biraz sonra dene.'+(e.sureSn?' ('+e.sureSn+' sn)':'');
   if(k==='kota')return 'Bugünlük kod sınırı doldu; yarın tekrar dene.';
@@ -320,6 +321,7 @@ function hesapHataMetni(e){const k=e&&e.code;
   if(k==='ic'||k==='gotrue')return 'Şu an gönderilemedi, tekrar dene.';
   if(k==='zaten_bagli')return 'Bu hesap zaten bağlı.';
   if(k==='token')return 'Oturum yenilenemedi; sayfayı yenile.';
+  const kodMetni=HESAP_HATA_KODU[e&&(e.error_code||e.code)];if(kodMetni)return kodMetni; // GoTrue error_code tablosu (supabase-js bunu .code'a koyar) önce; regex yalnız yedek
   const m=((e&&(e.code||e.error_code))||'')+' '+((e&&e.message)||'');
   if(/email_exists|user_already_exists|already registered|already been registered/i.test(m))return "Bu e-posta başka bir hesaba bağlı; o hesapla girmek için 'Hesabınla gir'.";
   if(/otp_expired|invalid|expired/i.test(m))return 'Kod yanlış ya da süresi dolmuş.';
@@ -395,7 +397,7 @@ function hesapBlok(pn){
     const i=el('input');i.id='hesapEposta';i.type='email';i.autocomplete='email';i.placeholder='e-posta adresin';i.value=h.eposta;i.onkeydown=e=>{if(e.key==='Enter')hesapKodGonder()};f.append(i);
     if(ayar&&ayar.turnstile)f.append(el('div','hesap-turnstile')); // Turnstile kapsayıcısı: görünmez kalır, gerekirse kutu burada çıkar
     const r=el('div','row');const g=el('button','primary hesap-gonder',h.yukleniyor?'Gönderiliyor…':'Kod gönder');g.disabled=h.yukleniyor;g.onclick=()=>hesapKodGonder();const v=el('button','hesap-vazgec','Vazgeç');v.onclick=()=>hesapKapat();r.append(g,v);f.append(r)}
-  else if(h.adim==='kod'){f.append(el('p','small muted',h.eposta+' adresine kod gönderildi. Gelmediyse gereksiz klasörüne bak.'));
+  else if(h.adim==='kod'){f.append(el('p','small muted',h.eposta+' adresine kod gönderildi; 15 dk geçerli. Mail birkaç dakika gecikebilir; gelmediyse gereksiz klasörüne bak.'));
     const i=el('input');i.id='hesapKod';i.inputMode='numeric';i.autocomplete='one-time-code';i.maxLength=6;i.placeholder='6 haneli kod';i.onkeydown=e=>{if(e.key==='Enter')hesapDogrula()};f.append(i);
     const r=el('div','row');const d=el('button','primary hesap-dogrula',h.yukleniyor?'Doğrulanıyor…':'Doğrula');d.disabled=h.yukleniyor;d.onclick=()=>hesapDogrula();
     const kalan=Math.max(0,Math.ceil((h.bekleBitis-Date.now())/1000));const y=el('button','hesap-yeniden',kalan>0?'Kodu yeniden gönder ('+kalan+')':'Kodu yeniden gönder');y.disabled=kalan>0||h.yukleniyor;y.onclick=()=>{h.adim='eposta';hesapKodGonder()};
@@ -1092,7 +1094,7 @@ function renderGameUI(stage){
     if(hizliUyari)chatBox.prepend(el('div','hizli-uyari',hizliUyari));
     if(me&&(isDead||alive)){const r=el('div','in');const i=el('input');i.id='chatInput';i.placeholder=isDead?'👻 Ölülere yaz…':'Mesaj yaz…';i.maxLength=240;const b=el('button',null,'Gönder');b.onclick=()=>{sendMsg(i.value,isDead?'dead':'town');i.value='';i.focus()};i.onkeydown=e=>{if(e.key==='Enter')b.click()};
       r.append(i,b); // Gönder ilk <button> kalsın (testler ve alışkanlık); ⚡ DOM'da sonra, CSS order ile başta
-      if(alive&&P.phase==='talk'){const kalan=Math.ceil((hizliSon+8000-Date.now())/1000);const hb=el('button','hizli',kalan>0?'⚡ '+kalan:'⚡');hb.title='Hızlı ifade';hb.onclick=()=>{ui.hizli=!ui.hizli;ui.hizliAlt=null;render()};r.append(hb)}
+      if(alive&&P.phase==='talk'){const kalan=Math.ceil((hizliSon+HIZLI_BEKLE_MS-Date.now())/1000);const gunN=hizliSayac.gun===P.day?hizliSayac.n:0;const hb=el('button','hizli',kalan>0?'⚡ '+kalan:'⚡ '+gunN+'/'+HIZLI_GUN);hb.dataset.sayac=gunN+'/'+HIZLI_GUN;hb.title='Hızlı ifade (günde '+HIZLI_GUN+')';hb.onclick=()=>{ui.hizli=!ui.hizli;ui.hizliAlt=null;render()};r.append(hb)}
       chatBox.append(r)}
     stage.append(chatBox);queueMicrotask(()=>{log.scrollTop=log.scrollHeight});
     if(ui.hizli&&alive&&P.phase==='talk')stage.append(hizliPanel());
@@ -1100,13 +1102,20 @@ function renderGameUI(stage){
 }
 // ⚡ hızlı ifade paneli: 5 seçenek; "Rolüm" rol kataloğunu (gizli dağılıma göre daraltılmaz), "Şüphem var" sağ oyuncuları açar.
 // Metni ve sınırları sunucu kurar; burada yalnız menü ve yerel bekleme göstergesi.
-function hizliGonder(k,ek){const n=Date.now().toString(36)+Math.random().toString(36).slice(2,6);send({t:'hizli',k,...ek,d:P.day,n});hizliSon=Date.now();ui.hizli=false;ui.hizliAlt=null;render()}
+function hizliUyar(m){hizliUyari=m;clearTimeout(hizliUyariT);hizliUyariT=setTimeout(()=>{hizliUyari='';render()},3000)}
+function hizliGonder(k,ek){
+  if(hizliSayac.gun!==P.day)hizliSayac={gun:P.day,n:0};
+  const kalan=Math.ceil((hizliSon+HIZLI_BEKLE_MS-Date.now())/1000);
+  if(kalan>0){hizliUyar('Biraz bekle ('+kalan+' sn).');ui.hizli=false;ui.hizliAlt=null;render();return} // yerel engel: sunucuya gitmez (sunucu yine de denetler)
+  if(hizliSayac.n>=HIZLI_GUN){hizliUyar('Bugünlük hızlı ifade hakkın bitti ('+HIZLI_GUN+').');ui.hizli=false;ui.hizliAlt=null;render();return}
+  const n=Date.now().toString(36)+Math.random().toString(36).slice(2,6);send({t:'hizli',k,...ek,d:P.day,n});hizliSon=Date.now();hizliSayac.n++;ui.hizli=false;ui.hizliAlt=null;render()}
 function hizliPanel(){
   const c=el('div','ov hizli-panel');const ust=el('div','ust');ust.append(el('b',null,ui.hizliAlt==='rol'?'Rolüm:':ui.hizliAlt==='suphe'?'Kimden şüpheleniyorsun?':'Hızlı söyle'));
   const kapat=el('button','kapat','✕');kapat.onclick=()=>{ui.hizli=false;ui.hizliAlt=null;render()};ust.append(kapat);c.append(ust);
   if(ui.hizliAlt==='rol'){const g=el('div','roller');Object.keys(ROLES).forEach(k=>{const b=el('button','rol '+ROLES[k].team,ROLES[k].ico+' '+ROLES[k].n);b.dataset.rol=k;b.onclick=()=>hizliGonder('rol',{rol:k});g.append(b)});c.append(g)}
   else if(ui.hizliAlt==='suphe'){const g=el('div','roller');P.players.filter(p=>p.alive&&p.id!==myId).forEach(p=>{const b=el('button','oyuncu',p.name);b.dataset.id=p.id;b.style.borderColor=p.color;b.onclick=()=>hizliGonder('suphe',{hedef:p.id});g.append(b)});c.append(g)}
-  else{[['rol','🗣️ Rolüm: …'],['suphe','🤨 … hakkında şüphem var'],['belirsiz','🤷 Bu bilgi kesin değil'],['koru','🛡️ Beni koruyun!'],['aciklama','📣 Bir açıklama yapacağım']].forEach(([k,l])=>{const b=el('button','secenek',l);b.dataset.k=k;b.onclick=()=>{if(k==='rol'||k==='suphe'){ui.hizliAlt=k;render()}else hizliGonder(k,{})};c.append(b)})}
+  // seçenek etiketleri tek kaynaktan (game.js HIZLI_TUR)
+  else{Object.entries(HIZLI_TUR).map(([k,t])=>[k,t.replace('{rol}','…').replace('{ad}','…')]).forEach(([k,l])=>{const b=el('button','secenek',l);b.dataset.k=k;b.onclick=()=>{if(k==='rol'||k==='suphe'){ui.hizliAlt=k;render()}else hizliGonder(k,{})};c.append(b)})}
   return c;
 }
 // 📘 Rol rehberi (Paket 1b §5.4): oyunu durdurmayan çekmece; yalnız herkese açık bilgi (katalog, ipuçları, genel dağılım, oda süreleri).

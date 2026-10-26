@@ -89,7 +89,8 @@ const step=t=>console.log('•',t);
             if(u.pathname==='/auth/v1/user'&&m==='PUT'){authIstekler.push({yol:'user',govde:g});const bearer=(route.request().headers()['authorization']||'').replace(/^Bearer /,'');const kullanici=bearer===jwt2?oturum2.user:bearer===jwtBagli?oturumBagli.user:oturum.user;
               if(g&&g.password)return json({...kullanici});if(userGecikmeMs)await new Promise(r=>setTimeout(r,userGecikmeMs));return json({...kullanici,new_email:g&&g.email})}
             if(u.pathname==='/auth/v1/otp')return json({});
-            if(u.pathname==='/auth/v1/verify'){if(!g||g.token!=='123456')return json({code:403,error_code:'otp_expired',msg:'Token has expired or is invalid'},403);return json(g.type==='email_change'?oturumBagli:oturum2)}
+            if(u.pathname==='/auth/v1/verify'){if(g&&g.token==='000000')return json({code:429,error_code:'over_request_rate_limit',msg:'invalid request'},429); // yanıltıcı msg: tablo error_code'a bakmalı
+              if(!g||g.token!=='123456')return json({code:403,error_code:'otp_expired',msg:'Token has expired or is invalid'},403);return json(g.type==='email_change'?oturumBagli:oturum2)}
             if(u.pathname==='/auth/v1/logout'){authIstekler.push({yol:'logout',scope:u.searchParams.get('scope')});return route.fulfill({status:204,body:''})}
             return json(/signup|token/.test(u.pathname)?oturum:oturum.user)}
           if(route.request().method()==='HEAD')return route.fulfill({status:200,headers:{'content-range':'0-1/2','content-type':'application/json'},body:''}); // count=exact → N=2
@@ -135,7 +136,10 @@ const step=t=>console.log('•',t);
         await p6.click('button.hesap-bagla');await p6.fill('#hesapEposta','ben@ornek.com');await p6.click('button.hesap-gonder');
         await kodBekle(p6,'bağla');assert.match(await p6.textContent('button.hesap-yeniden'),/\(\d+\)/,'yeniden gönder sayaçlı');assert.strictEqual(await p6.$eval('button.hesap-yeniden',b=>b.disabled),true);
         { const u=icIstekler.filter(i=>i.yol==='/auth/v1/user');assert.strictEqual(u.length,1,'bağla: sunucu PUT /auth/v1/user');assert.strictEqual(u[0].auth,'Bearer '+jwt);assert.deepStrictEqual(u[0].govde,{email:'ben@ornek.com'});assert.match(tsIstekler[tsIstekler.length-1],/^sahte-kod_bagla-/,'Turnstile belirteci action ile') }
+        assert.match(await p6.evaluate(()=>document.body.textContent),/15 dk geçerli/,'kod ekranı: süre');assert.match(await p6.evaluate(()=>document.body.textContent),/gecikebilir/,'kod ekranı: gecikme uyarısı');
         await p6.fill('#hesapKod','999999');await p6.click('button.hesap-dogrula');await p6.waitForSelector('.hesap-hata',{timeout:8000});assert.match(await p6.textContent('.hesap-hata'),/Kod yanlış/);
+        await p6.fill('#hesapKod','000000');await p6.click('button.hesap-dogrula');await p6.waitForFunction(()=>/Çok sık istek/.test((document.querySelector('.hesap-hata')||{}).textContent||''),null,{timeout:8000}).catch(()=>{});
+        assert.match(await p6.textContent('.hesap-hata'),/Çok sık istek/,'error_code tablosu msg\'den önce gelir');
         await p6.fill('#hesapKod','123456');await p6.click('button.hesap-dogrula');
         await p6.waitForFunction(()=>/Hesabın: ben@ornek\.com/.test((document.querySelector('.hesap-durum')||{}).textContent||''),null,{timeout:8000});
         assert.ok(await p6.$('button.hesap-cikis'));assert.strictEqual(await p6.$('button.hesap-bagla'),null);assert.strictEqual(await p6.$('#hesapEposta'),null);
@@ -313,11 +317,17 @@ const step=t=>console.log('•',t);
       await sp.fill('#chatInput','merhaba kasaba');await sp.click('.chat button');
       for(const p of Object.values(pages))await p.waitForFunction(()=>(P.chat||[]).some(m=>m.t==='merhaba kasaba'));
       // hızlı ifade: ⚡ → Rolüm → Doktor → herkeste sohbette; hemen ikinci dokunuş → "Biraz bekle" uyarısı
-      await sp.click('button.hizli');await sp.click('.hizli-panel button.secenek[data-k="rol"]');await sp.click('.hizli-panel .rol[data-rol="doktor"]');
+      await sp.evaluate(()=>{window.__gonderilen=[];const o=send;send=m=>{window.__gonderilen.push(m.t);return o(m)}}); // istemci bekleme engeli: ikinci dokunuş sunucuya gitmez
+      await sp.click('button.hizli');
+      { const sec=await sp.$$eval('.hizli-panel button.secenek',bs=>bs.map(b=>[b.dataset.k,b.textContent]));const tur=await sp.evaluate(()=>window.KG_GAME.HIZLI_TUR);
+        assert.ok(tur&&Object.keys(tur).length===sec.length,'seçenekler HIZLI_TUR\'dan: '+JSON.stringify(sec));assert.strictEqual(sec.find(x=>x[0]==='belirsiz')[1],tur.belirsiz,'etiket metni tek kaynaktan')}
+      await sp.click('.hizli-panel button.secenek[data-k="rol"]');await sp.click('.hizli-panel .rol[data-rol="doktor"]');
       for(const p of Object.values(pages))await p.waitForFunction(()=>(P.chat||[]).some(m=>m.kisa==='rol'&&m.t==='🗣️ Rolüm: Doktor'),null,{timeout:5000});
       await sp.click('button.hizli');await sp.click('.hizli-panel button.secenek[data-k="koru"]');
       await sp.waitForFunction(()=>/Biraz bekle/.test((document.querySelector('.hizli-uyari')||{}).textContent||''),null,{timeout:4000});
       assert.match(await sp.textContent('button.hizli'),/⚡ \d/,'bekleme sayacı düğmede');
+      assert.strictEqual(await sp.evaluate(()=>window.__gonderilen.filter(t=>t==='hizli').length),1,'bekleme sırasında ikinci ifade sunucuya gönderilmez');
+      assert.strictEqual(await sp.$eval('button.hizli',b=>b.dataset.sayac),'1/4','günlük sayaç 1/4');
 
       step('bağlantı kopar: rozet görünür, kendiliğinden döner');
       const lost=pages[aliveNames[0]];
