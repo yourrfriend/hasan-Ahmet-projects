@@ -819,7 +819,7 @@ async function ilerlemeSunucu(env){ // env: uye → envanter; macSonu çağrıla
   const GIZLI='test-jwt-gizli';const cagri={mac:[],al:[],oku:0};
   const sahte={kuyrukla(){},profil(){},kapat(){},sayac:{kasa:3,ilerlemeHata:1},
     envanterOku:async u=>{cagri.oku++;return env[u]||{yildiz:0,esyalar:{},kozmetikler:[]}},
-    macSonu:async(u,o,x)=>{cagri.mac.push({u,o,x});return {odul:x.odul,donustu:false,yildiz:5,yeni_rozetler:x.rozetler,tavan:false}},
+    macSonu:async(u,o,x)=>{cagri.mac.push({u,o,x});if(cagri.bekle)await cagri.bekle;return {odul:x.odul,donustu:false,yildiz:5,yeni_rozetler:x.rozetler,tavan:false}},
     kozmetikAl:async(u,key,fiyat)=>{cagri.al.push({u,key,fiyat});return fiyat>50?{hata:'yildiz',yildiz:10}:{ok:true,yildiz:3}}};
   const srv=createServer({quiet:true,tickMs:50,jwksAlma:false,kayit:sahte,ayar:{url:'https://x.example',anonKey:'a',serviceKey:'s',jwtSecret:GIZLI,kurulum:'t'}});
   await new Promise(r=>srv.server.listen(0,'127.0.0.1',r));
@@ -851,7 +851,7 @@ test('ilerleme: eşya modu — lobide herkese eşya (envanterden seçilen ya da 
     const once=acik[1].diger.filter(m=>m.t==='lobiEsya').pop().d.key;
     a.send({t:'start'});await a.until(c=>c.P.phase==='night');const R=I.srv.rooms.get(room).game;
     assert.deepStrictEqual(R.g.esya[a.me],{key:'iksir',kaynak:'envanter',kullanildi:false});assert.strictEqual(R.g.esya[acik[1].me].key,once,'lobide gösterilen bedava eşya maçta aynı');
-    assert.deepStrictEqual(I.srv.rooms.get(room).ayirma,[{uye:SA,key:'iksir'}],'maç süresince sunucu çapında ayrıldı');
+    assert.deepStrictEqual(I.srv.rooms.get(room).ayirma,[{uye:SA,key:'iksir',pid:a.me}],'maç süresince sunucu çapında ayrıldı');
     await a.until(c=>c.priv&&c.priv.esya&&c.priv.esya.key==='iksir');
   }finally{for(const c of acik)await c.close();await I.kapat()}
 });
@@ -903,4 +903,25 @@ test('ilerleme: aynı kullanıcının tek eşyası iki odada aynı anda taşına
     const R1=I.srv.rooms.get(h1.P.room).game,R2=I.srv.rooms.get(h2.P.room).game;
     assert.strictEqual(R1.g.esya[a1.me].kaynak,'envanter');assert.strictEqual(R2.g.esya[a2.me].kaynak,'bedava','ikinci oda aynı tek eşyayı alamaz');
   }finally{for(const c of acik)await c.close();await I.kapat()}
+});
+
+test('ilerleme: maç sonu düşüm tamamlanmadan ayırma kalkmaz; harcanan eşya bütün odalardaki kopyalarda düşer',async()=>{
+  const I=await ilerlemeSunucu({[SA]:{yildiz:0,esyalar:{iksir:1},kozmetikler:[]}});let coz;I.cagri.bekle=new Promise(r=>{coz=r});const acik=[];
+  const eskiMac=I.srv?null:null;
+  try{
+    const kayitSahte=I.srv.rooms; // yer tutucu
+    const oda=async(pfx)=>{const h=client(pfx+'0','H',{host:true},I.b);acik.push(h);await h.until(c=>c.P&&c.P.room);h.send({t:'settings',night:30,talk:60,vote:30,esyaModu:true});return h};
+    const h1=await oda('da'),h2=await oda('db');
+    const a1=client('ds1','A',{room:h1.P.room,token:I.tok(SA),esya:'iksir'},I.b),a2=client('ds2','A',{room:h2.P.room,token:I.tok(SA),esya:'iksir'},I.b);acik.push(a1,a2);
+    for(const [h,p] of [[h1,'dx'],[h2,'dy']])for(const u of ['1','2'])acik.push(client(p+u,p+u,{room:h.P.room},I.b));
+    await h1.until(c=>c.P.lobby.length===4);await h2.until(c=>c.P.lobby.length===4);await a1.until(c=>c.diger.some(m=>m.t==='lobiEsya'&&m.d&&m.d.kaynak==='envanter'));
+    h1.send({t:'start'});await h1.until(c=>c.P.phase==='night');const R1=I.srv.rooms.get(h1.P.room).game;
+    R1.g.esya[a1.me].kullanildi=true;R1.gameLog.push({sira:99,gun:1,faz:'vote',tur:'gunduz_sonuc',veri:{}});
+    I.yavaslat=true;R1.P.phase='end';R1.P.winner={team:'inn',kazananlar:[]};h1.send({t:'look',name:'H1'});
+    await new Promise(r=>setTimeout(r,150));assert.strictEqual(I.cagri.mac.length,1,'macSonu çağrıldı (henüz dönmedi)');
+    h2.send({t:'start'});await h2.until(c=>c.P.phase==='night');const R2=I.srv.rooms.get(h2.P.room).game;
+    assert.strictEqual(R2.g.esya[a2.me].kaynak,'bedava','düşüm onaylanmadan ayırma kalkmaz');
+    coz();await new Promise(r=>setTimeout(r,200));
+    assert.strictEqual(I.srv.rooms.get(h2.P.room).members.get(a2.me).envanter.esyalar.iksir||0,0,'harcanan eşya diğer odadaki kopyada da düştü');
+  }finally{coz&&coz();for(const c of acik)await c.close();await I.kapat()}
 });

@@ -368,15 +368,23 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
   }
   // maç sonu ilerleme (gameId başına bir kez): kayıtlı her oyuncuya kasa + rozetler + eşya harcama; yalnız en az bir oylama yaşanmış maçta
   function ilerlemeIsle(room){const R=room.game,P=R.P;if(P.phase!=='end'||!P.gameId||!P.oyunId||typeof kayit.macSonu!=='function')return;
-    room.ilerlemeIslenen=room.ilerlemeIslenen||new Set();if(room.ilerlemeIslenen.has(P.gameId))return;room.ilerlemeIslenen.add(P.gameId);room.ayirma=[];
-    if(!(R.gameLog||[]).some(e=>e.tur==='gunduz_sonuc'))return;
+    room.ilerlemeIslenen=room.ilerlemeIslenen||new Set();if(room.ilerlemeIslenen.has(P.gameId))return;room.ilerlemeIslenen.add(P.gameId);
+    const birak=pid=>{room.ayirma=(room.ayirma||[]).filter(a=>a.pid!==pid)};
+    // oylamasız maç (ilk gece biten): kasa yok, eşya harcanmaz → ayırmalar hemen kalkar
+    if(!(R.gameLog||[]).some(e=>e.tur==='gunduz_sonuc')){room.ayirma=[];return}
     const kaz=new Set((P.winner&&P.winner.kazananlar)||[]),kul=G.esyaKullanimi(R);
     for(const p of P.players){const uye=(room.oyunUyeleri&&room.oyunUyeleri.get(p.id))||(room.members.get(p.id)||{}).uye;if(!uye)continue;
       const odul=G.kasaOdulu();if(odul.tur==='kozmetik')odul.donusum=G.NADIRLIK[odul.nadir].donusum;
       const k=kul[p.id];const harcanan=k&&k.kaynak==='envanter'&&k.kullanildi?k.key:null;
-      kayit.macSonu(uye,P.oyunId,{odul,rozetler:G.rozetlerFor(R,p.id),harcanan,bonus:kaz.has(p.id)?2:0}).then(r=>{if(!r)return;const mem=room.members.get(p.id);if(!mem)return;
+      kayit.macSonu(uye,P.oyunId,{odul,rozetler:G.rozetlerFor(R,p.id),harcanan,bonus:kaz.has(p.id)?2:0}).then(r=>{
+        // ayırma, düşüm sonucu bellekteki bütün kopyalara işlendikten sonra kalkar (aradaki rövanş aynı eşyayı yeniden alamaz)
+        if(r&&harcanan&&!r.tekrar)for(const oda of rooms.values())for(const m of oda.members.values())if(m.uye===uye&&m.envanter&&m.envanter.esyalar[harcanan]>0)m.envanter.esyalar[harcanan]--;
+        birak(p.id);
+        if(!r)return;const mem=room.members.get(p.id);if(!mem)return;
         for(const ws of mem.socks)send(ws,{t:'kasa',d:{odul:r.odul||null,donustu:!!r.donustu,yildiz:r.yildiz,rozetler:r.yeni_rozetler||[],tavan:!!r.tavan,tekrar:!!r.tekrar}});
-        if(mem.uye&&typeof kayit.envanterOku==='function')kayit.envanterOku(mem.uye).then(e=>{if(e)envanterAyarla(room,p.id,mem,e)}).catch(()=>{})}).catch(()=>{})}
+        if(mem.uye&&typeof kayit.envanterOku==='function')kayit.envanterOku(mem.uye).then(e=>{if(e)envanterAyarla(room,p.id,mem,e)}).catch(()=>{})}).catch(()=>{birak(p.id)})}
+    // kayıtsız oyuncunun ayırması olmaz; yine de işlenmeyen kalırsa bırak
+    const islenen=new Set(P.players.map(p=>p.id));room.ayirma=(room.ayirma||[]).filter(a=>islenen.has(a.pid));
   }
   function applyLook(room,uid,mem,m){
     const n=cleanName(m.name);if(n){mem.name=n;const sk=room.skor.get(uid);if(sk){sk.ad=n;room.skorCache=null}} // skor tablosu son adı gösterir
@@ -408,7 +416,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
         let esyalar=null;if(R.settings&&R.settings.esyaModu){lobiEsyaGuncelle(room);esyalar={};for(const p of liste){const e=room.lobiEsya.get(p.id);if(e)esyalar[p.id]=e}}
         if(G.startGame(R,liste,{...(rovans?{rovans:true,onceki}:{}),esyalar})){room.hazir.clear();
           room.oyunUyeleri=new Map(liste.map(p=>[p.id,(room.members.get(p.id)||{}).uye||null]));
-          room.ayirma=[];if(esyalar)for(const [id,e] of Object.entries(esyalar)){const mem=room.members.get(id);if(e.kaynak==='envanter'&&mem&&mem.uye)room.ayirma.push({uye:mem.uye,key:e.key})}
+          room.ayirma=[];if(esyalar)for(const [id,e] of Object.entries(esyalar)){const mem=room.members.get(id);if(e.kaynak==='envanter'&&mem&&mem.uye)room.ayirma.push({uye:mem.uye,key:e.key,pid:id})}
           if(room.lobiEsya)room.lobiEsya.clear();for(const mem of room.members.values())mem.lobiEsyaGonderilen=null;room.hazirSayac.clear();room.gorduler.clear();room.lastPriv.clear();log(rovans?'rövanş başladı':'oyun başladı',room.code,R.P.players.length+' kişi');flush(room)}
         else send(ws,{t:'err',m:'Başlamak için 4–12 oyuncu gerekir.',code:'soft'});
         break}
