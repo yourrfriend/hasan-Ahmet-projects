@@ -469,6 +469,8 @@ const step=t=>console.log('•',t);
       R.g.esya[benId]={key:'iksir',kaynak:'bedava',kullanildi:false};R.P.ends=Date.now()+60000;pe.evaluate(()=>send({t:'look',name:'Ev'}));
       await pe.waitForTimeout(5500);const ok=await pe.$('text=Anladım');if(ok)await ok.click();
       await pe.waitForSelector('.ov.esya-cip',{timeout:5000});assert.match(await pe.textContent('.ov.esya-cip'),/İksir/);
+      { const k=await pe.evaluate(()=>{const r=s=>{const e=document.querySelector(s);return e?e.getBoundingClientRect():null};const c=r('.ov.esya-cip');return ['.notesbtn','.ov.mine'].map(s=>{const o=r(s);return o&&!(c.right<=o.left||o.right<=c.left||c.bottom<=o.top||o.bottom<=c.top)})});
+        assert.deepStrictEqual(k,[false,false],'eşya çipi Notlar ve rol kartıyla çakışmaz')}
       await pe.click('button.esya-kullan');await pe.waitForFunction(()=>local.act&&local.act.esya===true);
       await new Promise(r=>setTimeout(r,200));assert.strictEqual(R.g.acts[benId]&&R.g.acts[benId].esya,true,'sunucu act.esya aldı');
       R.P.waited=true;R.P.ends=Date.now()-1;await pe.waitForFunction(()=>P.phase==='talk',null,{timeout:8000});
@@ -476,6 +478,7 @@ const step=t=>console.log('•',t);
       // kasa kartı (sunucu mesajı gibi)
       R.P.phase='end';R.P.winner={team:'inn',t:'Masumlar kazandı!',kazananlar:[benId]};pe.evaluate(()=>send({t:'look',name:'Ev'}));
       await pe.waitForFunction(()=>P.phase==='end'&&document.querySelector('.endcard'),null,{timeout:8000});
+      await pe.waitForFunction(()=>/Sonraki maçta eşyan/.test((document.querySelector('.endcard .lobi-esya')||{}).textContent||''),null,{timeout:12000});
       await pe.evaluate(()=>{kasaSonuc={odul:{tur:'kozmetik',key:'sapka:tac',nadir:'efsanevi'},donustu:false,yildiz:7,rozetler:['ilk_mac']};render()});
       await pe.waitForFunction(()=>document.querySelector('.endcard .kasa'),null,{timeout:12000});const kt=await pe.textContent('.endcard .kasa');
       assert.match(kt,/Taç/);assert.match(kt,/İlk maç/);assert.match(kt,/7/);

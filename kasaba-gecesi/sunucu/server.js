@@ -122,7 +122,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
   const ipBirlestirme=new Map(); // birleştirme IP tavanı (dakikada 5)
   const tavan=Kod.tavanlar({saat:ayar.kodSaatlik,gun:ayar.kodGunluk,...(opts.kodTavan||{})});const kodSayac={gonderildi:0,turnstile_red:0};
   const icFetch=opts.icFetch||((u,o)=>fetch(u,o)),turnstileFetch=opts.turnstileFetch||((u,o)=>fetch(u,o));
-  const tavanTemizle=setInterval(()=>{tavan.temizle();const simdi=Date.now();for(const [k,v] of ipBirlestirme){const son=v.filter(t=>simdi-t<60000);if(son.length)ipBirlestirme.set(k,son);else ipBirlestirme.delete(k)}},600000);if(tavanTemizle.unref)tavanTemizle.unref(); // ipBirlestirme da süpürülür (bellek)
+  const tavanTemizle=setInterval(()=>{tavan.temizle();const simdi=Date.now();for(const [k,v] of ipBirlestirme){const son=v.filter(t=>simdi-t<60000);if(son.length)ipBirlestirme.set(k,son);else ipBirlestirme.delete(k)}for(const [k,v] of ipAl){if(!v.some(t=>simdi-t<60000))ipAl.delete(k)}},600000);if(tavanTemizle.unref)tavanTemizle.unref(); // ipBirlestirme da süpürülür (bellek)
   const uyarilar=[];const uyar=m=>{uyarilar.push(m);log('UYARI: '+m)}; // açılış uyarıları (/saglik'e girmez; testler okur)
   if(ayar.url&&ayar.serviceKey&&ayar.kancaSirri&&!ayar.icUrl)uyar('SUPABASE_IC_URL yok; /eposta/kod ve /hesap/anonim 503 döner');
   if(ayar.turnstileSecret&&!(Array.isArray(ayar.turnstileHostnames)&&ayar.turnstileHostnames.filter(Boolean).length))uyar('Turnstile hostname listesi boş: hostname denetimi kapalı (TURNSTILE_HOSTNAMES ya da ALAN ver)');
@@ -169,7 +169,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
   // Hesap birleştirme (Plan 6): ikinci cihazda e-postayla girince o cihazın anonim geçmişi hesaba taşınır. Yalnız kayıt açıkken; IP başına dakikada 5.
   const hesapFetch=opts.hesapFetch||((u,o)=>fetch(u,o));const birlestirmeSayac={ok:0,hata:0};
   // dükkân (ilerleme): yıldızla kozmetik al; fiyat game.js katalogundan (istemci fiyat vermez); IP başına dakikada 10
-  const ipAl=new Map();
+  const ipAl=new Map();const ilerlemeDenemeMs=opts.ilerlemeDenemeMs||3000;
   async function benAlUcu(req,res){
     const json=(d,b)=>{res.writeHead(d,{'Content-Type':'application/json'});res.end(JSON.stringify(b))};
     if(!(ayar.url&&ayar.serviceKey)||typeof kayit.kozmetikAl!=='function'){res.writeHead(404);return res.end('yok')}
@@ -351,7 +351,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
   function envanterAyarla(room,uid,mem,e){
     mem.envanter={yildiz:+e.yildiz||0,esyalar:{...(e.esyalar||{})},kozmetikler:Array.isArray(e.kozmetikler)?e.kozmetikler.slice():[]};
     for(const ws of mem.socks)send(ws,{t:'envanter',d:mem.envanter});
-    if(mem.istenen)applyLook(room,uid,mem,{...mem.istenen});if(room.lobiEsya)room.lobiEsya.delete(uid);schedule(room);
+    if(mem.istenen)applyLook(room,uid,mem,{...mem.istenen});if(room.lobiEsya&&mem.esyaSecim)room.lobiEsya.delete(uid);schedule(room);
   }
   // eşya modu: lobide (ve maç sonunda rövanş için) herkesin eşyası rol dağıtımından önce belli: envanterden seçilen ya da çekilen bedava
   // envanter eşyası ayırma (sunucu çapında): süren maçlarda taşınan eşyalar room.ayirma'da; aynı kullanıcı tek eşyasını iki odada aynı anda taşıyamaz.
@@ -376,7 +376,9 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
     for(const p of P.players){const uye=(room.oyunUyeleri&&room.oyunUyeleri.get(p.id))||(room.members.get(p.id)||{}).uye;if(!uye)continue;
       const odul=G.kasaOdulu();if(odul.tur==='kozmetik')odul.donusum=G.NADIRLIK[odul.nadir].donusum;
       const k=kul[p.id];const harcanan=k&&k.kaynak==='envanter'&&k.kullanildi?k.key:null;
-      kayit.macSonu(uye,P.oyunId,{odul,rozetler:G.rozetlerFor(R,p.id),harcanan,bonus:kaz.has(p.id)?2:0}).then(r=>{
+      const gonder=()=>kayit.macSonu(uye,P.oyunId,{odul,rozetler:G.rozetlerFor(R,p.id),harcanan,bonus:kaz.has(p.id)?2:0});
+      // RPC idempotent: geçici hata (null) bir kez yeniden denenir; yine olmazsa ayırma kalkar, eşya düşülmez
+      gonder().then(r=>r||new Promise(res=>setTimeout(res,ilerlemeDenemeMs)).then(gonder)).then(r=>{
         // ayırma, düşüm sonucu bellekteki bütün kopyalara işlendikten sonra kalkar (aradaki rövanş aynı eşyayı yeniden alamaz)
         if(r&&harcanan&&!r.tekrar)for(const oda of rooms.values())for(const m of oda.members.values())if(m.uye===uye&&m.envanter&&m.envanter.esyalar[harcanan]>0)m.envanter.esyalar[harcanan]--;
         birak(p.id);

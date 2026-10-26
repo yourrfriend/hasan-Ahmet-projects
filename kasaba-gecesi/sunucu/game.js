@@ -381,7 +381,7 @@ function resolveVote(R){
   if(E.summary)sysChat(R,'🗳️ Oylar: '+E.summary);
   const prov=g.provoke&&g.provoke.day===P.day?g.provoke.t:null;
   g.provoke=null;g.blame=null;P.evening=E;
-  logEv(R,'gunduz_sonuc',{asilan:out,rol_goruntu:E.out?E.out.role:null,toplamlar:tam,cekimser:skip,provoke:prov,fis:fisli[0]||null}); // tek tek oylar yazılmaz
+  logEv(R,'gunduz_sonuc',{asilan:out,rol_goruntu:E.out?E.out.role:null,toplamlar:tam,cekimser:skip,provoke:prov,fis:fisli.length||null}); // fiş sayısı; kullananın kimliği ham günlüğe de yazılmaz (oy gizliliği) // tek tek oylar yazılmaz
   if(checkWin(R))return;setPhase(R,'night');
 }
 // Kazanan oyuncular (tek kaynak; skor ve gazete yeniden hesaplamaz): takım zaferinde o takımın tüm katılımcıları

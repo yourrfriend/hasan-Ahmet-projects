@@ -779,7 +779,7 @@ test('oy fişi: oyu 2 sayar, eşiğe sayılmaz, eşitliği bozar; anonim özet',
   assert.ok(G.pl(R,'u1').alive,'tek oy + fiş astırmaz');assert.strictEqual(R.g.esya.u0.kullanildi,true,'birine oy verdiyse harcanır');
   R=esyali(['hain','masum','masum','masum','masum','masum'],{u0:'fis'});G.advance(R);G.advance(R);
   G.vote(R,'u0','u1',null,null,true);G.vote(R,'u3','u1');G.vote(R,'u2','u4');G.vote(R,'u5','u4');G.vote(R,'u1','skip');G.vote(R,'u4','skip');
-  assert.ok(!G.pl(R,'u1').alive,'fiş eşitliği bozdu');const v=R.gameLog.find(e=>e.tur==='gunduz_sonuc').veri;assert.strictEqual(v.fis,'u0');assert.deepStrictEqual(v.toplamlar,{u1:3,u4:2});
+  assert.ok(!G.pl(R,'u1').alive,'fiş eşitliği bozdu');const v=R.gameLog.find(e=>e.tur==='gunduz_sonuc').veri;assert.strictEqual(v.fis,1,'fiş sayısı (kimlik yazılmaz)');assert.deepStrictEqual(v.toplamlar,{u1:3,u4:2});
   assert.match(R.P.evening.summary,/Biri oy fişi kullandı/);
   R=esyali(['hain','masum','masum','masum','masum'],{u0:'fis'});G.advance(R);G.advance(R);G.vote(R,'u0','skip',null,null,true);for(const id of ['u1','u2','u3','u4'])G.vote(R,id,'skip');
   assert.strictEqual(R.g.esya.u0.kullanildi,false,'çekimserde fiş harcanmaz');

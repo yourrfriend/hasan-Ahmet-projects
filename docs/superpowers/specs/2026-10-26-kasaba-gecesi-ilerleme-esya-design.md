@@ -57,7 +57,7 @@ sunucu ucunu çağırır. B hileye açık, C "geri getirme" amacını karşılam
   (iksirin seni kurtardı), `fener_gordu` (fenerin bir haini gördü). Oylar tek tek kaydedilmediği için oya dayalı rozet yok.
 
 ### 5.2 Eşya modu kuralları (`game.js`)
-- Ayar: `R.settings.esya` (boolean, varsayılan `false`; `cleanSettings` korur). `P.settings.esya` herkese açık.
+- Ayar: `R.settings.esyaModu` (boolean, varsayılan `false`; `cleanSettings` korur; `esya` adı `SECRET_KEYS` ile çakışır). `P.settings.esyaModu` herkese açık.
 - `startGame(R, lobby, secenek)`: eşya modu açıksa her oyuncuya `R.g.esya[id]={key,kaynak,kullanildi:false}`;
   `secenek.esyalar[pubId]={key,kaynak}` (sunucu lobide belirler: envanterden seçilen ya da lobide çekilen bedava); eksik/geçersizse
   rastgele `kaynak:'bedava'`. Rol dağıtımından bağımsız (aynı çağrıda, roller ayrıca dağıtılır).
@@ -68,7 +68,7 @@ sunucu ucunu çağırır. B hileye açık, C "geri getirme" amacını karşılam
   not: "Fenerinle gördün: evine X, Y geldi" (yoksa "kimse gelmedi").
 - Duyuru (anonim): sabah haberine "🧪 Bu gece biri iksir içti" (+ korumuşsa "…ve saldırıdan sağ çıktı"), "🏮 Bu gece biri
   fenerle bekledi", "💨 Bu gece kasabada duman vardı", "🎭 Bu gece biri maske taktı"; oylama özetine "🗳️ Biri oy fişi kullandı".
-- Günlük: `gece_sonuc.esyalar=[{kim,key,etki}]` (her zaman var, boş dizi olabilir), `gunduz_sonuc.fis=kim|null`. Gizli
+- Günlük: `gece_sonuc.esyalar=[{kim,key,etki}]` (her zaman var, boş dizi olabilir), `gunduz_sonuc.fis=sayı|null` (kimlik yazılmaz). Gizli
   (olaylar yalnız bitişte okunur). Gazete (maç sonu) en çok bir eşya kartı: etkili olan ilk kullanım, adıyla.
 - `privFor`: `esya:{key,kullanildi}`. Maç sonu: `esyaKullanimi(R)` → `{pubId:{key,kaynak,kullanildi}}` (sunucu harcama için).
 

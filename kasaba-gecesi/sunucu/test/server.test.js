@@ -819,9 +819,9 @@ async function ilerlemeSunucu(env){ // env: uye → envanter; macSonu çağrıla
   const GIZLI='test-jwt-gizli';const cagri={mac:[],al:[],oku:0};
   const sahte={kuyrukla(){},profil(){},kapat(){},sayac:{kasa:3,ilerlemeHata:1},
     envanterOku:async u=>{cagri.oku++;return env[u]||{yildiz:0,esyalar:{},kozmetikler:[]}},
-    macSonu:async(u,o,x)=>{cagri.mac.push({u,o,x});if(cagri.bekle)await cagri.bekle;return {odul:x.odul,donustu:false,yildiz:5,yeni_rozetler:x.rozetler,tavan:false}},
+    macSonu:async(u,o,x)=>{cagri.mac.push({u,o,x});if(cagri.bekle)await cagri.bekle;if(cagri.hataSay>0){cagri.hataSay--;return null}return {odul:x.odul,donustu:false,yildiz:5,yeni_rozetler:x.rozetler,tavan:false}},
     kozmetikAl:async(u,key,fiyat)=>{cagri.al.push({u,key,fiyat});return fiyat>50?{hata:'yildiz',yildiz:10}:{ok:true,yildiz:3}}};
-  const srv=createServer({quiet:true,tickMs:50,jwksAlma:false,kayit:sahte,ayar:{url:'https://x.example',anonKey:'a',serviceKey:'s',jwtSecret:GIZLI,kurulum:'t'}});
+  const srv=createServer({quiet:true,tickMs:50,jwksAlma:false,kayit:sahte,ilerlemeDenemeMs:50,ayar:{url:'https://x.example',anonKey:'a',serviceKey:'s',jwtSecret:GIZLI,kurulum:'t'}});
   await new Promise(r=>srv.server.listen(0,'127.0.0.1',r));
   const tok=sub=>Kimlik.imzala({sub,exp:Math.floor(Date.now()/1000)+3600,role:'authenticated',is_anonymous:true},GIZLI);
   return {srv,b:'127.0.0.1:'+srv.server.address().port,cagri,tok,kapat:()=>new Promise(r=>srv.close(r))};
@@ -939,4 +939,14 @@ test('ilerleme: aynı odada yeni maç, önceki maçın düşümü beklenirken ay
     assert.strictEqual(room.game.g.esya[a.me].kaynak,'bedava','önceki maçın ayırması düşüm onaylanana dek durur');
     coz();await new Promise(r=>setTimeout(r,150));assert.ok(!room.ayirma.some(x=>x.oyun!==room.game.P.gameId),'düşüm sonrası eski ayırma kalktı');
   }finally{coz&&coz();for(const c of acik)await c.close();await I.kapat()}
+});
+
+test('ilerleme: maç sonu kayıt bir kez başarısızsa bir kez yeniden denenir; kasa yine gelir',async()=>{
+  const I=await ilerlemeSunucu({});I.cagri.hataSay=1;const acik=[];
+  try{
+    const a=client('rt0','A',{host:true,token:I.tok(SA)},I.b);acik.push(a);await a.until(c=>c.P&&c.P.room);const room=a.P.room;for(const u of ['rt1','rt2','rt3'])acik.push(client(u,u,{room},I.b));
+    await a.until(c=>c.P.lobby.length===4);a.send({t:'start'});await a.until(c=>c.P.phase==='night');const R=I.srv.rooms.get(room).game;
+    R.gameLog.push({sira:99,gun:1,faz:'vote',tur:'gunduz_sonuc',veri:{}});R.P.phase='end';R.P.winner={team:'inn',kazananlar:[]};a.send({t:'look',name:'A1'});
+    await a.until(c=>c.diger.some(m=>m.t==='kasa'),3000);assert.strictEqual(I.cagri.mac.length,2,'bir hata + bir yeniden deneme');
+  }finally{for(const c of acik)await c.close();await I.kapat()}
 });

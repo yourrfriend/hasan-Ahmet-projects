@@ -78,7 +78,9 @@ begin
     if coalesce(p_bonus, 0) > 0 then update public.cuzdan set yildiz = yildiz + p_bonus where uye = p_uye; end if;
   end if;
   select count(*) into v_say from public.kasalar where uye = p_uye;
-  v_roz := coalesce(p_rozetler, '{}'::text[]) || case v_say when 1 then array['ilk_mac'] when 10 then array['mac_10'] when 50 then array['mac_50'] else '{}'::text[] end;
+  -- eşik ≥ (birleştirme sayıyı sıçratabilir); rozetler PK tekilleştirir
+  v_roz := coalesce(p_rozetler, '{}'::text[]) || case when v_say >= 1 then array['ilk_mac'] else '{}'::text[] end
+           || case when v_say >= 10 then array['mac_10'] else '{}'::text[] end || case when v_say >= 50 then array['mac_50'] else '{}'::text[] end;
   with ek as (
     insert into public.rozetler (uye, key, oyun_id) select p_uye, k, p_oyun from unnest(v_roz) k
     on conflict (uye, key) do nothing returning key
