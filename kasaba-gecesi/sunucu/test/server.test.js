@@ -851,7 +851,7 @@ test('ilerleme: eşya modu — lobide herkese eşya (envanterden seçilen ya da 
     const once=acik[1].diger.filter(m=>m.t==='lobiEsya').pop().d.key;
     a.send({t:'start'});await a.until(c=>c.P.phase==='night');const R=I.srv.rooms.get(room).game;
     assert.deepStrictEqual(R.g.esya[a.me],{key:'iksir',kaynak:'envanter',kullanildi:false});assert.strictEqual(R.g.esya[acik[1].me].key,once,'lobide gösterilen bedava eşya maçta aynı');
-    assert.strictEqual(I.srv.rooms.get(room).members.get(a.me).envanter.esyalar.iksir,0,'bellekte ayrıldı');
+    assert.deepStrictEqual(I.srv.rooms.get(room).ayirma,[{uye:SA,key:'iksir'}],'maç süresince sunucu çapında ayrıldı');
     await a.until(c=>c.priv&&c.priv.esya&&c.priv.esya.key==='iksir');
   }finally{for(const c of acik)await c.close();await I.kapat()}
 });
@@ -887,4 +887,20 @@ test('/ben/al: token, katalog fiyatı, hata kodları, kayıt kapalı 404; /ben s
   }finally{await I.kapat()}
   const s2=createServer({quiet:true,tickMs:50});await new Promise(r=>s2.server.listen(0,'127.0.0.1',r));
   try{assert.strictEqual((await postJ('127.0.0.1:'+s2.server.address().port,'/ben/al','{}')).s,404)}finally{await new Promise(r=>s2.close(r))}
+});
+
+test('ilerleme: aynı kullanıcının tek eşyası iki odada aynı anda taşınamaz (sunucu çapında ayırma); maç bitince ayırma kalkar',async()=>{
+  const I=await ilerlemeSunucu({[SA]:{yildiz:0,esyalar:{iksir:1},kozmetikler:[]}});const acik=[];
+  try{
+    const oda=async(pfx)=>{const h=client(pfx+'0','H',{host:true},I.b);acik.push(h);await h.until(c=>c.P&&c.P.room);h.send({t:'settings',night:30,talk:60,vote:30,esyaModu:true});return h};
+    const h1=await oda('ra'),h2=await oda('rb');
+    const a1=client('rs1','A',{room:h1.P.room,token:I.tok(SA),esya:'iksir'},I.b),a2=client('rs2','A',{room:h2.P.room,token:I.tok(SA),esya:'iksir'},I.b);acik.push(a1,a2);
+    for(const [h,p] of [[h1,'x'],[h2,'y']])for(const u of ['1','2'])acik.push(client(p+u,p+u,{room:h.P.room},I.b));
+    await h1.until(c=>c.P.lobby.length===4);await h2.until(c=>c.P.lobby.length===4);
+    await a1.until(c=>c.diger.some(m=>m.t==='lobiEsya'&&m.d&&m.d.kaynak==='envanter'));
+    h1.send({t:'start'});await h1.until(c=>c.P.phase==='night');
+    await new Promise(r=>setTimeout(r,200));h2.send({t:'start'});await h2.until(c=>c.P.phase==='night');
+    const R1=I.srv.rooms.get(h1.P.room).game,R2=I.srv.rooms.get(h2.P.room).game;
+    assert.strictEqual(R1.g.esya[a1.me].kaynak,'envanter');assert.strictEqual(R2.g.esya[a2.me].kaynak,'bedava','ikinci oda aynı tek eşyayı alamaz');
+  }finally{for(const c of acik)await c.close();await I.kapat()}
 });
