@@ -15,7 +15,7 @@
   icerik.textContent='';document.getElementById('baslik').textContent=kasaba.ad;document.title='Kasaba Gecesi — '+kasaba.ad;
   // ad düzenleme (yalnız sahip; RLS de yalnız sahibe izin verir)
   if(kasaba.sahip===ben){const r=el('div','satir');const i=el('input');i.value=kasaba.ad;i.maxLength=40;const b=el('button',null,'Adı kaydet');
-    b.onclick=async()=>{const ad=i.value.trim().slice(0,40);if(!ad)return;const {error}=await sb.from('kasabalar').update({ad}).eq('id',kasaba.id);if(error)not('Ad kaydedilemedi: '+error.message,'hata');else{document.getElementById('baslik').textContent=ad;b.textContent='Kaydedildi ✓';setTimeout(()=>{b.textContent='Adı kaydet'},1500)}};
+    b.onclick=async()=>{const ad=i.value.trim().slice(0,40);if(!ad)return;const {error}=await sb.from('kasabalar').update({ad}).eq('id',kasaba.id);if(error)not(error.code==='23514'?'Ad en çok 40 karakter olabilir.':'Ad kaydedilemedi: '+error.message,'hata');else{document.getElementById('baslik').textContent=ad;b.textContent='Kaydedildi ✓';setTimeout(()=>{b.textContent='Adı kaydet'},1500)}};
     r.append(i,b);icerik.append(r)}
   const [{data:uyeler},{data:tablo},{data:oyunlar}]=await Promise.all([
     sb.from('kasaba_uyeleri').select('uye,rol,katilma').eq('kasaba_id',kasaba.id),

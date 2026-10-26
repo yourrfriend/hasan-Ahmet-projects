@@ -142,4 +142,65 @@ do $$ begin
 end $$;
 reset role;
 
+-- 10) yabancı U3: görünümler (oyun_oyunculari_acik, oyuncu_ozet) yalnız kendi/üyelik verisini verir
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated"}', true);
+do $$ begin
+  if (select count(*) from public.oyun_oyunculari_acik where oyun_id = 'bbbbbbbb-0000-0000-0000-000000000001') <> 0 then raise exception 'BAŞARISIZ 10: yabancı oyuncu listesini görüyor'; end if;
+  if (select count(*) from public.oyuncu_ozet where uye <> '33333333-3333-3333-3333-333333333333') <> 0 then raise exception 'BAŞARISIZ 10: oyuncu_ozet başkasını gösteriyor'; end if;
+  if (select count(*) from public.oyuncu_ozet) <> 1 then raise exception 'BAŞARISIZ 10: U3 kendi özetini görmeli (G2 bitti)'; end if;
+  raise notice 'GEÇTİ 10: yabancı görünümlerde yalnız kendini görür';
+end $$;
+reset role;
+
+-- 11) kazanma(): 5 parametre, 5 dal (007)
+do $$ begin
+  if not public.kazanma('neu','hayatta',true,null,'imp') then raise exception 'BAŞARISIZ 11: hayatta sağ kazanır'; end if;
+  if public.kazanma('neu','hayatta',false,'stab','neu') then raise exception 'BAŞARISIZ 11: hayatta ölü kazanmaz'; end if;
+  if not public.kazanma('neu','hortlak',false,'asildi','inn') then raise exception 'BAŞARISIZ 11: hortlak asılınca kazanır'; end if;
+  if not public.kazanma('neu','serikatil',true,null,'neu') then raise exception 'BAŞARISIZ 11: seri katil tek başına'; end if;
+  if public.kazanma('neu','serikatil',true,null,'inn') then raise exception 'BAŞARISIZ 11: seri katil masum zaferinde kazanmaz'; end if;
+  if not public.kazanma('inn','masum',true,null,'inn') then raise exception 'BAŞARISIZ 11: takım zaferi'; end if;
+  if public.kazanma('imp','hain',false,'asildi','inn') then raise exception 'BAŞARISIZ 11: karşı takım kazanmaz'; end if;
+  raise notice 'GEÇTİ 11: kazanma() 5 dal';
+end $$;
+
+-- 12) kasaba adı: sahip (U2, birleştirme sonrası) adı değiştirir; 41 karakter kısıta takılır; sahip sütunu değiştirilemez
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}', true);
+do $$ begin
+  update public.kasabalar set ad = 'Yeni Ad' where id = 'aaaaaaaa-0000-0000-0000-000000000001';
+  if (select ad from public.kasabalar where id = 'aaaaaaaa-0000-0000-0000-000000000001') <> 'Yeni Ad' then raise exception 'BAŞARISIZ 12: sahip adı değiştiremedi'; end if;
+  begin
+    update public.kasabalar set ad = repeat('x', 41) where id = 'aaaaaaaa-0000-0000-0000-000000000001';
+    raise exception 'BAŞARISIZ 12: 41 karakterlik ad kabul edildi';
+  exception when check_violation then null; end;
+  begin
+    update public.kasabalar set sahip = '33333333-3333-3333-3333-333333333333' where id = 'aaaaaaaa-0000-0000-0000-000000000001';
+    raise exception 'BAŞARISIZ 12: sahip sütunu değiştirilebildi';
+  exception when insufficient_privilege then null; end;
+  raise notice 'GEÇTİ 12: kasaba adı sınırı ve sahip koruması';
+end $$;
+reset role;
+
+-- 13) tutarlılık kısıtları (007): sonuc/bitis; ad uzunlukları
+do $$ begin
+  begin
+    insert into public.oyunlar (id, kurulum, sonuc) values ('bbbbbbbb-0000-0000-0000-000000000013', 'kasaba', 'bitti');
+    raise exception 'BAŞARISIZ 13: bitti ama bitis null kabul edildi';
+  exception when check_violation then null; end;
+  begin
+    update public.oyunlar set bitis = now() where id = 'bbbbbbbb-0000-0000-0000-000000000001' and sonuc = 'bitti'; -- tutarlı: geçer
+  end;
+  begin
+    insert into public.profiller (uye, ad) values ('33333333-3333-3333-3333-333333333333', repeat('y', 17));
+    raise exception 'BAŞARISIZ 13: 17 karakterlik profil adı kabul edildi';
+  exception when check_violation then null; end;
+  begin
+    update public.oyun_oyunculari set ad = repeat('z', 17) where oyun_id = 'bbbbbbbb-0000-0000-0000-000000000001' and pub_id = 'p1';
+    raise exception 'BAŞARISIZ 13: 17 karakterlik oyuncu adı kabul edildi';
+  exception when check_violation then null; end;
+  raise notice 'GEÇTİ 13: tutarlılık ve uzunluk kısıtları';
+end $$;
+
 rollback;

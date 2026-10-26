@@ -94,6 +94,7 @@ const step=t=>console.log('•',t);
             if(u.pathname==='/auth/v1/logout'){authIstekler.push({yol:'logout',scope:u.searchParams.get('scope')});return route.fulfill({status:204,body:''})}
             return json(/signup|token/.test(u.pathname)?oturum:oturum.user)}
           if(route.request().method()==='HEAD')return route.fulfill({status:200,headers:{'content-range':'0-1/2','content-type':'application/json'},body:''}); // count=exact → N=2
+          if(route.request().method()==='PATCH'){let g=null;try{g=JSON.parse(route.request().postData()||'null')}catch(e){}if(g&&typeof g.ad==='string'&&(g.ad.length>40||g.ad.startsWith('KISIT')))return json({code:'23514',message:'new row for relation "kasabalar" violates check constraint "kasabalar_ad_uzunluk"'},400);return route.fulfill({status:204,body:''})} // göç 007: ad uzunluk kısıtı
           const t=u.pathname.split('/').pop();istekler.push(t+'?'+u.searchParams.toString());
           if(restHata===t)return json({message:'taklit sunucu hatası'},500); // ağ/sunucu hatası dalı: sayfa "göremezsin" dememeli
           if(!tablo[t])return json({message:'yok: '+t},404);
@@ -124,6 +125,9 @@ const step=t=>console.log('•',t);
         const ks=await p5.evaluate(()=>({t:document.querySelector('main').textContent,maclar:[...document.querySelectorAll('a[href^="/oyun/"]')].map(a=>a.getAttribute('href'))}));
         assert.match(ks.t,/Barış'ın Kasabası/);assert.match(ks.t,/Ben \(sen\)/);assert.ok(!/%/.test(ks.t),'yüzde yok');
         { const sahipSinif=await p5.evaluate(()=>{const t=[...document.querySelectorAll('.tag')].find(x=>/sahip/.test(x.textContent));return t?t.className:null});assert.ok(sahipSinif&&/\bsahip\b/.test(sahipSinif)&&!/\bimp\b/.test(sahipSinif),'sahip rozeti hain kırmızısı olmamalı: '+sahipSinif)}
+        // sahip: sunucu kısıtı (23514, göç 007) → anlaşılır metin
+        { const sahipEski=tablo.kasabalar[0].sahip;tablo.kasabalar[0].sahip=ben;await p5.goto(o3+'/kasaba/'+k1);await p5.waitForSelector('input[maxlength="40"]',{timeout:8000});await p5.evaluate(()=>{const i=document.querySelector('input[maxlength="40"]');i.value='KISIT deneme'}); // istemci 40'a kırptığı için sahte sunucu bu değerde kısıt hatası döner
+          await p5.click('text=Adı kaydet');await p5.waitForSelector('.not',{timeout:8000});assert.match(await p5.textContent('.not'),/en çok 40 karakter/,'kasaba adı kısıt metni');tablo.kasabalar[0].sahip=sahipEski}
         restHata='kasabalar';await p5.goto(o3+'/kasaba/'+k1);await p5.waitForSelector('.not',{timeout:8000});assert.match(await p5.textContent('.not'),/Bağlantı hatası/,'kasaba sayfası sunucu hatası');restHata=null;assert.deepStrictEqual(ks.maclar,['/oyun/'+g3,'/oyun/'+g1],'son maçlar: kasabanın bitmiş maçları, yeniden eskiye');
         assert.ok(istekler.some(i=>/^oyunlar\?.*kasaba_id=eq\./.test(i)&&/kurulum=eq\.e2e/.test(i)),'kasaba son maçları kurulum süzgeciyle: '+istekler.join(' | '));
         await c5.close();
