@@ -231,7 +231,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 <div id="app"><div class="panel"><p class="muted">Yükleniyor…</p></div></div>
 <script>
 // Script daha başlamadan çökerse "Yükleniyor…" yerine hatayı göster (sürüm damgasıyla).
-window.KG_VER='2026-10-31h';
+window.KG_VER='2026-10-31i';
 window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ff6b6b"><p><b>Sayfa açılamadı.</b> Sürüm '+KG_VER+'</p><p class="small" style="word-break:break-all">'+String(e.message||e.error||e)+(e.filename?' @'+e.lineno:'')+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}});
 setTimeout(function(){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ffb347"><p><b>Sayfa yüklenemedi.</b> Sürüm '+KG_VER+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}},8000);
 </script>
@@ -262,7 +262,7 @@ let lobby=[];let local={act:{},vote:null};
 let settings=ls('kg_settings')||{night:30,talk:120,vote:45};
 let lastKey=null,sel={},skew=0,connSince=Date.now();
 let ui={menu:false,notes:false,custom:false,roleCard:false,rules:false,hizli:false,hizliAlt:null,rehber:false,hesap:{tur:null,adim:'eposta',eposta:'',hata:'',bekleBitis:0,N:0,eski:null,yukleniyor:false,bilgi:''}}; // hesap: bağla/gir formu (yalnız giriş sayfası)
-let hizliSon=0,hizliUyari='',hizliUyariT=null,hizliSayac={gun:0,n:0}; // hizliSayac: bu gün gönderilen ifade sayısı (sunucu yetkili; gösterge ve yerel engel) // ⚡ hızlı ifade: yerel bekleme göstergesi ve sunucunun err soft uyarısı (sunucu yetkili)
+let hizliSon=0,hizliUyari='',hizliUyariT=null; // ⚡ hızlı ifade: yerel bekleme göstergesi ve sunucunun err soft uyarısı; günlük sayaç sohbetten türer (hizliBugun), yerel sayaç yok
 function now(){return Date.now()-skew}
 const app=document.getElementById('app');
 const uid=ls('kg_uid')||('u'+(crypto.randomUUID?crypto.randomUUID().replace(/-/g,'').slice(0,24):Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,10)));ls('kg_uid',uid);
@@ -449,7 +449,7 @@ function onServerMsg(m){
   else if(m.t==='state'){
     const prev=P;P=m.P;if(m.now)skew=Date.now()-m.now;lobby=P.lobby||[];roomCode=P.room||roomCode;isHost=P.hostId===myId;everConnected=true;connErr=null;retryN=0;
     // yeni oyun ya da lobi: sohbet sıfırlanır (sunucu yeni satırları ayrıca yollar)
-    if(P.phase==='lobby'||P.gameId!==prev.gameId){chatLog=[];hizliSayac={gun:0,n:0};hizliSon=0} // ⚡ sayacı maç başına (sunucu da maç başına sayar)
+    if(P.phase==='lobby'||P.gameId!==prev.gameId){chatLog=[];hizliSon=0}
     P.chat=chatLog;
     if(isHost)ls('kg_room',roomCode);
     // yenileyince aynı odaya dönülsün diye adres çubuğunda oda kodu dursun
@@ -465,7 +465,7 @@ function onServerMsg(m){
   }
   else if(m.t==='priv'){priv=m.d||{role:null,notes:[],mates:[],dchat:[]};render()}
   else if(m.t==='err'){
-    if(m.code==='soft'){hizliUyari=m.m||'';clearTimeout(hizliUyariT);hizliUyariT=setTimeout(()=>{hizliUyari='';render()},3000);render();return}
+    if(m.code==='soft'){hizliUyar(m.m||'');render();return}
     connErr=m.m||'Bağlantı hatası.';
     if(m.code!=='full')fatal=true; // oda/sunucu dolu geçicidir: soket kapanır, onclose artan aralıkla yeniden dener
     if(ws){try{ws.close()}catch(e){}}render();
@@ -1095,7 +1095,7 @@ function renderGameUI(stage){
     if(hizliUyari)chatBox.prepend(el('div','hizli-uyari',hizliUyari));
     if(me&&(isDead||alive)){const r=el('div','in');const i=el('input');i.id='chatInput';i.placeholder=isDead?'👻 Ölülere yaz…':'Mesaj yaz…';i.maxLength=240;const b=el('button',null,'Gönder');b.onclick=()=>{sendMsg(i.value,isDead?'dead':'town');i.value='';i.focus()};i.onkeydown=e=>{if(e.key==='Enter')b.click()};
       r.append(i,b); // Gönder ilk <button> kalsın (testler ve alışkanlık); ⚡ DOM'da sonra, CSS order ile başta
-      if(alive&&P.phase==='talk'){const kalan=Math.ceil((hizliSon+HIZLI_BEKLE_MS-Date.now())/1000);const gunN=hizliSayac.gun===P.day?hizliSayac.n:0;const hb=el('button','hizli',kalan>0?'⚡ '+kalan:'⚡ '+gunN+'/'+HIZLI_GUN);hb.dataset.sayac=gunN+'/'+HIZLI_GUN;hb.title='Hızlı ifade (günde '+HIZLI_GUN+')';hb.onclick=()=>{ui.hizli=!ui.hizli;ui.hizliAlt=null;render()};r.append(hb)}
+      if(alive&&P.phase==='talk'){const kalan=Math.ceil((hizliSon+HIZLI_BEKLE_MS-Date.now())/1000);const gunN=hizliBugun();const hb=el('button','hizli',kalan>0?'⚡ '+kalan:'⚡ '+gunN+'/'+HIZLI_GUN);hb.dataset.sayac=gunN+'/'+HIZLI_GUN;hb.title='Hızlı ifade (günde '+HIZLI_GUN+')';hb.onclick=()=>{ui.hizli=!ui.hizli;ui.hizliAlt=null;render()};r.append(hb)}
       chatBox.append(r)}
     stage.append(chatBox);queueMicrotask(()=>{log.scrollTop=log.scrollHeight});
     if(ui.hizli&&alive&&P.phase==='talk')stage.append(hizliPanel());
@@ -1104,12 +1104,12 @@ function renderGameUI(stage){
 // ⚡ hızlı ifade paneli: 5 seçenek; "Rolüm" rol kataloğunu (gizli dağılıma göre daraltılmaz), "Şüphem var" sağ oyuncuları açar.
 // Metni ve sınırları sunucu kurar; burada yalnız menü ve yerel bekleme göstergesi.
 function hizliUyar(m){hizliUyari=m;clearTimeout(hizliUyariT);hizliUyariT=setTimeout(()=>{hizliUyari='';render()},3000)}
+function hizliBugun(){return (P&&P.chat||[]).filter(m=>m.kisa&&m.id===myId&&m.d===P.day).length} // bugün sunucunun kabul ettiği hızlı ifadelerim (sohbet satırlarından; sunucu yetkili)
 function hizliGonder(k,ek){
-  if(hizliSayac.gun!==P.day)hizliSayac={gun:P.day,n:0};
   const kalan=Math.ceil((hizliSon+HIZLI_BEKLE_MS-Date.now())/1000);
   if(kalan>0){hizliUyar('Biraz bekle ('+kalan+' sn).');ui.hizli=false;ui.hizliAlt=null;render();return} // yerel engel: sunucuya gitmez (sunucu yine de denetler)
-  if(hizliSayac.n>=HIZLI_GUN){hizliUyar('Bugünlük hızlı ifade hakkın bitti ('+HIZLI_GUN+').');ui.hizli=false;ui.hizliAlt=null;render();return}
-  const n=Date.now().toString(36)+Math.random().toString(36).slice(2,6);send({t:'hizli',k,...ek,d:P.day,n});hizliSon=Date.now();hizliSayac.n++;ui.hizli=false;ui.hizliAlt=null;render()}
+  if(hizliBugun()>=HIZLI_GUN){hizliUyar('Bugünlük hızlı ifade hakkın bitti ('+HIZLI_GUN+').');ui.hizli=false;ui.hizliAlt=null;render();return}
+  const n=Date.now().toString(36)+Math.random().toString(36).slice(2,6);send({t:'hizli',k,...ek,d:P.day,n});hizliSon=Date.now();ui.hizli=false;ui.hizliAlt=null;render()}
 function hizliPanel(){
   const c=el('div','ov hizli-panel');const ust=el('div','ust');ust.append(el('b',null,ui.hizliAlt==='rol'?'Rolüm:':ui.hizliAlt==='suphe'?'Kimden şüpheleniyorsun?':'Hızlı söyle'));
   const kapat=el('button','kapat','✕');kapat.onclick=()=>{ui.hizli=false;ui.hizliAlt=null;render()};ust.append(kapat);c.append(ust);
@@ -1160,7 +1160,7 @@ function renderEndUI(stage){
   // bu akşamın skoru: oda oturumunda oynanan/kazanılan maçlar (yüzde ve sıra yok)
   if(P.skor&&P.skor.length){const sk=el('div','skor');sk.append(el('b',null,'BU AKŞAM'));P.skor.forEach(s=>sk.append(el('span','cip',s.ad+' '+s.kazandi+'/'+s.oynadi)));c.append(sk)}
   // rövanş: hazır bayrakları (sunucuda), N = oyundakiler ∪ lobidekiler; ev sahibi yalnız hazır ∧ bağlı 4–12 kişiyle başlatır
-  const uyeler=new Map();(P.players||[]).forEach(p=>uyeler.set(p.id,p.name));(P.lobby||[]).forEach(p=>uyeler.set(p.id,p.name));
+  const uyeler=new Map();(P.players||[]).forEach(p=>uyeler.set(p.id,p.name)); // rövanşa yalnız bu maçın oyuncuları hazır olabilir (sunucu izleyiciden hazir almaz); sonradan gelen üye ev sahibi lobiye dönünce katılır
   const hazir=new Set(P.hazir||[]),online=new Set(P.online||[]);const hazirBagli=[...uyeler.keys()].filter(id=>online.has(id)&&(hazir.has(id)||id===P.hostId));
   const sayi=[...uyeler.keys()].filter(id=>online.has(id)&&hazir.has(id)).length; // sayaç: hazır ∧ bağlı (kopuk hazır sayılmaz; düğme ayrıca ev sahibini sayar)
   const rv=el('div','rovans');
@@ -1169,6 +1169,7 @@ function renderEndUI(stage){
   const cips=el('div','cipler');uyeler.forEach((ad,id)=>{const on=online.has(id);cips.append(el('span',!on?'off':hazir.has(id)?'on':'',(!on?'📵 ':hazir.has(id)?'✅ ':'⏳ ')+ad))});rv.append(cips);
   const row=el('div','row');
   if(uyeler.has(myId)){const ben=hazir.has(myId);const hb=el('button',ben?'hazir on':'hazir ok',ben?'Vazgeç':'Rövanşa hazırım');hb.onclick=()=>send({t:'hazir',v:!ben});row.append(hb)}
+  else row.append(el('span','small muted','Bu maçta oynamadın; ev sahibi lobiye dönerse sonraki maça katılırsın.'));
   if(isHost){const m=hazirBagli.length;const rb=el('button','ok rovans','Rövanşı başlat ('+m+' hazır)');rb.disabled=!(m>=4&&m<=12);rb.onclick=()=>send({t:'start',settings,rovans:true});row.append(rb);
     const lb=el('button','lobi','Lobiye dön');lb.onclick=()=>endToLobby();row.append(lb)}
   rv.append(row);

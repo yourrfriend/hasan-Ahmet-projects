@@ -135,6 +135,17 @@ test('bıçaklanan ve aynı gece yıldırım yiyen kurban: olenler.sekiller ikis
   assert.ok(gz.some(k=>/⚡/.test(JSON.stringify(k))&&JSON.stringify(k).includes('u1')),'kart büyücüye bağlı');
 });
 
+test('Hırsız kurbanı: olenler.sekil ve sekiller tutarlı (vanish); aynı gece yıldırım da varsa sekiller ikisini taşır',()=>{
+  let R=fixed(['hirsiz','doktor','masum','masum','masum']);
+  G.act(R,'u0',{ab:'u2'});G.advance(R);
+  let o=R.gameLog.find(e=>e.tur==='gece_sonuc').veri.olenler.find(x=>x.kim==='u2');
+  assert.strictEqual(o.sekil,'vanish');assert.deepStrictEqual(o.sekiller,['vanish']);
+  R=fixed(['hirsiz','buyucu','doktor','masum','masum']);
+  G.act(R,'u0',{ab:'u3'});G.act(R,'u1',{ab:'u3',guess:'masum'});G.advance(R);
+  o=R.gameLog.find(e=>e.tur==='gece_sonuc').veri.olenler.find(x=>x.kim==='u3');
+  assert.strictEqual(o.sekil,'vanish');assert.deepStrictEqual(o.sekiller,['vanish','bolt']);
+});
+
 const notesOf=(R,id)=>R.g.notes[id].join(' | ');
 test('hain polis öldürmeye gidince ziyareti sayılır ve tuzağa yakalanır',()=>{
   // u0 polis(hain) u2'yi öldürmeye gider; u1 gözcü u2'nin evine bakar → kendisiyle birlikte 2 kişi görmeli

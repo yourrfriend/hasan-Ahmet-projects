@@ -122,7 +122,7 @@ function olustur(opts={}){
     async kapat(){ // yeni iş alınmaz; kuyruktaki kalan olaylar (bitiş dahil) en çok 3 sn içinde yazılır, sonra kapanır
       kapaniyor=true;for(const b of bekleyen.values())clearTimeout(b.t);bekleyen.clear();
       if(uykuCoz){clearTimeout(zamanlayici);uykuCoz()}
-      const son=Date.now()+3000;while(isci&&Date.now()<son){await Promise.race([isci.catch(()=>{}),new Promise(r=>setTimeout(r,50))]);if(!isci&&kuyruk.length&&Date.now()<son)calistir()}
+      const son=Date.now()+3000;while(isci&&Date.now()<son)await Promise.race([isci.catch(()=>{}),new Promise(r=>setTimeout(r,50))]); // isle kuyruk boşalana dek sürer
       kapali=true;clearTimeout(zamanlayici);if(uykuCoz)uykuCoz()},
     sayac
   };

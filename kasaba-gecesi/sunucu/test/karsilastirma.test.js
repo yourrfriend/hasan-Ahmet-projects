@@ -44,3 +44,10 @@ test('karşılaştır: iki tarafsız aynı taraf sayılmaz — tek başına kaza
   const by=Object.fromEntries(karsilastir(BEN,oyunlar,oyuncular).map(x=>[x.uye,x]));
   assert.deepStrictEqual(by[A],{uye:A,ad:'a',birlikte:2,ayniTarafZafer:0,karsi:{ben:1,o:1},azMac:true});
 });
+
+test('karşılaştır: iki tarafsız aynı oyunda ikisi de kazanırsa karşı taraf sayılmaz',()=>{
+  const oyunlar=[oyun('g1','imp')]; // Hayatta sağ kaldı, Hortlak asıldı: ikisi de kazandı
+  const oyuncular=[oyuncu('g1',BEN,'neu','hayatta',true),oyuncu('g1',A,'neu','hortlak',false,'asildi')];
+  const by=Object.fromEntries(karsilastir(BEN,oyunlar,oyuncular).map(x=>[x.uye,x]));
+  assert.deepStrictEqual(by[A],{uye:A,ad:'a',birlikte:1,ayniTarafZafer:0,karsi:{ben:0,o:0},azMac:true});
+});

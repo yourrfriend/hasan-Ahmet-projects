@@ -388,6 +388,10 @@ const step=t=>console.log('•',t);
       const gz=await watcher.$$('.endcard .gazete .kart');assert.ok(gz.length<=3,'gazete en çok 3 kart');
       if(await watcher.$('.endcard .gazete'))assert.ok(gz.length>=1,'gazete kutusu varsa kart olmalı');
       const skor=await watcher.$$eval('.endcard .skor .cip',a=>a.map(x=>x.textContent));assert.strictEqual(skor.length,4,'skor 4 oyuncu');assert.ok(skor.every(t=>/[01]\/1/.test(t)),skor.join('|'));
+      // izleyici (maç sonunda katılan üye): rövanş düğmesi yok, sayaçta yalnız oyuncular sayılır
+      { const ci=await newCtx();const iz=await open(ci,'Izleyici',link);await iz.waitForFunction(()=>P.phase==='end'&&document.querySelector('.endcard'),null,{timeout:8000});
+        assert.strictEqual(await iz.$('.endcard button.hazir'),null,'izleyiciye rövanş düğmesi gösterilmez');assert.match(await iz.textContent('.endcard .hazir-sayac'),/^4 kişiden/,'sayaç paydası oyuncular');
+        assert.match(await watcher.textContent('.endcard .hazir-sayac'),/^4 kişiden/,'izleyici paydaya girmez');await iz.close();await ci.close()}
       await watcher.click('.endcard button.hazir');
       for(const p of Object.values(pages))await p.waitForFunction(()=>/4 kişiden 1'i hazır/.test((document.querySelector('.endcard .hazir-sayac')||{}).textContent||''),null,{timeout:4000});
       assert.strictEqual(await pages[newHostName].$eval('.endcard button.rovans',b=>b.disabled),true,'1 hazırla rövanş başlamaz');
@@ -399,7 +403,7 @@ const step=t=>console.log('•',t);
       assert.strictEqual(await watcher.$('.endcard a.hikaye'),null,'kayıt kapalıyken hikâye linki yok');
       await pages[newHostName].click('.endcard button.lobi');
       for(const p of [host,...Object.values(pages)])await p.waitForFunction(()=>P.phase==='lobby'&&!priv.role,null,{timeout:5000});
-      for(const p of Object.values(pages))assert.strictEqual(await p.evaluate(()=>hizliSayac.n),0,'⚡ günlük sayaç lobide/yeni maçta sıfırlanır');
+      for(const p of Object.values(pages))assert.strictEqual(await p.evaluate(()=>hizliBugun()),0,'⚡ günlük sayaç sohbetten türer; lobide 0');
       assert.strictEqual((await watcher.$$('.lobby-skor .cip')).length,4,'lobide bu akşamın skoru görünmeli');
     }
 

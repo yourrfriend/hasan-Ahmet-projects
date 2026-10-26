@@ -790,3 +790,13 @@ test('Turnstile hostname listesi boşsa açılışta uyarı',async()=>{
   const s2=createServer({quiet:true,jwksAlma:false,ayar:{url:'http://127.0.0.1:1',anonKey:'anon',serviceKey:'srv',jwtSecret:'x',kurulum:'t',turnstileSite:'site',turnstileSecret:'sir',turnstileHostnames:[],icUrl:'http://ic.test'}});
   try{assert.ok((s2.uyarilar||[]).some(u=>/hostname/i.test(u)),JSON.stringify(s2.uyarilar))}finally{await new Promise(r=>s2.close(r))}
 });
+
+test('govdeOku: sınır bayt sayar (çok baytlı karakterlerle aşılamaz)',async()=>{
+  const s2=createServer({quiet:true,tickMs:50});const {Readable}=require('stream');
+  try{
+    const req=new Readable({read(){}});const p=s2.govdeOku(req,20);req.push(Buffer.from('ğğğğğğğğğğ','utf8'));req.push(null); // 10 karakter = 20 bayt: sınırda, kabul
+    assert.strictEqual((await p).length,10);
+    const req2=new Readable({read(){}});const p2=s2.govdeOku(req2,20);req2.push(Buffer.from('ğğğğğğğğğğğ','utf8'));req2.push(null); // 11 karakter = 22 bayt > 20 → 413
+    await assert.rejects(p2,e=>e.kod===413,'22 bayt > 20: 413');
+  }finally{await new Promise(r=>s2.close(r))}
+});

@@ -24,6 +24,7 @@ function karsilastir(ben,oyunlar,oyuncular){
     u.birlikte++;if(p.ad)u.ad=p.ad;
     const benK=kazandiMi(b,oyun),oK=kazandiMi(p,oyun);
     if(b.takim===p.takim&&b.takim!=='neu'){if(benK&&oK)u.ayniTarafZafer++} // iki tarafsız aynı taraf değildir (her biri tek başına kazanır)
+    else if(b.takim==='neu'&&p.takim==='neu'&&benK&&oK){} // ikisi de tek başına kazandı (ör. Hayatta Kalan + Hortlak): birbirine karşı değildi
     else{if(benK)u.karsi.ben++;if(oK)u.karsi.o++}
     uyeler.set(p.uye,u);
   }

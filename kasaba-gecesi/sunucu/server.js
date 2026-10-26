@@ -68,7 +68,7 @@ function createServer(opts={}){
   // E-posta (Plan 6): GoTrue "Send Email" kancası → tek gönderim fonksiyonu. Sır yoksa uç kapalı (404). webhook-id ile 10 dk tekilleştirme (GoTrue yeniden dener).
     // kota: kanca günlük tavanı (KANCA_GUNLUK); kancaGun: son 24 saatin gönderim zamanları
 const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata:0,atlanan:0,sinir:0,kota:0};const kancaGun=[];const kancaGorulen=new Map();const kancaAlici=new Map();const KANCA_ALICI_SAAT=opts.kancaAliciSaat||5;
-  function govdeOku(req,sinir){return new Promise((res,rej)=>{let b='';let asim=false;if(req.setEncoding)req.setEncoding('utf8');req.on('data',d=>{if(asim)return;b+=d;if(b.length>sinir){asim=true;rej(Object.assign(new Error('büyük'),{kod:413}))}});req.on('end',()=>{if(!asim)res(b)});req.on('error',rej)})}
+  function govdeOku(req,sinir){return new Promise((res,rej)=>{let b='',bayt=0;let asim=false;if(req.setEncoding)req.setEncoding('utf8');req.on('data',d=>{if(asim)return;b+=d;bayt+=Buffer.byteLength(d,'utf8');if(bayt>sinir){asim=true;rej(Object.assign(new Error('büyük'),{kod:413}))}});req.on('end',()=>{if(!asim)res(b)});req.on('error',rej)})}
   async function kancaUcu(req,res){
     const json=(d,b)=>{res.writeHead(d,{'Content-Type':'application/json'});res.end(JSON.stringify(b))};
     if(!ayar.kancaSirri){res.writeHead(404);return res.end('yok')}
@@ -97,8 +97,9 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
   }
   const kayit=opts.kayit||Kayit.olustur({url:ayar.url,serviceKey:ayar.serviceKey,kurulum:ayar.kurulum,quiet:!!opts.quiet}); // olay günlüğünün gittiği yer (testler bellekte biriktiren bir sahte verir)
   // odanın biriken olaylarını kayıt yuvasına ver (R.log boşalır; R.gameLog oyunda kalır)
-  function bosalt(room){const R=room.game;if(R.log.length)kayit.kuyrukla(room,R.log.splice(0))}
+  function bosalt(room){const R=room.game;if(!R.log.length)return;const ol=R.log.splice(0);try{kayit.kuyrukla(room,ol)}catch(e){log('bosalt hatası',e.message)}} // yazıcı fırlatsa da oyun akışı sürer (tek yerde korunur)
   // Bu Akşamın Skoru: biten maç bir kez işlenir (gameId); katılımcılar oynadı, P.winner.kazananlar kazandı. İptal işlenmez.
+  const bitir=room=>{skorIsle(room);bosalt(room)}; // biten maçı kapat: skor bir kez + olaylar yazıcıya (yayınsız)
   const HAZIR_OLAY_TAVAN=10;const oyuncuMu=(R,uid)=>(R.P.players||[]).some(p=>p.id===uid); // izleyici/lobi üyesi hazır-gördüm gönderemez
   function skorIsle(room){const P=room.game.P;if(P.phase!=='end'||!P.gameId||room.skorIslenen.has(P.gameId))return;room.skorIslenen.add(P.gameId);
     const kaz=new Set((P.winner&&P.winner.kazananlar)||[]);
@@ -255,7 +256,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
   function flush(room){
     clearTimeout(room.flushT);room.flushT=null;
     if(!rooms.has(room.code))return;
-    skorIsle(room);try{bosalt(room)}catch(e){log('bosalt hatası',e.message)}prune(room); // kayıt yazıcısı fırlatsa da yayın sürer
+    skorIsle(room);bosalt(room);prune(room);
     const st=stateMsg(room);
     for(const [uid,m] of room.members){for(const ws of m.socks){sendRaw(ws,st);sendChat(ws,room)}sendPriv(room,uid)}
   }
@@ -345,7 +346,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
         // lobiden: bağlı herkes. Oyun sonundan rövanş (rovans:true): yalnız hazır ∧ bağlı üyeler; başlatan ev sahibi hazır sayılır
         if(!isHost(ws))break;
         const rovans=!!m.rovans&&R.P.phase==='end';if(!(R.P.phase==='lobby'||rovans))break;
-        flush(room); // biten maçın skoru/olayları başlatmadan önce işlensin (skorIsle tek yerde: flush)
+        bitir(room); // biten maçın skoru/olayları başlatmadan önce işlensin (yayın yok: start zaten yayınlar)
         if(m.settings)R.settings=G.cleanSettings(m.settings);
         const liste=rovans?lobbyOf(room).filter(p=>p.id===uid||room.hazir.has(p.id)):lobbyOf(room);
         if(rovans&&(liste.length<4||liste.length>12)){send(ws,{t:'err',m:'Rövanş için 4–12 hazır ve bağlı oyuncu gerekir (şu an '+liste.length+').',code:'soft'});break}
@@ -353,7 +354,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
         if(G.startGame(R,liste,rovans?{rovans:true,onceki}:null)){room.hazir.clear();room.hazirSayac.clear();room.gorduler.clear();room.lastPriv.clear();log(rovans?'rövanş başladı':'oyun başladı',room.code,R.P.players.length+' kişi');flush(room)}
         else send(ws,{t:'err',m:'Başlamak için 4–12 oyuncu gerekir.',code:'soft'});
         break}
-      case 'cancel':if(isHost(ws)&&R.P.phase!=='lobby'){flush(room);G.endToLobby(R);room.hazir.clear();flush(room)}break;
+      case 'cancel':if(isHost(ws)&&R.P.phase!=='lobby'){bitir(room);G.endToLobby(R);room.hazir.clear();flush(room)}break;
       case 'hazir':if(R.P.phase==='end'&&oyuncuMu(R,uid)){const v=!!m.v;if(v!==room.hazir.has(uid)){if(v)room.hazir.add(uid);else room.hazir.delete(uid);const n=room.hazirSayac.get(uid)||0;if(n<HAZIR_OLAY_TAVAN){room.hazirSayac.set(uid,n+1);G.olay(R,'hazir',{kim:uid,v})}schedule(room)}}break; // değişmediyse yayın yok; olay üye başına maçta en çok 10 (aç/kapa spam'i günlüğe dolmasın)
       case 'gordum':if(R.P.phase==='end'&&oyuncuMu(R,uid)&&!room.gorduler.has(uid)){room.gorduler.add(uid);G.olay(R,'son_ekran_goruldu',{kim:uid});bosalt(room)}break; // ölçüm: son ekran görüldü (kişi başı bir kez; yayın gerekmez)
       case 'close':if(isHost(ws))deleteRoom(room,'Ev sahibi odayı kapattı.');break;
@@ -405,7 +406,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
     }
   },opts.tickMs||500);
 
-  function close(cb){clearInterval(pingIv);clearInterval(tickIv);clearTimeout(jwksZamanlayici);for(const r of [...rooms.values()]){clearTimeout(r.flushT);try{bosalt(r)}catch(e){log('bosalt hatası',e.message)}}for(const ws of wss.clients)ws.terminate();wss.close();Promise.resolve(kayit.kapat()).catch(()=>{}).then(()=>server.close(cb))} // kayıt kuyruğundaki süren iş bitsin (en çok 3 sn)
+  function close(cb){clearInterval(pingIv);clearInterval(tickIv);clearTimeout(jwksZamanlayici);for(const r of [...rooms.values()]){clearTimeout(r.flushT);bosalt(r)}for(const ws of wss.clients)ws.terminate();wss.close();Promise.resolve(kayit.kapat()).catch(()=>{}).then(()=>server.close(cb))} // kayıt kuyruğundaki süren iş bitsin (en çok 3 sn)
   return {server,wss,rooms,close,govdeOku,uyarilar};
 }
 
