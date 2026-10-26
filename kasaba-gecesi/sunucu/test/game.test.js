@@ -759,7 +759,7 @@ test('eşya dağıtımı 2: herkese tek eşyalı dizi; seçilen envanterden, ge�
   for(let i=0;i<5;i++){const e=R.g.esya['u'+i];assert.ok(Array.isArray(e)&&e.length===1&&G.ESYA[e[0].key],'u'+i);assert.strictEqual(e[0].kullanildi,false)}
   assert.deepStrictEqual(R.g.esya.u0,[{key:'iksir',kaynak:'envanter',kullanildi:false}]);assert.strictEqual(R.g.esya.u1[0].kaynak,'bedava');assert.strictEqual(R.g.esya.u2[0].kaynak,'envanter');
   assert.ok(['fis','kum','pusula'].includes(R.g.esya.u1[0].key)||R.g.esya.u1[0].zar,'bedava havuz sıradan (zar dönüşmüş olabilir)');
-  const z=R.g.esya.u3[0];assert.strictEqual(G.ESYA[z.key].nadir,'nadir');assert.strictEqual(z.zar,true);assert.strictEqual(z.kaynak,'envanter');assert.match(R.g.notes.u3.join(' | '),/🎲 Zar: .* çıktı/);
+  const z=R.g.esya.u3[0];assert.strictEqual(G.ESYA[z.key].nadir,'nadir');assert.strictEqual(z.zar,true);assert.strictEqual(z.kaynak,'envanter');assert.strictEqual(z.kaynakKey,'zar');assert.deepStrictEqual(G.esyaKullanimi(R).u3,[{key:'zar',kaynak:'envanter',kullanildi:false}],'düşüm özgün anahtarla');assert.match(R.g.notes.u3.join(' | '),/🎲 Zar: .* çıktı/);
   assert.deepStrictEqual(G.privFor(R,'u0').esya,[{key:'iksir',kullanildi:false,pasif:true,hedefli:false}]);noLeak(R.P);assert.strictEqual(R.P.settings.esyaModu,true);
   assert.deepStrictEqual(Object.keys(G.privFor(R,'u3').esya[0]).sort(),['hedefli','key','kullanildi','pasif']);
   R.g.esya.u2.push({key:'kilit',kaynak:'paket',kullanildi:false});assert.strictEqual(G.privFor(R,'u2').esya.length,2);assert.deepStrictEqual(G.privFor(R,'u2').esya[1],{key:'kilit',kullanildi:false,pasif:false,hedefli:true});
@@ -858,6 +858,48 @@ test('kum saati: tartışma 30 sn uzar, sohbette anonim satır, günde bir kez; 
   assert.strictEqual(G.esyaKullan(R,'u1','kum'),false,'harcanmış');G.advance(R);assert.strictEqual(G.esyaKullan(R,'u2','kum'),false,'oylamada');
   for(const id of ['u0','u1','u2','u3','u4'])G.vote(R,id,'skip');assert.strictEqual(R.gameLog.filter(e=>e.tur==='gunduz_sonuc').pop().veri.kum,true);
   G.advance(R);assert.strictEqual(R.P.phase,'talk');assert.strictEqual(G.esyaKullan(R,'u2','kum'),true,'ertesi gün yine');
+});
+test('meydan paketi: tartışmada planlanır, zamanında açılır (tür+sayı+süre açık), ilk dokunan alır, anonim kapanış satırı ve olay',()=>{
+  let t=1000;G.setClock(()=>t);G.setRnd(()=>0.1);
+  try{
+    let R=esyali(['hain','masum','masum','masum','masum'],{});assert.ok(!R.g.paket,'gece planlanmaz');
+    G.advance(R);assert.strictEqual(R.P.phase,'talk');const pk=R.g.paket;assert.ok(pk&&!pk.acik&&pk.keys.length===1&&G.ESYA[pk.keys[0]],'tartışmada planlandı');
+    assert.ok(pk.zaman>=t&&pk.zaman<=t+120*1000*2/3,'ilk üçte iki');assert.strictEqual(R.P.paket,null);noLeak(R.P);
+    assert.strictEqual(G.tick(R),false);t=pk.zaman;assert.strictEqual(G.tick(R),true,'açılış değişiklik');assert.strictEqual(R.P.phase,'talk');
+    assert.deepStrictEqual(R.P.paket,{key:pk.keys[0],n:1,ends:t+5000});assert.strictEqual(R.g.paketSayisi,1);noLeak(R.P);
+    assert.strictEqual(G.kap(R,'u1',1,R.P.gameId),true);assert.strictEqual(R.g.esya.u1.length,2);assert.deepStrictEqual(R.g.esya.u1[1],{key:pk.keys[0],kaynak:'paket',kullanildi:false});
+    assert.strictEqual(R.P.paket,null,'tek eşya alınınca hemen kapanır');assert.strictEqual(R.g.paket,null);
+    const son=R.P.chat[R.P.chat.length-1];assert.ok(son.sys&&son.t==='📦 Meydana '+G.ESYA[pk.keys[0]].ico+' '+G.ESYA[pk.keys[0]].n.toLowerCase()+' düştü — biri kaptı',son.t);
+    const ev=R.gameLog.filter(e=>e.tur==='paket').pop();assert.deepStrictEqual(ev.veri,{key:pk.keys[0],n:1,alan:1,alanlar:['u1']});assert.deepStrictEqual(Object.keys(ev.veri).sort(),['alan','alanlar','key','n']);
+    assert.strictEqual(G.kap(R,'u2',1,R.P.gameId),false,'kapandıktan sonra');assert.strictEqual(G.privFor(R,'u1').esya.length,2);
+    // 9 kişi: iki eşya, sunucu sırası, tekrar/ölü/yanlış gün/dolu yuva
+    R=esyali(['hain','hain','masum','masum','masum','masum','masum','masum','masum'],{});G.advance(R);t=R.g.paket.zaman;G.tick(R);
+    assert.strictEqual(R.P.paket.n,2);assert.deepStrictEqual(R.g.paket.keys,[R.P.paket.key,R.P.paket.key],'iki eşya aynı tür');
+    assert.strictEqual(G.kap(R,'u2',1,R.P.gameId),true);assert.strictEqual(G.kap(R,'u2',1,R.P.gameId),false,'aynı kişi ikinci kez');
+    assert.strictEqual(G.kap(R,'u3',2,R.P.gameId),false,'yanlış gün');assert.strictEqual(G.kap(R,'u3',1,'baska'),false,'yanlış maç');
+    R.g.esya.u4.push({key:'fis',kaynak:'paket',kullanildi:true});assert.strictEqual(G.kap(R,'u4',1,R.P.gameId),false,'yuva dolu (kullanılmış da sayılır)');
+    G.pl(R,'u5').alive=false;assert.strictEqual(G.kap(R,'u5',1,R.P.gameId),false,'ölü');
+    assert.strictEqual(R.P.paket.n,2,'kalan sayı açığa çıkmaz');
+    assert.strictEqual(G.kap(R,'u3',1,R.P.gameId),true);assert.strictEqual(R.P.paket,null);assert.strictEqual(G.kap(R,'u6',1,R.P.gameId),false,'üçüncü');
+    assert.match(R.P.chat[R.P.chat.length-1].t,/düştü — ikisini de kaptılar$/);assert.deepStrictEqual(R.gameLog.filter(e=>e.tur==='paket').pop().veri.alanlar,['u2','u3']);
+    // süre dolunca kimse kapmadı
+    R=esyali(['hain','masum','masum','masum','masum'],{});G.advance(R);t=R.g.paket.zaman;G.tick(R);t=R.P.paket.ends;assert.strictEqual(G.tick(R),true);
+    assert.strictEqual(R.P.paket,null);assert.match(R.P.chat[R.P.chat.length-1].t,/düştü — kimse kapmadı$/);assert.strictEqual(R.gameLog.filter(e=>e.tur==='paket').pop().veri.alan,0);assert.strictEqual(R.P.phase,'talk');
+    // faz biterken açık paket kapanır (tek satır)
+    R=esyali(['hain','masum','masum','masum','masum'],{});G.advance(R);t=R.g.paket.zaman;G.tick(R);const n0=R.P.chat.length;t=R.P.ends;G.tick(R);
+    assert.strictEqual(R.P.phase,'vote');assert.strictEqual(R.P.paket,null);assert.strictEqual(R.g.paket,null);assert.strictEqual(R.P.chat.filter((m,i)=>i>=n0&&/📦/.test(m.t||'')).length,1);
+    // planlanmış ama açılmamış paket faz bitince sessizce gider
+    R=esyali(['hain','masum','masum','masum','masum'],{});G.advance(R);const n1=R.P.chat.length;t=R.P.ends;G.tick(R);assert.strictEqual(R.g.paket,null);assert.ok(!R.P.chat.slice(n1).some(m=>/📦/.test(m.t||'')));assert.strictEqual(R.g.paketSayisi||0,0);
+    // maç tavanı ve şans
+    R=esyali(['hain','masum','masum','masum','masum'],{});R.g.paketSayisi=3;G.advance(R);assert.ok(!R.g.paket,'maxMac');
+    G.setRnd(()=>0.7);R=esyali(['hain','masum','masum','masum','masum'],{});G.advance(R);assert.ok(!R.g.paket,'şans tutmadı');G.setRnd(()=>0.1);
+    // eşya modu kapalı
+    R=fixed(['hain','masum','masum','masum','masum']);G.advance(R);assert.ok(!R.g.paket);assert.strictEqual(G.kap(R,'u1',1,R.P.gameId),false);
+    // paket zarı anında nadir eşya + not
+    const seq=a=>{let i=0;return()=>a[i++%a.length]};G.setRnd(seq([0.1,0.5,0.9,0.999,0.3]));R=esyali(['hain','masum','masum','masum','masum'],{});G.advance(R);
+    assert.strictEqual(R.g.paket.keys[0],'zar');t=R.g.paket.zaman;G.tick(R);assert.strictEqual(R.P.paket.key,'zar');assert.strictEqual(G.kap(R,'u1',1,R.P.gameId),true);
+    const z=R.g.esya.u1[1];assert.strictEqual(G.ESYA[z.key].nadir,'nadir');assert.strictEqual(z.zar,true);assert.strictEqual(z.kaynak,'paket');assert.match(R.g.notes.u1.join(' | '),/🎲 Zar: .* çıktı/);
+  }finally{G.setClock();G.setRnd(null)}
 });
 test('oy fişi: oyu 2 sayar, eşiğe sayılmaz, eşitliği bozar; anonim özet',()=>{
   let R=esyali(['hain','masum','masum','masum','masum'],{u0:'fis'});G.advance(R);G.advance(R);

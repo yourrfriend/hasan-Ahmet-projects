@@ -237,11 +237,11 @@ function startGame(R,lobby,secenek){ // secenek: {rovans:true, onceki:gameId} r�
   const zarNotu=[];
   if(R.settings&&R.settings.esyaModu){for(const p of players){const s=secenek&&secenek.esyalar&&secenek.esyalar[p.id];
     const e=s&&typeof s.key==='string'&&has(ESYA,s.key)?{key:s.key,kaynak:s.kaynak==='envanter'?'envanter':'bedava',kullanildi:false}:{key:bedavaEsya(),kaynak:'bedava',kullanildi:false};
-    if(e.key==='zar'){e.key=zarAt();e.zar=true;zarNotu.push([p.id,e.key])}
+    if(e.key==='zar'){e.kaynakKey='zar';e.key=zarAt();e.zar=true;zarNotu.push([p.id,e.key])}
     R.g.esya[p.id]=[e]}}
   players.forEach(p=>R.g.notes[p.id]=[]);
   const settings={...R.settings};
-  R.P={phase:'night',day:1,ends:clock()+settings.night*1000+6000,chat:[],dead:[],voted:[],settings,gameId:clock(),oyunId:yeniOyunId(),morning:null,evening:null,provoked:null,
+  R.P={phase:'night',day:1,ends:clock()+settings.night*1000+6000,chat:[],dead:[],voted:[],paket:null,settings,gameId:clock(),oyunId:yeniOyunId(),morning:null,evening:null,provoked:null,
      players:players.map(p=>({id:p.id,name:p.name,alive:true,color:p.color,hat:p.hat,bayrak:p.bayrak||'none',efekt:p.efekt||'none'})),
      roleList:bag.map(r=>({n:roleLabel(r),team:r.team})).sort((a,b)=>a.team.localeCompare(b.team))};
   for(const [id,k] of zarNotu)note(R,id,'🎲 Zar: '+ESYA[k].ico+' '+ESYA[k].n+' çıktı.');
@@ -250,6 +250,7 @@ function startGame(R,lobby,secenek){ // secenek: {rovans:true, onceki:gameId} r�
 }
 function setPhase(R,ph){
   const P=R.P,g=R.g;
+  paketKapat(R); // açık ya da planlı paket fazla birlikte biter
   P.phase=ph;g.votes={};P.voted=[];P.provoked=null;P.waited=false;P.waiting=null;
   // sabah/akşam sahnelerine animasyon payı eklenir
   const extra=ph==='talk'?7:ph==='night'?6:0;
@@ -258,7 +259,26 @@ function setPhase(R,ph){
   if(ph==='night'){P.day++;g.acts={}}
   if(ph==='vote'){if(g.provoke&&g.provoke.day===P.day)P.provoked=g.provoke.t}
   if(ph!=='talk')P.morning=null;if(ph!=='night')P.evening=null;
+  if(ph==='talk')paketPlanla(R,secs);
 }
+// ---------- Meydan paketi (eşya v2): tartışmada rastgele anda düşer, ilk dokunanlar alır; tür+sayı+süre açık, kimin aldığı gizli ----------
+function paketPlanla(R,secs){const g=R.g;if(!(R.settings&&R.settings.esyaModu))return;g.paketSayisi=g.paketSayisi||0;if(g.paketSayisi>=PAKET.maxMac||rnd()>=PAKET.sans)return;
+  const n=alivePlayers(R).length>=8?2:1;const key=paketEsya();g.paket={zaman:clock()+Math.floor(rnd()*secs*1000*2/3),keys:Array(n).fill(key),alanlar:[],acik:false,ends:null}}
+function paketKapat(R){const g=R.g,P=R.P;if(!g||!g.paket)return;const pk=g.paket;g.paket=null;P.paket=null;if(!pk.acik)return;
+  const E=ESYA[pk.keys[0]];const son=pk.alanlar.length===0?'kimse kapmadı':pk.keys.length===2&&pk.alanlar.length===2?'ikisini de kaptılar':'biri kaptı';
+  sysChat(R,'📦 Meydana '+E.ico+' '+E.n.toLowerCase()+' düştü — '+son);logEv(R,'paket',{key:pk.keys[0],n:pk.keys.length,alan:pk.alanlar.length,alanlar:pk.alanlar.slice()})}
+// tick içinden: açılış / süre dolumu. Değişiklik olduysa true.
+function paketTik(R){const g=R.g,P=R.P;if(!g||!g.paket||P.phase!=='talk')return false;const pk=g.paket;
+  if(!pk.acik&&clock()>=pk.zaman){if(clock()+PAKET.sure>P.ends){g.paket=null;return false} // faz bitmek üzereyse açılmaz
+    pk.acik=true;pk.ends=clock()+PAKET.sure;P.paket={key:pk.keys[0],n:pk.keys.length,ends:pk.ends};g.paketSayisi++;return true}
+  if(pk.acik&&clock()>=pk.ends){paketKapat(R);return true}
+  return false}
+// kap: ilk dokunan alır; her başarısızlık sessiz (false)
+function kap(R,id,d,gid){const P=R.P,g=R.g;if(!g||P.phase!=='talk'||!g.paket||!g.paket.acik)return false;const me=pl(R,id);if(!me||!me.alive)return false;
+  if(d!=null&&d!==P.day)return false;if(gid!=null&&gid!==P.gameId)return false;const pk=g.paket;
+  if(pk.alanlar.includes(id)||pk.alanlar.length>=pk.keys.length)return false;const l=g.esya[id]=g.esya[id]||[];if(l.length>=ESYA_YUVA)return false;
+  const e={key:pk.keys[0],kaynak:'paket',kullanildi:false};if(e.key==='zar'){e.key=zarAt();e.zar=true;note(R,id,'🎲 Zar: '+ESYA[e.key].ico+' '+ESYA[e.key].n+' çıktı.')}
+  l.push(e);pk.alanlar.push(id);if(pk.alanlar.length>=pk.keys.length)paketKapat(R);return true}
 function inGame(R){return !!R.g&&['night','talk','vote'].includes(R.P.phase)}
 function advance(R){
   if(!inGame(R))return false;
@@ -272,12 +292,13 @@ function advance(R){
 // kopuk olanların adı P.waiting ile herkese gösterilir. Hamlesi olup olmadığına bakılmaz: bakılsa rolü ele verirdi.
 const WAIT_MS=30000;
 function tick(R,offline){
-  if(!inGame(R)||!R.P.ends||clock()<R.P.ends)return false;
+  const pt=paketTik(R); // paket açılışı/kapanışı faz ilerlemesini geciktirmez
+  if(!inGame(R)||!R.P.ends||clock()<R.P.ends)return pt;
   if(R.P.phase==='night'&&offline&&!R.P.waited){
     const w=alivePlayers(R).filter(p=>offline.has(p.id)).map(p=>p.id);
     if(w.length){R.P.waited=true;R.P.waiting=w;R.P.ends=clock()+WAIT_MS;return true}
   }
-  return advance(R);
+  return advance(R)||pt;
 }
 
 function resolveNight(R){
@@ -620,10 +641,10 @@ function privFor(R,id){
     esya:g.esya&&g.esya[id]?g.esya[id].map(e=>({key:e.key,kullanildi:e.kullanildi,pasif:!!ESYA[e.key].pasif,hedefli:!!ESYA[e.key].hedef})):null};
 }
 // maç sonu: eşya kullanımı (sunucu envanterden harcar: yalnız kaynak 'envanter' ve kullanildi)
-function esyaKullanimi(R){const out={};for(const [id,l] of Object.entries(R.g&&R.g.esya||{}))out[id]=l.map(e=>({key:e.key,kaynak:e.kaynak,kullanildi:e.kullanildi}));return out
+function esyaKullanimi(R){const out={};for(const [id,l] of Object.entries(R.g&&R.g.esya||{}))out[id]=l.map(e=>({key:e.kaynakKey||e.key,kaynak:e.kaynak,kullanildi:e.kullanildi}));return out
 }
 
 return{ROLES,SETUP,COLORS,HATS,DEFAULT_SETTINGS,ESYA,ESYA_YUVA,ESYA_KATMAN,KASA_ESYA,PAKET,setRnd,bedavaEsya,paketEsya,zarAt,NADIRLIK,KOZMETIK,KASA,ROZETLER,kasaOdulu,kozmetikGecerli,rozetlerFor,esyaKullan,esyaBul,DAGILIM,TEKRAR,tekrarCezasi,rolDagit,roleLabel,rolEtiketi,autoSetup,cleanSettings,setClock,
-  lobbyState,createGame,startGame,setPhase,advance,tick,resolveNight,resolveVote,checkWin,kazananlar,gazeteFor,GAZETE_EN_COK,ek,endToLobby,olay,
+  lobbyState,createGame,startGame,setPhase,advance,tick,kap,paketKapat,resolveNight,resolveVote,checkWin,kazananlar,gazeteFor,GAZETE_EN_COK,ek,endToLobby,olay,
   act,vote,chat,deadChat,esyaKullanimi,hizli,HIZLI_BEKLE_MS,HIZLI_GUN,HIZLI_TUR,privFor,pl,alivePlayers,inGame};
 });
