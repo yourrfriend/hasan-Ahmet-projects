@@ -833,9 +833,9 @@ test('ilerleme: kayıtlı join envanter alır; premium şapka yalnız sahibine, 
     const a=client('il0','A',{host:true,token:I.tok(SA),hat:'tac',bayrak:'mavi',efekt:'yildiz'},I.b);acik.push(a);await a.until(c=>c.P&&c.P.room);
     await a.until(c=>c.diger.some(m=>m.t==='envanter'));const e=a.diger.find(m=>m.t==='envanter').d;assert.deepStrictEqual(e,{yildiz:4,esyalar:{iksir:1},kozmetikler:['sapka:tac','bayrak:mavi']});
     await a.until(c=>c.P.lobby.some(x=>x.id===c.me&&x.hat==='tac'&&x.bayrak==='mavi'));assert.strictEqual(a.P.lobby.find(x=>x.id===a.me).efekt,'none','sahip olunmayan efekt reddedilir');
-    const b=client('il1','B',{room:a.P.room,token:I.tok(SB),hat:'tac',bayrak:'ejder'},I.b);acik.push(b);await b.until(c=>c.diger.some(m=>m.t==='envanter'));await bekle(100);
+    const b=client('il1','B',{room:a.P.room,token:I.tok(SB),hat:'tac',bayrak:'ejder'},I.b);acik.push(b);await b.until(c=>c.diger.some(m=>m.t==='envanter'));await a.until(c=>c.P.lobby.some(x=>x.id===b.me));
     const lb=a.P.lobby.find(x=>x.id===b.me);assert.strictEqual(lb.hat,'none','sahibi olmayan premium şapka kabul edilmez (varsayılanda kalır)');assert.strictEqual(lb.bayrak,'none');
-    const g=client('il2','G',{room:a.P.room,hat:'hale'},I.b);acik.push(g);await bekle(150);assert.strictEqual(a.P.lobby.find(x=>x.id===g.me).hat,'none','misafir premium alamaz');
+    const g=client('il2','G',{room:a.P.room,hat:'hale'},I.b);acik.push(g);await a.until(c=>c.P.lobby.some(x=>x.id===g.me));assert.strictEqual(a.P.lobby.find(x=>x.id===g.me).hat,'none','misafir premium alamaz');
     assert.ok(!g.diger.some(m=>m.t==='envanter'),'misafire envanter yok');
   }finally{for(const c of acik)await c.close();await I.kapat()}
 });
@@ -877,13 +877,29 @@ test('eşya v2: esya{k:kum} tartışmayı uzatır ve herkese sys satırı; kap{d
     // maç sonu: paket eşyası harcanan olarak gitmez; envanterden gelen (sahte) gider
     R.g.esya[b.me][1].kullanildi=true;R.g.esya[a.me]=[{key:'iksir',kaynak:'envanter',kullanildi:true}];
     R.gameLog.push({sira:99,gun:1,faz:'vote',tur:'gunduz_sonuc',veri:{}});R.P.phase='end';R.P.winner={team:'inn',kazananlar:[]};a.send({t:'look',name:'A1'});
-    await bekle(150);assert.strictEqual(I.cagri.mac.length,1);assert.strictEqual(I.cagri.mac[0].u,SA);assert.strictEqual(I.cagri.mac[0].x.harcanan,'iksir');
+    await a.until(()=>I.cagri.mac.length===1);assert.strictEqual(I.cagri.mac[0].u,SA);assert.strictEqual(I.cagri.mac[0].x.harcanan,'iksir');
   }finally{for(const c of acik)await c.close();await I.kapat()}
   // eşya modu kapalı: mesajlar yok sayılır
   const h=client('ek0','H',{host:true});await h.until(c=>c.P&&c.P.room);const k2=h.P.room;const ot=['ek1','ek2','ek3'].map(u=>client(u,u,{room:k2}));
   await h.until(c=>c.P.lobby.length===4);h.send({t:'start'});await h.until(c=>c.P.phase==='night');const R2=srv.rooms.get(k2).game;R2.P.waited=true;R2.P.ends=Date.now()-1;await h.until(c=>c.P.phase==='talk');
   const e2=R2.P.ends;h.send({t:'esya',k:'kum',d:1,g:R2.P.gameId});h.send({t:'kap',d:1,g:R2.P.gameId});await bekle(120);assert.strictEqual(R2.P.ends,e2);assert.ok(!R2.g.esya||!Object.keys(R2.g.esya).length);assert.strictEqual(h.errs.length,0);
   for(const c of [h,...ot])await c.close();
+});
+test('eşya v2: kap başarılıysa yalnız kapanın priv\'i gider; paket açık kaldıkça başkasına state yok; son eşyayla herkese P.paket=null',async()=>{
+  const I=await ilerlemeSunucu({});const acik=[];
+  try{
+    const a=client('kp0','A',{host:true},I.b);acik.push(a);await a.until(c=>c.P&&c.P.room);const kod=a.P.room;
+    a.send({t:'settings',night:30,talk:60,vote:30,esyaModu:true});for(const u of ['kp1','kp2','kp3'])acik.push(client(u,u,{room:kod},I.b));
+    await a.until(c=>c.P.lobby.length===4&&c.P.settings&&c.P.settings.esyaModu);a.send({t:'start'});await a.until(c=>c.P.phase==='night');
+    const R=I.srv.rooms.get(kod).game;const [b,c2,d]=acik.slice(1);await d.until(c=>c.priv&&c.priv.esya);
+    R.P.waited=true;R.P.ends=Date.now()-1;await a.until(c=>c.P.phase==='talk');R.g.paket={zaman:0,keys:['kum','kum'],alanlar:[],acik:false,ends:null};
+    await Promise.all(acik.map(c=>c.until(x=>x.P.paket&&x.P.paket.n===2)));
+    const stB=b.states,stC=c2.states,stD=d.states;a.send({t:'kap',d:1,g:R.P.gameId});await a.until(c=>c.priv.esya.length===2&&c.priv.esya[1].key==='kum');
+    await bekle(150);assert.strictEqual(b.states,stB,'kap sonrası başkasına state gitmez (kapma anı sızmaz)');assert.strictEqual(c2.states,stC);assert.strictEqual(d.states,stD);
+    assert.ok(b.P.paket&&b.P.paket.n===2,'paket hâlâ açık');
+    b.send({t:'kap',d:1,g:R.P.gameId});await Promise.all(acik.map(c=>c.until(x=>x.P.paket===null)));assert.strictEqual(R.g.esya[b.me].length,2);
+    await a.until(c=>c.chat.some(m=>m.sys&&/ikisini de kaptılar/.test(m.t)));
+  }finally{for(const c of acik)await c.close();await I.kapat()}
 });
 test('ilerleme: maç sonu kayıtlı her oyuncuya bir macSonu ve {t:kasa}; oylamasız maç kasa vermez; ikinci flush tekrar etmez',async()=>{
   const I=await ilerlemeSunucu({});const acik=[];

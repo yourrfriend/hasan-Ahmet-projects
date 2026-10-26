@@ -60,7 +60,7 @@ function play(n){
       const sonra=G.alivePlayers(R).map(p=>p.id);oluAdlar=before.filter(x=>!sonra.includes(x)).map(x=>R.P.players.find(p=>p.id===x).name);
       if(firstNightDeaths===null)firstNightDeaths=oluAdlar.length}
     else if(R.P.phase==='talk'){if(ESYA_MODU){for(const id of alive)if(Math.random()<0.3)G.esyaKullan(R,id,'kum');
-        if(R.g.paket){R.g.paket.zaman=0;G.tick(R);if(R.P.paket){PAKET_N++;const n0=R.g.paket.alanlar.length;for(const id of [...alive].sort(()=>Math.random()-.5))if(Math.random()<0.5&&R.g.paket)G.kap(R,id,R.P.day,R.P.gameId)}}}
+        if(R.g.paket){R.g.paket.zaman=0;G.tick(R);if(R.P.paket){PAKET_N++;for(const id of [...alive].sort(()=>Math.random()-.5))if(Math.random()<0.5&&R.g.paket)G.kap(R,id,R.P.day,R.P.gameId)}}}
       G.advance(R)}
     else if(R.P.phase==='vote'){const day=R.P.day;for(const id of alive){if(R.P.phase!=='vote'||R.P.day!==day)break;G.vote(R,id,dayVote(R,id,alive,oluAdlar),null,null,ESYA_MODU&&Math.random()<0.3)}if(R.P.phase==='vote')G.advance(R)}
   }

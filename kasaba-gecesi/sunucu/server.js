@@ -430,7 +430,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
       case 'act':G.act(R,uid,m);break; // gece hamlesi gizli: kimseye yayın yok
       case 'vote':if(G.vote(R,uid,m.v,m.d,m.g,m.esya===true))schedule(room);break;
       case 'esya':if(typeof m.k==='string'&&G.esyaKullan(R,uid,m.k))schedule(room);break; // tartışma eşyası (kum saati): sohbet sys satırı + P.ends
-      case 'kap':if(G.kap(R,uid,m.d,m.g))schedule(room);break; // meydan paketi: yalnız kapanın priv'i (ve kapanışta P.paket) değişir
+      case 'kap':if(G.kap(R,uid,m.d,m.g)){if(R.P.paket)sendPriv(room,uid);else schedule(room)}break; // meydan paketi: paket açık kaldıkça yalnız kapanın priv'i (kapma anı sızmasın); kapanınca herkese
       case 'msg':if(G.chat(R,uid,m.x))schedule(room);break;
       case 'hizli':{const r=G.hizli(R,uid,m);if(r.ok)schedule(room);else if(r.kod==='bekle')send(ws,{t:'err',m:'Biraz bekle ('+r.kalan+' sn).',code:'soft'});else if(r.kod==='gun')send(ws,{t:'err',m:'Bugünlük hızlı ifade hakkın bitti ('+G.HIZLI_GUN+').',code:'soft'});break}
       case 'dmsg':if(G.deadChat(R,uid,m.x))schedule(room);break;
