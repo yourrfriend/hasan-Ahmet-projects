@@ -17,7 +17,7 @@ window.KG_SAYFA=(function(){
   }
   const ROLES=()=>(window.KG_GAME&&window.KG_GAME.ROLES)||{};
   // rol etiketi: oyun sonundaki anahtar + takım; Deli ve Hırsız notları
-  function rolAdi(p){const R=ROLES();if(!p||!p.rol_key)return '?';const r=R[p.rol_key];let ad=r?r.n:p.rol_key;if(p.takim==='imp'&&r&&r.team!=='imp')ad+=' (Hain)';if(p.deli_gibi)ad+=' (aslında Deli)';if(p.calinan_rol)ad+=' (Hırsız çaldı)';return ad}
+  function rolAdi(p){const G=window.KG_GAME;return G&&G.rolEtiketi?G.rolEtiketi(p):'?'} // etiket tek kaynaktan (game.js rolEtiketi)
   const tarih=iso=>{if(!iso)return '';const d=new Date(iso);return d.toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'})+' '+d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})};
   const kimlik=()=>{const m=location.pathname.match(/\/(oyun|kasaba)\/([0-9a-f-]{36})$/);return m?{tur:m[1],id:m[2]}:null};
   function not(metin,tur){const n=el('p','not '+(tur||''),metin);const h=document.querySelector('main')||document.body;h.prepend(n);return n}

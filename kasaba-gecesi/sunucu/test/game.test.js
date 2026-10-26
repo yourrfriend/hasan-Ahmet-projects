@@ -105,6 +105,16 @@ test('kışkırtma tek başına astırmaz: herkes çekimserse kimse gönderilmez
   assert.strictEqual(R.P.phase,'night');assert.ok(G.pl(R,'u3').alive);assert.deepStrictEqual(R.gameLog.find(e=>e.tur==='gunduz_sonuc').veri.toplamlar,{u0:1});
 });
 
+test('rolEtiketi: tek kaynak — sürümlü hain, Deli, Hırsız çaldı, bilinmeyen',()=>{
+  assert.strictEqual(G.rolEtiketi({rol_key:'polis',takim:'inn'}),'Polis');
+  assert.strictEqual(G.rolEtiketi({rol_key:'polis',takim:'imp'}),'Polis (Hain)');
+  assert.strictEqual(G.rolEtiketi({rol_key:'hain',takim:'imp'}),'Hain');
+  assert.strictEqual(G.rolEtiketi({rol_key:'doktor',takim:'inn',deli_gibi:true}),'Doktor (aslında Deli)');
+  assert.strictEqual(G.rolEtiketi({rol_key:'polis',takim:'inn',calinan_rol:'polis'}),'Polis (Hırsız çaldı)');
+  assert.strictEqual(G.rolEtiketi({rol_key:'yok',takim:'inn'}),'yok');
+  assert.strictEqual(G.rolEtiketi(null),'?');assert.strictEqual(G.rolEtiketi({rol_key:null}),'?');
+});
+
 const notesOf=(R,id)=>R.g.notes[id].join(' | ');
 test('hain polis öldürmeye gidince ziyareti sayılır ve tuzağa yakalanır',()=>{
   // u0 polis(hain) u2'yi öldürmeye gider; u1 gözcü u2'nin evine bakar → kendisiyle birlikte 2 kişi görmeli

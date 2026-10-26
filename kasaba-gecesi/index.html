@@ -237,7 +237,7 @@ setTimeout(function(){var a=document.getElementById('app');if(a&&/Yükleniyor/.t
 <script src="sunucu/game.js?v=__V__"></script>
 <script>
 // ---------- Rol tanımları: sunucu/game.js ile tek kaynak (window.KG_GAME) ----------
-const {ROLES,SETUP,COLORS,HATS:HAT_IDS,roleLabel,DAGILIM}=window.KG_GAME;
+const {ROLES,SETUP,COLORS,HATS:HAT_IDS,roleLabel,rolEtiketi,DAGILIM}=window.KG_GAME;
 const HAT_NAMES={none:'Yok',beanie:'Bere',cap:'Kasket',ears:'Kulak',bow:'Fiyonk',glasses:'Gözlük',hood:'Kapüşon'};
 const HATS=HAT_IDS.map(k=>[k,HAT_NAMES[k]||k]);
 const TEAMN={inn:'Masum',imp:'Hain',neu:'Tarafsız'};
@@ -973,7 +973,7 @@ function renderLanding(){
   const w=el('div','wrap');w.append(top,pn);if(gecmis)w.append(gecmisPanel());w.append(rulesPanel());app.append(w);
 }
 // rol etiketi (giriş sayfası): ad + hain sürümü / Deli / Hırsız notu; sayfalardaki rolAdi ile aynı dil
-function rolEtiket(b){if(!b||!b.rol_key)return '?';const r=ROLES[b.rol_key];let ad=r?r.n:b.rol_key;if(b.takim==='imp'&&r&&r.team!=='imp')ad+=' (Hain)';if(b.deli_gibi)ad+=' (aslında Deli)';if(b.calinan_rol)ad+=' (Hırsız çaldı)';return ad}
+const rolEtiket=rolEtiketi; // tek kaynak: game.js
 const tarihKisa=iso=>{if(!iso)return '';const d=new Date(iso);return d.toLocaleDateString('tr-TR',{day:'numeric',month:'long'})+' '+d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})};
 function gecmisPanel(){
   const pn=el('div','panel gecmis');pn.append(el('h2',null,'Geçmişin'));

@@ -51,3 +51,16 @@ test('hikâye: iptal ve özel olaylar (tuzak, tutma, hırsız, yıldırım, patl
   R=fixed(['hain','hayatta','masum','masum','masum']);G.act(R,'u0',{kill:'u1'});G.act(R,'u1',{ab:'self'});G.advance(R);
   assert.match(duz(hikaye(R.gameLog,oyuncular(R),G.ROLES)),/Oyuncu1 yelek sayesinde saldırıdan sağ çıktı/);
 });
+
+test('hikâye: Seri Katil hamlesi, kim öldürdü satırı, kışkırtma satırı',()=>{
+  const R=fixed(['hain','provokator','serikatil','doktor','masum','masum']);
+  G.act(R,'u0',{kill:'u4'});G.act(R,'u1',{ab:'u5'});G.act(R,'u2',{ab:'u5'});G.act(R,'u3',{ab:'u3'});G.advance(R); // u4 haince, u5 seri katilce ölür
+  assert.strictEqual(R.P.phase,'talk');G.advance(R);
+  for(const id of ['u0','u1','u2','u3'])G.vote(R,id,'skip');
+  const oy=R.P.players.map(p=>({pub_id:p.id,ad:p.name,rol_key:R.g.roles[p.id].key,takim:R.g.roles[p.id].team})); // roller bilinir (bitmiş gibi)
+  const h=hikaye(R.gameLog,oy,G.ROLES);const m=duz(h);
+  assert.match(m,/Oyuncu2 \(Seri Katil\) Oyuncu5'in evine girdi/,'Seri Katil hamlesi HAMLE\'de');
+  assert.match(m,/Oyuncu4 öldü \(Masum\) — Oyuncu0 öldürdü/,'kim öldürdü');
+  assert.match(m,/Oyuncu5 öldü \(Masum\) — Oyuncu2 öldürdü/);
+  assert.match(m,/🔥 Oyuncu5 kışkırtılmıştı/,'kışkırtma satırı (ölmüş olsa da günlükte)');
+});

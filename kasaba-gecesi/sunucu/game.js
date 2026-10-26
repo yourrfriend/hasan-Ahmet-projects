@@ -46,6 +46,8 @@ const DEFAULT_SETTINGS={night:30,talk:120,vote:45};
 const has=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
 
 function roleLabel(r){const b=ROLES[r.key];return b.n+((r.team==='imp'&&b.team!=='imp')?' (Hain)':'')}
+// Kayıt satırından rol etiketi (tek kaynak: index.html, sayfa/ortak.js, sayfa/hikaye.js bunu kullanır): {rol_key,takim,deli_gibi,calinan_rol}
+function rolEtiketi(b){if(!b||!b.rol_key)return '?';const r=ROLES[b.rol_key];let ad=r?r.n:b.rol_key;if(b.takim==='imp'&&r&&r.team!=='imp')ad+=' (Hain)';if(b.deli_gibi)ad+=' (aslında Deli)';if(b.calinan_rol)ad+=' (Hırsız çaldı)';return ad}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 // Rol dağılımı (tasarım docs/superpowers/specs/2026-10-24-kasaba-gecesi-sahne-design.md §5.1): eşikler oyuncu
 // sayısına göre; her özel rol en fazla bir kez; 2 hainde 1 sürümlü + 1 düz Hain, tek hain DAGILIM.tekHainSurumP olasılıkla sürümlü;
@@ -495,7 +497,7 @@ function privFor(R,id){
     uses:r.uses,vest:r.vest,planted:r.planted.slice(),candle:g.candle[id]||null,payin:P.phase==='end'?payinFor(R,id):null};
 }
 
-return{ROLES,SETUP,COLORS,HATS,DEFAULT_SETTINGS,DAGILIM,TEKRAR,tekrarCezasi,rolDagit,roleLabel,autoSetup,cleanSettings,setClock,
+return{ROLES,SETUP,COLORS,HATS,DEFAULT_SETTINGS,DAGILIM,TEKRAR,tekrarCezasi,rolDagit,roleLabel,rolEtiketi,autoSetup,cleanSettings,setClock,
   lobbyState,createGame,startGame,setPhase,advance,tick,resolveNight,resolveVote,checkWin,kazananlar,gazeteFor,GAZETE_EN_COK,ek,endToLobby,olay,
   act,vote,chat,deadChat,hizli,HIZLI_BEKLE_MS,HIZLI_GUN,HIZLI_TUR,privFor,pl,alivePlayers,inGame};
 });
