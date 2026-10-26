@@ -38,8 +38,12 @@ hata(){ printf '\033[1;31mHATA:\033[0m %s\n' "$*" >&2; exit 1; }
 command -v docker >/dev/null || hata "Docker kurulu değil."
 docker compose version >/dev/null 2>&1 || hata "docker compose eklentisi yok."
 export DEBIAN_FRONTEND=noninteractive
+APT_GUNCEL=0
 for p in jq openssl curl ca-certificates git; do
-  if ! command -v "$p" >/dev/null 2>&1 && ! dpkg -s "$p" >/dev/null 2>&1; then bilgi "$p kuruluyor"; apt-get install -y -qq "$p" >/dev/null; fi
+  if ! command -v "$p" >/dev/null 2>&1 && ! dpkg -s "$p" >/dev/null 2>&1; then
+    if [ "$APT_GUNCEL" = 0 ]; then apt-get update -qq >/dev/null; APT_GUNCEL=1; fi   # eksik paket varsa listeler bir kez tazelenir
+    bilgi "$p kuruluyor"; apt-get install -y -qq "$p" >/dev/null
+  fi
 done
 
 # ---------- paket: Supabase'in setup.sh'si (sparse clone + gizli anahtarlar) ----------
@@ -47,7 +51,8 @@ if [ ! -f "$DIZIN/docker-compose.yml" ]; then
   bilgi "Supabase paketi indiriliyor → $DIZIN"
   mkdir -p "$(dirname "$DIZIN")"; cd "$(dirname "$DIZIN")"
   GUNLUK="$DIZIN.kurulum.log"; : > "$GUNLUK"; chmod 600 "$GUNLUK"   # setup.sh anahtarları yazdırır: günlük yalnız root okur
-  if ! curl -fsSL https://raw.githubusercontent.com/supabase/supabase/master/docker/setup.sh | sh -s -- -y --skip-deps --project-dir "$(basename "$DIZIN")" >>"$GUNLUK" 2>&1; then
+  # günlükte anahtarlar maskeli (KEY|SECRET|PASSWORD satırları); tamamı .env'de
+  if ! curl -fsSL https://raw.githubusercontent.com/supabase/supabase/master/docker/setup.sh | sh -s -- -y --skip-deps --project-dir "$(basename "$DIZIN")" 2>&1 | sed -E 's/([A-Z_]*(KEY|SECRET|PASSWORD)[A-Z_]*)=.*/\1=***/' >>"$GUNLUK"; then
     tail -30 "$GUNLUK" >&2; hata "setup.sh başarısız (günlük: $GUNLUK)"
   fi
 fi
@@ -62,7 +67,7 @@ if ! grep -q '^COMPOSE_FILE=.*docker-compose\.kasaba\.yml' .env; then
 fi
 
 # ---------- .env ayarları (varsa değiştir, yoksa ekle) ----------
-ayar(){ local k="$1" v="$2"; if grep -q "^$k=" .env; then sed -i "s|^$k=.*|$k=$v|" .env; else printf '%s=%s\n' "$k" "$v" >> .env; fi; }
+ayar(){ local k="$1" v="$2" e; e="$(printf '%s' "$v" | sed 's/[&|\\]/\\&/g')"; if grep -q "^$k=" .env; then sed -i "s|^$k=.*|$k=$e|" .env; else printf '%s=%s\n' "$k" "$v" >> .env; fi; }   # değerdeki | & \ sed'i bozmasın
 ayar SUPABASE_PUBLIC_URL "https://$ALAN"
 ayar API_EXTERNAL_URL "https://$ALAN/auth/v1"
 ayar SITE_URL "$SITE"
@@ -100,6 +105,10 @@ saglikli(){ for _ in $(seq 1 60); do curl -fsS -m 3 -H "apikey: $PUB_KEY" http:/
 saglikli || { docker compose ps; hata "Auth 120 sn içinde yanıt vermedi (http://127.0.0.1:8000/auth/v1/health)."; }
 KOTU="$(docker compose ps --format '{{.Name}} {{.Status}}' | grep -E 'unhealthy|Exited|Restarting' || true)"
 [ -z "$KOTU" ] || { echo "$KOTU" >&2; hata "Sağlıksız konteyner var."; }
+# ---------- port denetimi: Supabase portları yalnız 127.0.0.1'de dinlemeli (override bozulursa dışarı açılır) ----------
+ACIK="$(ss -tln | awk '{print $4}' | grep -E '^(0\.0\.0\.0|\[::\]|\*):(8000|5432|6543)$' || true)"
+[ -z "$ACIK" ] || hata "Supabase portu dışarı açık: $(echo "$ACIK" | tr '\n' ' ') — docker-compose.kasaba.yml 127.0.0.1 bağlaması bozulmuş"
+
 
 # ---------- yedek zamanlayıcısı (yedek.sh varsa) ----------
 if [ -f "$BURASI/yedek.sh" ] && [ -f "$BURASI/supabase-kasaba-yedek.service" ]; then

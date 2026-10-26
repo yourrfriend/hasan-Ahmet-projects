@@ -11,6 +11,7 @@ set -euo pipefail
 DIZIN="${1:-/var/backups/supabase-kasaba}"; GUN="${2:-14}"; KONT="${SUPABASE_DB_KONTEYNER:-supabase-db}"
 mkdir -p "$DIZIN"; chmod 700 "$DIZIN"
 DOSYA="$DIZIN/kasaba-$(date +%F-%H%M).dump"
+trap 'rm -f "$DOSYA.tmp"' EXIT   # pg_dump yarıda kesilirse .tmp kalmasın (find yalnız *.dump'ı siler)
 docker exec "$KONT" pg_dump -U postgres -Fc -n public -n private -n auth postgres > "$DOSYA.tmp"
 mv "$DOSYA.tmp" "$DOSYA"; chmod 600 "$DOSYA"
 find "$DIZIN" -name 'kasaba-*.dump' -mtime +"$GUN" -delete

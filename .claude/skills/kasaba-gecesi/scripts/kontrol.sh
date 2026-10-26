@@ -34,6 +34,8 @@ tamam "sabitler tek kaynaktan (sunucu/game.js) geliyor"
 # 3) Birim + sunucu testleri
 (cd "$SUNUCU" && npm test --silent >/tmp/kg-test.log 2>&1) || { tail -40 /tmp/kg-test.log; hata "npm test başarısız"; }
 tamam "npm test ($(grep -E '^# pass' /tmp/kg-test.log | awk '{print $3}') test)"
+(bash "$SUNUCU/db/test-betik.sh" >/tmp/kg-betik.log 2>&1) || { cat /tmp/kg-betik.log; hata "db betik testleri başarısız (sahte ortam)"; }
+tamam "db betikleri (sahte ortam: caddy/yedek/kur-supabase/uygula)"
 
 # 4) İsteğe bağlı: uçtan uca
 if [ "${1:-}" = "--e2e" ]; then

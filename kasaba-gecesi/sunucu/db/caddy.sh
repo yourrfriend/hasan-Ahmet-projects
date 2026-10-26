@@ -85,7 +85,14 @@ if [ -n "$YALNIZCA" ]; then printf '%s' "$PARCA" > "$YALNIZCA"; echo "yazıldı:
 mkdir -p "$CADDY_KOK/games"
 ANA="$CADDY_KOK/Caddyfile"; IMPORT="import $CADDY_KOK/games/*.caddy"
 grep -qxF "$IMPORT" "$ANA" 2>/dev/null || hata "$ANA içinde '$IMPORT' yok; önce kur.sh ile bir oyun kur."
-printf '%s' "$PARCA" > "$CADDY_KOK/games/supabase.caddy"
-caddy validate --config "$ANA" --adapter caddyfile >/dev/null 2>&1 || { rm -f "$CADDY_KOK/games/supabase.caddy"; hata "Caddy ayarı geçersiz; parça geri alındı."; }
+# Eski parça .onceki'de bekler (import yalnız *.caddy'yi alır); doğrulama düşerse eski parça geri konur, yeni ayar hiç yürürlüğe girmez
+PARCA_YOL="$CADDY_KOK/games/supabase.caddy"
+if [ -f "$PARCA_YOL" ]; then cp -p "$PARCA_YOL" "$PARCA_YOL.onceki"; fi
+printf '%s' "$PARCA" > "$PARCA_YOL"
+if ! caddy validate --config "$ANA" --adapter caddyfile >/dev/null 2>&1; then
+  if [ -f "$PARCA_YOL.onceki" ]; then mv "$PARCA_YOL.onceki" "$PARCA_YOL"; else rm -f "$PARCA_YOL"; fi
+  hata "Caddy ayarı geçersiz; eski parça korundu."
+fi
+rm -f "$PARCA_YOL.onceki"
 systemctl reload caddy 2>/dev/null || systemctl restart caddy
 bilgi "Caddy: $ALAN → 127.0.0.1:$PORT (kip $KIP)"

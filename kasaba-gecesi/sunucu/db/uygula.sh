@@ -37,3 +37,4 @@ for f in "$BURASI"/goc/*.sql; do
   fi
 done
 echo "$n göç uygulandı"
+psql_ -c "notify pgrst, 'reload schema'" >/dev/null   # PostgREST şema önbelleğini tazele (yeni sütun/fonksiyon/görünüm hemen görünsün)
