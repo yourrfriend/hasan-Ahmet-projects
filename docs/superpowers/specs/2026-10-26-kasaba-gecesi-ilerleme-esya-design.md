@@ -134,5 +134,11 @@ README'ye. kasaba-test'te botlarla deneme; göç 008 ekleme amaçlı (canlıyı 
 Ayrıca: `cleanSettings` boolean `esya`'yı korur; `kasalar` `oyunlar`'a bağlanmaz; maç başında üye kimliği `R` dışında sunucuda
 (`room.uyeler[pubId]`) tutulur, kopmuş oyuncu da kasa alır; `act` her mesajda `esya` bayrağını taşır.
 
+## 5.8 Sonuç (2026-10-26)
+Uygulama dal `ilerleme`, plan `docs/superpowers/plans/2026-10-26-ilerleme-esya.md`. Ölçüm: eşya modu masum kazanmayı 1–3 puan artırır, ilk
+gece ölümü biraz düşürür (botlar %30 kullanım). Güvenlik taramaları sonrası: envanter eşyası sunucu çapında ayrılır, ayırma maç sonu
+düşüm bütün bellek kopyalarına işlenince kalkar; oylamasız/iptal maçta eşya harcanmaz. Kalan kabul: canlı ve test kurulumu aynı veritabanını
+paylaştığı için iki kurulumda aynı anda oynayan biri tek eşyayı iki kez kullanabilir.
+
 ## 6. Builder'a bırakılanlar
 Şapka/bayrak/efekt çizimlerinin ayrıntısı; `/ben` sayfa düzeni; rozet ikon ve metinleri; RPC iç SQL'i; test adları.

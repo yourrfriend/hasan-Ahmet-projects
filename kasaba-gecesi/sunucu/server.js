@@ -369,9 +369,9 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
   // maç sonu ilerleme (gameId başına bir kez): kayıtlı her oyuncuya kasa + rozetler + eşya harcama; yalnız en az bir oylama yaşanmış maçta
   function ilerlemeIsle(room){const R=room.game,P=R.P;if(P.phase!=='end'||!P.gameId||!P.oyunId||typeof kayit.macSonu!=='function')return;
     room.ilerlemeIslenen=room.ilerlemeIslenen||new Set();if(room.ilerlemeIslenen.has(P.gameId))return;room.ilerlemeIslenen.add(P.gameId);
-    const birak=pid=>{room.ayirma=(room.ayirma||[]).filter(a=>a.pid!==pid)};
+    const oyun=P.gameId;const birak=pid=>{room.ayirma=(room.ayirma||[]).filter(a=>!(a.pid===pid&&a.oyun===oyun))};
     // oylamasız maç (ilk gece biten): kasa yok, eşya harcanmaz → ayırmalar hemen kalkar
-    if(!(R.gameLog||[]).some(e=>e.tur==='gunduz_sonuc')){room.ayirma=[];return}
+    if(!(R.gameLog||[]).some(e=>e.tur==='gunduz_sonuc')){room.ayirma=(room.ayirma||[]).filter(a=>a.oyun!==oyun);return}
     const kaz=new Set((P.winner&&P.winner.kazananlar)||[]),kul=G.esyaKullanimi(R);
     for(const p of P.players){const uye=(room.oyunUyeleri&&room.oyunUyeleri.get(p.id))||(room.members.get(p.id)||{}).uye;if(!uye)continue;
       const odul=G.kasaOdulu();if(odul.tur==='kozmetik')odul.donusum=G.NADIRLIK[odul.nadir].donusum;
@@ -384,7 +384,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
         for(const ws of mem.socks)send(ws,{t:'kasa',d:{odul:r.odul||null,donustu:!!r.donustu,yildiz:r.yildiz,rozetler:r.yeni_rozetler||[],tavan:!!r.tavan,tekrar:!!r.tekrar}});
         if(mem.uye&&typeof kayit.envanterOku==='function')kayit.envanterOku(mem.uye).then(e=>{if(e)envanterAyarla(room,p.id,mem,e)}).catch(()=>{})}).catch(()=>{birak(p.id)})}
     // kayıtsız oyuncunun ayırması olmaz; yine de işlenmeyen kalırsa bırak
-    const islenen=new Set(P.players.map(p=>p.id));room.ayirma=(room.ayirma||[]).filter(a=>islenen.has(a.pid));
+    const islenen=new Set(P.players.map(p=>p.id));room.ayirma=(room.ayirma||[]).filter(a=>a.oyun!==oyun||islenen.has(a.pid));
   }
   function applyLook(room,uid,mem,m){
     const n=cleanName(m.name);if(n){mem.name=n;const sk=room.skor.get(uid);if(sk){sk.ad=n;room.skorCache=null}} // skor tablosu son adı gösterir
@@ -416,11 +416,12 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
         let esyalar=null;if(R.settings&&R.settings.esyaModu){lobiEsyaGuncelle(room);esyalar={};for(const p of liste){const e=room.lobiEsya.get(p.id);if(e)esyalar[p.id]=e}}
         if(G.startGame(R,liste,{...(rovans?{rovans:true,onceki}:{}),esyalar})){room.hazir.clear();
           room.oyunUyeleri=new Map(liste.map(p=>[p.id,(room.members.get(p.id)||{}).uye||null]));
-          room.ayirma=[];if(esyalar)for(const [id,e] of Object.entries(esyalar)){const mem=room.members.get(id);if(e.kaynak==='envanter'&&mem&&mem.uye)room.ayirma.push({uye:mem.uye,key:e.key,pid:id})}
+          room.ayirma=room.ayirma||[];if(esyalar)for(const [id,e] of Object.entries(esyalar)){const mem=room.members.get(id);if(e.kaynak==='envanter'&&mem&&mem.uye)room.ayirma.push({uye:mem.uye,key:e.key,pid:id,oyun:R.P.gameId})} // önceki maçların düşümü bekleyen ayırmaları korunur
           if(room.lobiEsya)room.lobiEsya.clear();for(const mem of room.members.values())mem.lobiEsyaGonderilen=null;room.hazirSayac.clear();room.gorduler.clear();room.lastPriv.clear();log(rovans?'rövanş başladı':'oyun başladı',room.code,R.P.players.length+' kişi');flush(room)}
         else send(ws,{t:'err',m:'Başlamak için 4–12 oyuncu gerekir.',code:'soft'});
         break}
-      case 'cancel':if(isHost(ws)&&R.P.phase!=='lobby'){bitir(room);room.ayirma=[];G.endToLobby(R);room.hazir.clear();flush(room)}break;
+      // cancel: süren maç iptali → eşya harcanmaz, ayırma kalkar; bitmiş maçın ayırması düşüm onayını bekler
+      case 'cancel':if(isHost(ws)&&R.P.phase!=='lobby'){bitir(room);if(G.inGame(R))room.ayirma=(room.ayirma||[]).filter(a=>a.oyun!==R.P.gameId);G.endToLobby(R);room.hazir.clear();flush(room)}break;
       case 'hazir':if(R.P.phase==='end'&&oyuncuMu(R,uid)){const v=!!m.v;if(v!==room.hazir.has(uid)){if(v)room.hazir.add(uid);else room.hazir.delete(uid);const n=room.hazirSayac.get(uid)||0;if(n<HAZIR_OLAY_TAVAN){room.hazirSayac.set(uid,n+1);G.olay(R,'hazir',{kim:uid,v})}schedule(room)}}break; // değişmediyse yayın yok; olay üye başına maçta en çok 10 (aç/kapa spam'i günlüğe dolmasın)
       case 'gordum':if(R.P.phase==='end'&&oyuncuMu(R,uid)&&!room.gorduler.has(uid)){room.gorduler.add(uid);G.olay(R,'son_ekran_goruldu',{kim:uid});bosalt(room)}break; // ölçüm: son ekran görüldü (kişi başı bir kez; yayın gerekmez)
       case 'close':if(isHost(ws))deleteRoom(room,'Ev sahibi odayı kapattı.');break;

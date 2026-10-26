@@ -851,7 +851,7 @@ test('ilerleme: eşya modu — lobide herkese eşya (envanterden seçilen ya da 
     const once=acik[1].diger.filter(m=>m.t==='lobiEsya').pop().d.key;
     a.send({t:'start'});await a.until(c=>c.P.phase==='night');const R=I.srv.rooms.get(room).game;
     assert.deepStrictEqual(R.g.esya[a.me],{key:'iksir',kaynak:'envanter',kullanildi:false});assert.strictEqual(R.g.esya[acik[1].me].key,once,'lobide gösterilen bedava eşya maçta aynı');
-    assert.deepStrictEqual(I.srv.rooms.get(room).ayirma,[{uye:SA,key:'iksir',pid:a.me}],'maç süresince sunucu çapında ayrıldı');
+    assert.deepStrictEqual(I.srv.rooms.get(room).ayirma,[{uye:SA,key:'iksir',pid:a.me,oyun:R.P.gameId}],'maç süresince sunucu çapında ayrıldı');
     await a.until(c=>c.priv&&c.priv.esya&&c.priv.esya.key==='iksir');
   }finally{for(const c of acik)await c.close();await I.kapat()}
 });
@@ -923,5 +923,20 @@ test('ilerleme: maç sonu düşüm tamamlanmadan ayırma kalkmaz; harcanan eşya
     assert.strictEqual(R2.g.esya[a2.me].kaynak,'bedava','düşüm onaylanmadan ayırma kalkmaz');
     coz();await new Promise(r=>setTimeout(r,200));
     assert.strictEqual(I.srv.rooms.get(h2.P.room).members.get(a2.me).envanter.esyalar.iksir||0,0,'harcanan eşya diğer odadaki kopyada da düştü');
+  }finally{coz&&coz();for(const c of acik)await c.close();await I.kapat()}
+});
+
+test('ilerleme: aynı odada yeni maç, önceki maçın düşümü beklenirken ayırmayı silmez',async()=>{
+  const I=await ilerlemeSunucu({[SA]:{yildiz:0,esyalar:{iksir:1},kozmetikler:[]}});let coz;I.cagri.bekle=new Promise(r=>{coz=r});const acik=[];
+  try{
+    const h=client('rv0','H',{host:true},I.b);acik.push(h);await h.until(c=>c.P&&c.P.room);h.send({t:'settings',night:30,talk:60,vote:30,esyaModu:true});
+    const a=client('rv1','A',{room:h.P.room,token:I.tok(SA),esya:'iksir'},I.b);acik.push(a);for(const u of ['rv2','rv3'])acik.push(client(u,u,{room:h.P.room},I.b));
+    await h.until(c=>c.P.lobby.length===4);await a.until(c=>c.diger.some(m=>m.t==='lobiEsya'&&m.d&&m.d.kaynak==='envanter'));
+    h.send({t:'start'});await h.until(c=>c.P.phase==='night');const room=I.srv.rooms.get(h.P.room);const R=room.game;
+    R.g.esya[a.me].kullanildi=true;R.gameLog.push({sira:99,gun:1,faz:'vote',tur:'gunduz_sonuc',veri:{}});R.P.phase='end';R.P.winner={team:'inn',kazananlar:[]};h.send({t:'look',name:'H1'});
+    await new Promise(r=>setTimeout(r,150));assert.strictEqual(I.cagri.mac.length,1);
+    h.send({t:'cancel'});await h.until(c=>c.P.phase==='lobby');h.send({t:'start'});await h.until(c=>c.P.phase==='night');
+    assert.strictEqual(room.game.g.esya[a.me].kaynak,'bedava','önceki maçın ayırması düşüm onaylanana dek durur');
+    coz();await new Promise(r=>setTimeout(r,150));assert.ok(!room.ayirma.some(x=>x.oyun!==room.game.P.gameId),'düşüm sonrası eski ayırma kalktı');
   }finally{coz&&coz();for(const c of acik)await c.close();await I.kapat()}
 });

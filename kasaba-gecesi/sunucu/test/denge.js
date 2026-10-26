@@ -10,6 +10,7 @@ const OYUN=+process.argv[2]||2000;
 // Eşik denemesi (kalibrasyon): DAGILIM_HAIN='n<=7?1:n<=11?2:3' gibi ifadelerle eşikleri geçici değiştir.
 const AYAR={};for(const k of ['hain','saldirgan','pasif','deli','masum']){const e=process.env['DAGILIM_'+k.toUpperCase()];if(e)AYAR[k]=new Function('n','return ('+e+')')} // DAGILIM donmuş: üst yazım startGame'e {dagilim:AYAR} ile geçer
 if(process.env.DAGILIM_TEKHAINSURUMP)AYAR.tekHainSurumP=+process.env.DAGILIM_TEKHAINSURUMP; // 0 / 0.5 / 1 (botlar hain yeteneği kullanmaz: tabloya etkisi yok)
+const ESYA_MODU=!!process.env.DAGILIM_ESYA;
 const ARALIK=(process.argv[3]||'4-12').split('-').map(Number);
 const pick=a=>a[Math.floor(Math.random()*a.length)];
 const SALDIRGAN=['serikatil','bombaci','hirsiz','buyucu'];
@@ -47,15 +48,16 @@ function dayVote(R,id,alive,oluAdlar){
 }
 
 function play(n){
-  const R=G.createGame({night:15,talk:15,vote:15});G.startGame(R,lobby(n),{dagilim:AYAR});
+  // DAGILIM_ESYA=1: eşya modu (botlar eşyasını her gece/oylamada %30 kullanır)
+  const R=G.createGame({night:15,talk:15,vote:15,esyaModu:ESYA_MODU});G.startGame(R,lobby(n),{dagilim:AYAR});
   let steps=0,firstNightDeaths=null,oluAdlar=[];
   while(R.P.phase!=='end'&&steps++<60){
     const alive=G.alivePlayers(R).map(p=>p.id);
-    if(R.P.phase==='night'){for(const id of alive)G.act(R,id,nightMove(R,id,alive));const before=alive;G.advance(R);
+    if(R.P.phase==='night'){for(const id of alive)G.act(R,id,{...nightMove(R,id,alive),esya:ESYA_MODU&&Math.random()<0.3});const before=alive;G.advance(R);
       const sonra=G.alivePlayers(R).map(p=>p.id);oluAdlar=before.filter(x=>!sonra.includes(x)).map(x=>R.P.players.find(p=>p.id===x).name);
       if(firstNightDeaths===null)firstNightDeaths=oluAdlar.length}
     else if(R.P.phase==='talk')G.advance(R);
-    else if(R.P.phase==='vote'){const day=R.P.day;for(const id of alive){if(R.P.phase!=='vote'||R.P.day!==day)break;G.vote(R,id,dayVote(R,id,alive,oluAdlar))}if(R.P.phase==='vote')G.advance(R)}
+    else if(R.P.phase==='vote'){const day=R.P.day;for(const id of alive){if(R.P.phase!=='vote'||R.P.day!==day)break;G.vote(R,id,dayVote(R,id,alive,oluAdlar),null,null,ESYA_MODU&&Math.random()<0.3)}if(R.P.phase==='vote')G.advance(R)}
   }
   return{bitti:R.P.phase==='end',kazanan:R.P.winner?R.P.winner.team:null,gun:R.P.day,ilkGece:firstNightDeaths||0};
 }
