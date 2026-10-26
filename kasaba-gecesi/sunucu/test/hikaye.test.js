@@ -74,3 +74,21 @@ test('hikâye: eşya satırları (gece adıyla, oy fişi anonim)',()=>{
   const m=duz(hikaye(R.gameLog,oy,G.ROLES));
   assert.match(m,/🧪 Oyuncu1 iksir içti ve saldırıdan sağ çıktı/);assert.match(m,/🗳️ Biri oy fişi kullandı/);assert.ok(!/Oyuncu0 oy fişi/.test(m),'fiş kullanan adı yok');
 });
+
+test('hikâye 2: pusula, kilit, vasiyet, kum saati ve paket satırları (bitmiş oyunda adla; süren oyunda paket adsız)',()=>{
+  const R=G.createGame({night:30,talk:120,vote:45,esyaModu:true});
+  const E={u0:'fis',u1:'pusula',u2:'kilit',u3:'vasiyet',u4:'kum',u5:'fis'};G.startGame(R,lobbyOf(6),{esyalar:Object.fromEntries(Object.entries(E).map(([k,v])=>[k,{key:v,kaynak:'envanter'}]))});
+  ['hain','gozcu','masum','masum','masum','serikatil'].forEach((k,i)=>{const e=G.SETUP.find(x=>x.id===k);R.g.roles['u'+i]={key:e.key,team:e.team,mad:null,uses:{},vest:3,planted:[]}});
+  G.act(R,'u0',{kill:'u3'});G.act(R,'u1',{ab:'u0',esya:'pusula',esyaHedef:'u0'});G.act(R,'u2',{esya:'kilit',esyaHedef:'u5'});G.act(R,'u5',{ab:'u3'});G.advance(R); // Seri Katil kilitlenmez; u3 ölür, vasiyeti okunur
+  assert.strictEqual(G.esyaKullan(R,'u4','kum'),true);
+  R.gameLog.push({sira:900,gun:1,faz:'talk',tur:'paket',veri:{key:'kum',n:2,alan:2,alanlar:['u1','u2']},oyun:R.P.gameId,oyunId:R.P.oyunId,zaman:0});
+  R.gameLog.push({sira:901,gun:1,faz:'talk',tur:'paket',veri:{key:'fis',n:1,alan:0,alanlar:[]},oyun:R.P.gameId,oyunId:R.P.oyunId,zaman:0});
+  G.advance(R);for(const id of ['u0','u1','u2','u4','u5'])G.vote(R,id,'skip');
+  const oy=R.P.players.map(p=>({pub_id:p.id,ad:p.name,rol_key:R.g.roles[p.id].key,takim:R.g.roles[p.id].team}));
+  const m=duz(hikaye(R.gameLog,oy,G.ROLES));
+  assert.match(m,/🧭 Oyuncu1 pusulayla Oyuncu0'ı izledi: evinden çıktı/);assert.match(m,/🔒 Oyuncu2 Oyuncu5'in kapısını kilitledi; ama Oyuncu5 evde durmadı/);
+  assert.match(m,/📜 Oyuncu3'ün vasiyeti okundu/);assert.match(m,/⏳ Biri kum saatini çevirdi/);assert.ok(!/Oyuncu4 kum/.test(m));
+  assert.match(m,/📦 Meydana ⏳ kum saati düştü; Oyuncu1 ve Oyuncu2 kaptı/);assert.match(m,/📦 Meydana 🗳️ oy fişi düştü; kimse kapmadı/);
+  const suren=oy.map(p=>({...p,rol_key:null,takim:null}));const m2=duz(hikaye(R.gameLog,suren,G.ROLES));
+  assert.match(m2,/📦 Meydana ⏳ kum saati düştü; ikisini de kaptılar/);assert.ok(!/Oyuncu1 ve Oyuncu2 kaptı/.test(m2),'süren oyunda kapan adsız');
+});

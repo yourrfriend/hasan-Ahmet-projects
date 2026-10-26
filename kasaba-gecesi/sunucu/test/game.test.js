@@ -901,6 +901,29 @@ test('meydan paketi: tartışmada planlanır, zamanında açılır (tür+sayı+s
     const z=R.g.esya.u1[1];assert.strictEqual(G.ESYA[z.key].nadir,'nadir');assert.strictEqual(z.zar,true);assert.strictEqual(z.kaynak,'paket');assert.match(R.g.notes.u1.join(' | '),/🎲 Zar: .* çıktı/);
   }finally{G.setClock();G.setRnd(null)}
 });
+test('gazete 2: eşya kartı önceliği (iksir korudu > kilit > fener hain > vasiyet > diğer), en çok bir paket kartı; P.ozet eşya açıklaması (fiş gizli)',()=>{
+  const R=esyali(['hain','masum','masum','masum','masum','masum'],{u1:'kilit',u2:'fener',u3:'iksir',u4:'fis',u5:'vasiyet'});
+  G.act(R,'u0',{kill:'u3'});G.act(R,'u1',{esya:'kilit',esyaHedef:'u2'});G.act(R,'u2',{esya:'fener'});G.advance(R); // iksir korur, kilit masumu kilitler, fener kimseyi görmez
+  R.gameLog.push({sira:900,gun:1,faz:'talk',tur:'paket',veri:{key:'fis',n:1,alan:1,alanlar:['u4']},oyun:R.P.gameId,oyunId:R.P.oyunId,zaman:0});
+  R.gameLog.push({sira:901,gun:1,faz:'talk',tur:'paket',veri:{key:'kum',n:2,alan:0,alanlar:[]},oyun:R.P.gameId,oyunId:R.P.oyunId,zaman:0});
+  G.advance(R);G.vote(R,'u4','u0',null,null,true);for(const id of ['u1','u2','u3','u5'])G.vote(R,id,'u0');G.vote(R,'u0','skip');
+  assert.strictEqual(R.P.phase,'end');const gz=G.gazeteFor(R);
+  const ek=gz.filter(c=>c.tur==='esya');assert.strictEqual(ek.length,1);assert.match(ek[0].metin,/🧪 Gece 1: Oyuncu3'ün iksiri onu saldırıdan kurtardı/);
+  const pk=gz.filter(c=>c.tur==='paket');assert.strictEqual(pk.length,1);assert.strictEqual(pk[0].metin,'📦 Maçta 2 paket düştü, 1\'i kapıldı.');assert.deepStrictEqual(pk[0].ozne,[]);
+  const oz=Object.fromEntries(R.P.ozet.oyuncular.map(p=>[p.id,p.esyalar]));
+  assert.deepStrictEqual(oz.u3,[{key:'iksir',kullanildi:true,kaynak:'envanter'}]);assert.deepStrictEqual(oz.u1,[{key:'kilit',kullanildi:true,kaynak:'envanter'}]);
+  assert.deepStrictEqual(oz.u2,[{key:'fener',kullanildi:true,kaynak:'envanter'}]);assert.deepStrictEqual(oz.u5,[{key:'vasiyet',kullanildi:false,kaynak:'envanter'}]);
+  assert.deepStrictEqual(oz.u4,[{key:'fis',gizli:true}],'fiş kullanımı maç sonunda da açıklanmaz');assert.deepStrictEqual(oz.u0,[{key:'fis',gizli:true}]);
+  noLeak(R.P);
+  // öncelik: kilit kilitledi > fener hain gördü > vasiyet
+  const R2=esyali(['hain','masum','masum','masum','masum'],{u1:'fener',u2:'kilit',u3:'vasiyet'});
+  G.act(R2,'u0',{kill:'u1'});G.act(R2,'u1',{esya:'fener'});G.act(R2,'u2',{esya:'kilit',esyaHedef:'u4'});G.advance(R2);
+  G.advance(R2);for(const id of ['u1','u2','u3','u4'])G.vote(R2,id,'u0');G.vote(R2,'u0','skip');assert.strictEqual(R2.P.phase,'end');
+  const e2=G.gazeteFor(R2).filter(c=>c.tur==='esya');assert.strictEqual(e2.length,1);assert.match(e2[0].metin,/🔒 Gece 1: Oyuncu2 Oyuncu4'ün kapısını kilitledi/);
+  // eşya modu kapalı: ozet.esyalar boş dizi, paket kartı yok
+  const R3=fixed(['hain','masum','masum','masum']);G.advance(R3);G.advance(R3);for(const id of ['u1','u2','u3'])G.vote(R3,id,'u0');G.vote(R3,'u0','skip');
+  assert.deepStrictEqual(R3.P.ozet.oyuncular[0].esyalar,[]);assert.ok(!G.gazeteFor(R3).some(c=>c.tur==='paket'));
+});
 test('oy fişi: oyu 2 sayar, eşiğe sayılmaz, eşitliği bozar; anonim özet',()=>{
   let R=esyali(['hain','masum','masum','masum','masum'],{u0:'fis'});G.advance(R);G.advance(R);
   G.vote(R,'u0','u1',null,null,true);for(const id of ['u1','u2','u3','u4'])G.vote(R,id,'skip');

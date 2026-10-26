@@ -33,7 +33,8 @@ function hikaye(olaylar,oyuncular,ROLES){
       else if(v.hedef){const f=HAMLE[rol];b.satirlar.push(kim+etiket+' '+(f?f(nm(v.hedef)):ek(nm(v.hedef),'in')+' evine gitti')+(v.tahmin&&ROLES[v.tahmin]?' ('+ROLES[v.tahmin].n+')':''))}
     }
     else if(e.tur==='gece_sonuc'){const b=al('🌙 Gece '+gun);
-      for(const x of v.esyalar||[]){const N=nm(x.kim);const t={iksir:'🧪 '+N+' iksir içti'+(x.etki==='korudu'?' ve saldırıdan sağ çıktı':''),fener:'🏮 '+N+' fenerle bekledi'+(x.etki==='hain_gordu'?'; kapısına gelen haini gördü':''),duman:'💨 '+N+' dumanla görünmeden dolaştı',maske:'🎭 '+N+' maske taktı'}[x.key];if(t)b.satirlar.push(t)}
+      for(const x of v.esyalar||[]){const N=nm(x.kim),H=x.hedef?nm(x.hedef):'';const t={iksir:'🧪 '+N+' iksir içti'+(x.etki==='korudu'?' ve saldırıdan sağ çıktı':''),fener:'🏮 '+N+' fenerle bekledi'+(x.etki==='hain_gordu'?'; kapısına gelen haini gördü':''),duman:'💨 '+N+' dumanla görünmeden dolaştı',maske:'🎭 '+N+' maske taktı',
+        pusula:'🧭 '+N+' pusulayla '+ek(H,'i')+' izledi: evinden '+(x.etki==='cikti'?'çıktı':'çıkmadı'),kilit:'🔒 '+N+' '+ek(H,'in')+' kapısını kilitledi'+(x.etki==='durduramadi'?'; ama '+H+' evde durmadı':''),vasiyet:'📜 '+ek(N,'in')+' vasiyeti okundu'}[x.key];if(t)b.satirlar.push(t)}
       for(const k of v.kurtaranlar||[])b.satirlar.push('💉 '+nm(k.kim)+' bir saldırıyı önledi; '+nm(k.hedef)+' sağ çıktı');
       for(const id of v.yelek||[])b.satirlar.push('🦺 '+nm(id)+' yelek sayesinde saldırıdan sağ çıktı');
       const tz={};for(const t of v.tuzak||[]){const key=t.kuran+'>'+t.ev;(tz[key]=tz[key]||{kuran:t.kuran,ev:t.ev,kim:[]}).kim.push(t.kim)}
@@ -54,9 +55,13 @@ function hikaye(olaylar,oyuncular,ROLES){
       b.satirlar.push('🗣️ '+nm(v.kim)+': «Rolüm '+iddia+'» — '+(gercek===iddia?'doğruydu':'o sırada rolü '+gercek+' idi'))}
     else if(e.tur==='gunduz_sonuc'){const b=al('☀️ Gün '+gun);const t=v.toplamlar||{};const parcalar=Object.keys(t).sort((a,c)=>t[c]-t[a]).map(id=>nm(id)+' '+t[id]);if(v.cekimser)parcalar.push('çekimser '+v.cekimser);
       if(v.fis)b.satirlar.push('🗳️ Biri oy fişi kullandı'); // oy gizliliği: kullananın adı yazılmaz
+      if(v.kum)b.satirlar.push('⏳ Biri kum saatini çevirdi'); // kimlik günlükte yok
+      if(v.vasiyet&&v.vasiyet.kim)b.satirlar.push('📜 '+ek(nm(v.vasiyet.kim),'in')+' vasiyeti okundu');
       if(v.provoke)b.satirlar.push('🔥 '+nm(v.provoke)+' kışkırtılmıştı (oy alırsa +2)');
       if(parcalar.length)b.satirlar.push('🗳️ Oylar: '+parcalar.join(', '));
       b.satirlar.push(v.asilan?'⚖️ Kasaba '+ek(nm(v.asilan),'i')+' gönderdi'+(v.rol_goruntu?' ('+v.rol_goruntu+')':''):'⚖️ Oylar yetersiz, kimse gönderilmedi')}
+    else if(e.tur==='paket'){const b=al('☀️ Gün '+gun);const E=G&&G.ESYA&&G.ESYA[v.key];const ad=E?E.ico+' '+E.n.toLowerCase():v.key;const bitmis=[...oy.values()].every(p=>p.rol_key);
+      const son=!v.alan?'kimse kapmadı':bitmis&&v.alanlar&&v.alanlar.length?v.alanlar.map(nm).join(' ve ')+' kaptı':v.alan===2?'ikisini de kaptılar':'biri kaptı';b.satirlar.push('📦 Meydana '+ad+' düştü; '+son)}
     else if(e.tur==='bitis'){al('🏁 Bitiş').satirlar.push(v.kazanan_metin||'Oyun bitti')}
     else if(e.tur==='iptal'){al('🏁 Bitiş').satirlar.push('Oyun iptal edildi (Gün '+(v.gun||gun)+', '+(FAZ[v.faz]||v.faz||'')+')')}
     // baslangic, hazir, kopus, dondu, son_ekran_goruldu, rovans_basladi, hizli ve bilinmeyenler: satır üretmez
