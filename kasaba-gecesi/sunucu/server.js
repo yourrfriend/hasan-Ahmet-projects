@@ -360,7 +360,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
       case 'gordum':if(R.P.phase==='end'&&oyuncuMu(R,uid)&&!room.gorduler.has(uid)){room.gorduler.add(uid);G.olay(R,'son_ekran_goruldu',{kim:uid});bosalt(room)}break; // ölçüm: son ekran görüldü (kişi başı bir kez; yayın gerekmez)
       case 'close':if(isHost(ws))deleteRoom(room,'Ev sahibi odayı kapattı.');break;
       case 'act':G.act(R,uid,m);break; // gece hamlesi gizli: kimseye yayın yok
-      case 'vote':if(G.vote(R,uid,m.v,m.d,m.g))schedule(room);break;
+      case 'vote':if(G.vote(R,uid,m.v,m.d,m.g,m.esya===true))schedule(room);break;
       case 'msg':if(G.chat(R,uid,m.x))schedule(room);break;
       case 'hizli':{const r=G.hizli(R,uid,m);if(r.ok)schedule(room);else if(r.kod==='bekle')send(ws,{t:'err',m:'Biraz bekle ('+r.kalan+' sn).',code:'soft'});else if(r.kod==='gun')send(ws,{t:'err',m:'Bugünlük hızlı ifade hakkın bitti ('+G.HIZLI_GUN+').',code:'soft'});break}
       case 'dmsg':if(G.deadChat(R,uid,m.x))schedule(room);break;

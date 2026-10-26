@@ -64,3 +64,13 @@ test('hikâye: Seri Katil hamlesi, kim öldürdü satırı, kışkırtma satır�
   assert.match(m,/Oyuncu5 öldü \(Masum\) — Oyuncu2 öldürdü/);
   assert.match(m,/🔥 Oyuncu5 kışkırtılmıştı/,'kışkırtma satırı (ölmüş olsa da günlükte)');
 });
+
+test('hikâye: eşya satırları (gece adıyla, oy fişi anonim)',()=>{
+  const R=G.createGame({night:30,talk:120,vote:45,esyaModu:true});G.startGame(R,lobbyOf(6),{esyalar:{u1:{key:'iksir',kaynak:'envanter'},u0:{key:'fis',kaynak:'envanter'}}});
+  ['hain','masum','masum','masum','masum','masum'].forEach((k,i)=>{const e=G.SETUP.find(x=>x.id===k);R.g.roles['u'+i]={key:e.key,team:e.team,mad:null,uses:{},vest:3,planted:[]}});
+  G.act(R,'u0',{kill:'u1'});G.act(R,'u1',{esya:true});G.advance(R);G.advance(R);
+  G.vote(R,'u0','u1',null,null,true);G.vote(R,'u3','u1');G.vote(R,'u2','u4');G.vote(R,'u5','u4');G.vote(R,'u1','skip');G.vote(R,'u4','skip');
+  const oy=R.P.players.map(p=>({pub_id:p.id,ad:p.name,rol_key:R.g.roles[p.id].key,takim:R.g.roles[p.id].team}));
+  const m=duz(hikaye(R.gameLog,oy,G.ROLES));
+  assert.match(m,/🧪 Oyuncu1 iksir içti ve saldırıdan sağ çıktı/);assert.match(m,/🗳️ Biri oy fişi kullandı/);assert.ok(!/Oyuncu0 oy fişi/.test(m),'fiş kullanan adı yok');
+});
