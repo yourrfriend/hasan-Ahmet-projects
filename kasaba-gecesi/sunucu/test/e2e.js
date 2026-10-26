@@ -60,7 +60,7 @@ const step=t=>console.log('•',t);
         oturumVer=()=>oturum;let signupRota=0;let apiJsDurum=200;
         const g1='aaaaaaaa-0000-4000-8000-000000000001',g2='aaaaaaaa-0000-4000-8000-000000000002',g3='aaaaaaaa-0000-4000-8000-000000000003',k1='bbbbbbbb-0000-4000-8000-000000000001';
         const g4='aaaaaaaa-0000-4000-8000-000000000004',g9='aaaaaaaa-0000-4000-8000-000000000009';
-        const tablo={
+        const tablo={cuzdan:[{uye:'11111111-2222-4333-8444-555555555555',yildiz:20}],esyalar:[{uye:'11111111-2222-4333-8444-555555555555',key:'iksir',adet:2}],kozmetikler:[{uye:'11111111-2222-4333-8444-555555555555',key:'sapka:tac'}],rozetler:[{uye:'11111111-2222-4333-8444-555555555555',key:'kurtarici',kazanma:'2026-10-26T10:00:00Z'}],
           oyuncu_ozet:[{uye:ben,kurulum:'e2e',oyun:3,kazanma:2,en_cok_rol:'doktor',son_oyun:'2026-10-25T20:00:00Z'}],
           // g3: kasabamın maçı ama ben oynamadım → "son oyunların"da yok; g4: süren oyun (bitiş yok, roller gizli, olaylar RLS'de boş)
           oyunlar:[{id:g3,kasaba_id:k1,kurulum:'e2e',bitis:'2026-10-25T21:00:00Z',sonuc:'bitti',kazanan_takim:'inn',kazanan_metin:'Masumlar kazandı',oyuncu_sayisi:4,baslama:'2026-10-25T20:40:00Z'},
@@ -129,6 +129,16 @@ const step=t=>console.log('•',t);
         // sahip: sunucu kısıtı (23514, göç 007) → anlaşılır metin
         { const sahipEski=tablo.kasabalar[0].sahip;tablo.kasabalar[0].sahip=ben;await p5.goto(o3+'/kasaba/'+k1);await p5.waitForSelector('input[maxlength="40"]',{timeout:8000});await p5.evaluate(()=>{const i=document.querySelector('input[maxlength="40"]');i.value='KISIT deneme'}); // istemci 40'a kırptığı için sahte sunucu bu değerde kısıt hatası döner
           await p5.click('text=Adı kaydet');await p5.waitForSelector('.not',{timeout:8000});assert.match(await p5.textContent('.not'),/en çok 40 karakter/,'kasaba adı kısıt metni');tablo.kasabalar[0].sahip=sahipEski}
+        // /ben: özet, yıldız, eşyalar, rozetler (kazanılan/kilitli), koleksiyon; dükkânda al → /ben/al (Bearer), giy → localStorage
+        { const alimlar=[];await p5.route('**/ben/al',async route=>{const r=route.request();const g=JSON.parse(r.postData()||'{}');alimlar.push({key:g.key,auth:r.headers()['authorization']||''});
+            tablo.kozmetikler.push({uye:ben,key:g.key});tablo.cuzdan[0].yildiz=8;return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,yildiz:8})})});
+          await p5.goto(o3+'/ben');await p5.waitForFunction(()=>[...document.querySelectorAll('#icerik h2')].some(h=>/Koleksiyon/.test(h.textContent)),null,{timeout:8000});
+          const t=await p5.textContent('main');assert.match(t,/⭐ 20/);assert.match(t,/İksir ×2/);assert.match(t,/Rozetler \(1\//);
+          assert.strictEqual(await p5.evaluate(()=>document.querySelectorAll('.rozet:not(.kilitli)').length),1,'bir rozet kazanılmış');
+          await p5.click('.urun[data-key="bayrak:mavi"] button');await p5.waitForFunction(()=>/⭐ 8/.test(document.querySelector('main').textContent),null,{timeout:8000});
+          assert.deepStrictEqual(alimlar.map(a=>a.key),['bayrak:mavi']);assert.match(alimlar[0].auth,/^Bearer ey/,'oturum tokenıyla');
+          await p5.click('.urun[data-key="sapka:tac"] button');await p5.waitForFunction(()=>{try{return JSON.parse(localStorage.getItem('kg_look')).hat==='tac'}catch(e){return false}},null,{timeout:8000});
+          await p5.unroute('**/ben/al') }
         restHata='kasabalar';await p5.goto(o3+'/kasaba/'+k1);await p5.waitForSelector('.not',{timeout:8000});assert.match(await p5.textContent('.not'),/Bağlantı hatası/,'kasaba sayfası sunucu hatası');restHata=null;assert.deepStrictEqual(ks.maclar,['/oyun/'+g3,'/oyun/'+g1],'son maçlar: kasabanın bitmiş maçları, yeniden eskiye');
         assert.ok(istekler.some(i=>/^oyunlar\?.*kasaba_id=eq\./.test(i)&&/kurulum=eq\.e2e/.test(i)),'kasaba son maçları kurulum süzgeciyle: '+istekler.join(' | '));
         await c5.close();
