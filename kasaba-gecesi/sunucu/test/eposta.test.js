@@ -42,3 +42,10 @@ test('varsayılan örnek ve gönderen/sağlayıcı ayarı',async()=>{
   await e.sendTransactionalEmail({to:'a@b.c',subject:'S',text:'T',html:'T'});assert.strictEqual(JSON.parse(cagrilar[0].o.body).from,'X <x@y.z>');
   assert.throws(()=>Eposta.olustur({apiKey:'k',saglayici:'yok'}),/sağlayıcı/);
 });
+
+test('kodMaili: sayfa adresi html\'de kaçışlı; "Kodu kimseyle paylaşma" cümlesi metin ve html\'de',()=>{
+  const m=Eposta.kodMaili({tur:'giris',kod:'111222',sayfa:'https://x.test/<a>"q"'});
+  assert.ok(!m.html.includes('<a>"q"'),'ham etiket html\'e girmez');assert.ok(m.html.includes('&lt;a&gt;&quot;q&quot;'),m.html);
+  assert.match(m.text,/Kodu kimseyle paylaşma/);assert.match(m.html,/Kodu kimseyle paylaşma/);
+  const b=Eposta.kodMaili({tur:'baglama',kod:'333444'});assert.match(b.text,/Kodu kimseyle paylaşma/);
+});

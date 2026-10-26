@@ -7,13 +7,14 @@
 //   kodMaili({tur:'baglama'|'giris', kod, sureDk=15}) → {subject, text, html}   (saf)
 const GONDEREN='Kasaba Gecesi <oyun@munupixi.com>';
 // sayfa: kodun yazılacağı adres (kurulumun kendi adresi, ör. https://kasaba.munupixi.com/); verilirse mailde tek link olarak geçer
+const kacis=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function kodMaili({tur,kod,sureDk=15,sayfa}){
   const ne=tur==='giris'?'giriş kodun':'doğrulama kodun';
   const amac=tur==='giris'?"Kasaba Gecesi'ne hesabınla giriş yapmak için":"Kasaba Gecesi'nde e-postanı bağlamak için";
   const subject='Kasaba Gecesi '+ne+': '+kod;
   const nereye=sayfa?' Sayfa kapandıysa: '+sayfa+(tur==='giris'?' → "Hesabınla gir".':' → "E-postanı bağla".'):'';
-  const text='Merhaba! '+amac+' kodun: '+kod+' — '+sureDk+' dakika geçerli. Kodu oyun sayfasındaki kutuya yaz.'+nereye+' Sen istemediysen bu maili yok say.';
-  const html='<p>Merhaba! '+amac+' kodun:</p><p style="font-size:28px;letter-spacing:4px"><b>'+kod+'</b></p><p>'+sureDk+' dakika geçerli. Kodu oyun sayfasındaki kutuya yaz.'+(sayfa?' Sayfa kapandıysa: <a href="'+sayfa+'">'+sayfa+'</a> → '+(tur==='giris'?'"Hesabınla gir"':'"E-postanı bağla"')+'.':'')+'</p><p style="color:#777">Sen istemediysen bu maili yok say.</p>';
+  const text='Merhaba! '+amac+' kodun: '+kod+' — '+sureDk+' dakika geçerli. Kodu oyun sayfasındaki kutuya yaz.'+nereye+' Kodu kimseyle paylaşma; biz asla sormayız. Sen istemediysen bu maili yok say.';
+  const html='<p>Merhaba! '+amac+' kodun:</p><p style="font-size:28px;letter-spacing:4px"><b>'+kod+'</b></p><p>'+sureDk+' dakika geçerli. Kodu oyun sayfasındaki kutuya yaz.'+(sayfa?' Sayfa kapandıysa: <a href="'+kacis(sayfa)+'">'+kacis(sayfa)+'</a> → '+(tur==='giris'?'"Hesabınla gir"':'"E-postanı bağla"')+'.':'')+'</p><p>Kodu kimseyle paylaşma; biz asla sormayız.</p><p style="color:#777">Sen istemediysen bu maili yok say.</p>';
   return {subject,text,html};
 }
 const saglayicilar={
