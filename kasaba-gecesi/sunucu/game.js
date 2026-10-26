@@ -635,7 +635,7 @@ function deadChat(R,id,x){
 }
 
 // Kişiye özel paket (yalnız o oyuncuya gider). Oyunda değilse boş paket.
-const EMPTY_PRIV={role:null,notes:[],mates:[],dchat:[],payin:null,esya:null};
+const EMPTY_PRIV={role:null,notes:[],mates:[],dchat:[],payin:null,esya:null,hamle:null};
 function privFor(R,id){
   const g=R.g;if(!g||!g.roles[id])return EMPTY_PRIV;const P=R.P;const r=g.roles[id];const sr=r.mad?{key:r.mad,team:'inn'}:{key:r.key,team:r.team};
   const me=pl(R,id);
@@ -644,6 +644,7 @@ function privFor(R,id){
     notes:g.notes[id]||[],dchat:me&&!me.alive?g.dchat:[],
     fakeProvoked:r.fakeProvoked&&r.fakeProvoked.day===P.day&&P.phase==='vote'?r.fakeProvoked.t:null,
     uses:r.uses,vest:r.vest,planted:r.planted.slice(),candle:g.candle[id]||null,payin:P.phase==='end'?payinFor(R,id):null,
+    hamle:P.phase==='night'&&g.acts[id]?{kill:g.acts[id].kill||null,ab:g.acts[id].ab||null,guess:g.acts[id].guess||null,det:!!g.acts[id].det,esya:g.acts[id].esya||null,esyaHedef:g.acts[id].esyaHedef||null}:null, // kendi gece hamlesi: sayfa yenilenince istemci geri yükler
     esya:g.esya&&g.esya[id]?g.esya[id].map(e=>({key:e.key,kullanildi:e.kullanildi,pasif:!!ESYA[e.key].pasif,hedefli:!!ESYA[e.key].hedef})):null};
 }
 // maç sonu: eşya kullanımı (sunucu envanterden harcar: yalnız kaynak 'envanter' ve kullanildi)

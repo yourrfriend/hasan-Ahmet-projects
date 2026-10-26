@@ -938,6 +938,15 @@ test('gazete 2: eşya kartı önceliği (iksir korudu > kilit > fener hain > vas
   const R3=fixed(['hain','masum','masum','masum']);G.advance(R3);G.advance(R3);for(const id of ['u1','u2','u3'])G.vote(R3,id,'u0');G.vote(R3,'u0','skip');
   assert.deepStrictEqual(R3.P.ozet.oyuncular[0].esyalar,[]);assert.ok(!G.gazeteFor(R3).some(c=>c.tur==='paket'));
 });
+test('privFor.hamle: gece kendi hamlesi geri gelir (yenileme); başka fazda ve başkasına yok; P gizli',()=>{
+  const R=esyali(['hain','doktor','masum','masum','masum'],{u1:'kilit'});
+  assert.strictEqual(G.privFor(R,'u0').hamle,null,'hamle yokken null');
+  G.act(R,'u0',{kill:'u2'});G.act(R,'u1',{ab:'u2',esya:'kilit',esyaHedef:'u0'});
+  assert.deepStrictEqual(G.privFor(R,'u0').hamle,{kill:'u2',ab:null,guess:null,det:false,esya:null,esyaHedef:null});
+  assert.deepStrictEqual(G.privFor(R,'u1').hamle,{kill:null,ab:'u2',guess:null,det:false,esya:'kilit',esyaHedef:'u0'});
+  assert.strictEqual(G.privFor(R,'u2').hamle,null,'başkasının hamlesi görünmez');noLeak(R.P);
+  G.advance(R);assert.strictEqual(R.P.phase,'talk');assert.strictEqual(G.privFor(R,'u1').hamle,null,'gündüz yok');
+});
 test('oy fişi: oyu 2 sayar, eşiğe sayılmaz, eşitliği bozar; anonim özet',()=>{
   let R=esyali(['hain','masum','masum','masum','masum'],{u0:'fis'});G.advance(R);G.advance(R);
   G.vote(R,'u0','u1',null,null,true);for(const id of ['u1','u2','u3','u4'])G.vote(R,id,'skip');

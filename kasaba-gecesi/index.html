@@ -237,7 +237,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 <div id="app"><div class="panel"><p class="muted">Yükleniyor…</p></div></div>
 <script>
 // Script daha başlamadan çökerse "Yükleniyor…" yerine hatayı göster (sürüm damgasıyla).
-window.KG_VER='2026-11-02c';
+window.KG_VER='2026-11-03a';
 window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ff6b6b"><p><b>Sayfa açılamadı.</b> Sürüm '+KG_VER+'</p><p class="small" style="word-break:break-all">'+String(e.message||e.error||e)+(e.filename?' @'+e.lineno:'')+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}});
 setTimeout(function(){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ffb347"><p><b>Sayfa yüklenemedi.</b> Sürüm '+KG_VER+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}},8000);
 </script>
@@ -476,7 +476,7 @@ function onServerMsg(m){
     if(!m.init&&a.some(c=>!c.sys&&c.id!==myId))SFX.pop();
     render();
   }
-  else if(m.t==='priv'){priv=m.d||{role:null,notes:[],mates:[],dchat:[]};render()}
+  else if(m.t==='priv'){priv=m.d||{role:null,notes:[],mates:[],dchat:[]};hamleGeriYukle();render()}
   else if(m.t==='envanter'){envanter=m.d||null;render()}
   else if(m.t==='lobiEsya'){lobiEsya=m.d||null;render()}
   else if(m.t==='kasa'){kasaSonuc=m.d||null;render()}
@@ -778,12 +778,16 @@ function paketCiz(S_){const pk=P.paket;let g=S_.paket;
 function paketHalka(g,pk){const kalan=Math.max(0,Math.min(1,(pk.ends-now())/PAKET.sure));const C=2*Math.PI*54;g._halka.setAttribute('stroke-dasharray',C);g._halka.setAttribute('stroke-dashoffset',C*(1-kalan))}
 function nightSpot(h,posKind){const k=h.k||1;const o={door:[26,44],enter:[25,22],bush:[-78,30],window:[-24,36],home:[26,44]}[posKind]||[26,44];return {x:h.x+o[0]*k,y:h.y+o[1]*k}}
 function myRoleKey(){return priv.role?priv.role.key:null}
+// sayfa gece ortasında yenilendiyse sunucunun sakladığı kendi hamlesi geri gelir: karakter hedefte durur, yürüyüş ve rol hareketi tekrar oynamaz
+function hamleGeriYukle(){const h=priv.hamle;if(!h||P.phase!=='night'||local.geri===P.gameId+':'+P.day)return;local.geri=P.gameId+':'+P.day;
+  if(Object.keys(local.act).some(k=>k!=='d'&&local.act[k]))return;const a={};for(const k of ['kill','ab','guess','det','esya','esyaHedef'])if(h[k])a[k]=h[k];if(!Object.keys(a).length)return;
+  local.act={...a,d:P.day};if(a.kill&&priv.role&&priv.role.team==='imp')sel.mode='kill';else if(a.ab)sel.mode='ab';anim.walkT0=1;anim.walkMs=0;anim.hareketT0=1;anim.hedef=a.kill||a.ab||null}
 function myPosKind(){const k=myRoleKey();if(!k)return 'door';if(priv.role.team==='imp'&&(sel.mode||'kill')==='kill'&&local.act.kill)return 'enter';return (ROLES[k].pos)||'door'}
 // Faz geçişlerinde animasyon dizileri
 function onStateChange(prev){
   const key=(P.gameId||'')+':'+P.day+':'+P.phase;if(key===lastKey)return;lastKey=key;
   local.act={};local.vote=null;local.fis=false;sel={};
-  ui.menu=false;ui.notes=false;ui.custom=false;ui.rules=false;ui.hizli=false;ui.hizliAlt=null;ui.rehber=false;
+  ui.menu=false;ui.notes=false;ui.custom=false;ui.rules=false;ui.hizli=false;ui.hizliAlt=null;ui.rehber=false;ui.esyalar=false;
   if(scene)scene.aksiyon.replaceChildren(); // gece ortasında kalan rol hareketi sabaha taşmaz
   if(P.phase==='night'){anim={seq:'evening',t0:Date.now()};if(P.day===1)ui.roleCard=true;if(P.evening&&P.evening.out)SFX.gavel();setTimeout(()=>SFX.owl(),2500)}
   else if(P.phase==='talk'){anim={seq:'morning',t0:Date.now()};SFX.rooster();const M=P.morning||{};setTimeout(()=>{if(M.lightning&&M.lightning.length)SFX.thunder();if(M.exploded&&M.exploded.length)SFX.boom();if(M.haunted&&M.haunted.length)SFX.ghost();if(M.deaths&&M.deaths.length&&!(M.lightning||[]).length&&!(M.exploded||[]).length)SFX.stab()},900)}
@@ -902,6 +906,7 @@ function modesFor(){if(!priv.role)return[];const k=priv.role.key,imp=priv.role.t
   if(imp)modes.push(['kill','🗡️ Öldür']);
   if(ROLES[k].act==='other'){const used=ROLES[k].once&&priv.uses&&priv.uses[k];modes.push(['ab',ROLES[k].ico+' '+ROLES[k].n+(used?' (kullanıldı)':''),used])}
   return modes}
+function esyaGoruldu(id,isaretle){let l=[];try{l=JSON.parse(sessionStorage.getItem('kg_esya_gor')||'[]')}catch(e){}if(!isaretle)return l.includes(id);l=[...l.filter(x=>x!==id),id].slice(-40);try{sessionStorage.setItem('kg_esya_gor',JSON.stringify(l))}catch(e){}ui.esyaGor=l;return true}
 function esyaSeciyor(){return !!(sel.mode&&String(sel.mode).startsWith('esya:'))}
 function esyaSecimBirak(){sel.mode=sel.onceki||null;sel.onceki=null;ensureMode()} // önceki rol modu geri gelir
 function ensureMode(){if(esyaSeciyor())return;const modes=modesFor().filter(m=>!m[2]);if(modes.length&&(!sel.mode||!modes.some(m=>m[0]===sel.mode)))sel.mode=modes[0][0]}
@@ -1079,13 +1084,14 @@ function renderLobbyUI(stage){
     [['night','Gece'],['talk','Tartışma'],['vote','Oylama']].forEach(([k,l])=>{const lab=el('label',null,l);const i=el('input');i.id='sure_'+k;i.type='number';i.min=15;i.max=600;i.value=settings[k];i.onchange=()=>{settings[k]=Math.max(15,Math.min(600,+i.value||30));ls('kg_settings',settings);send({t:'settings',...settings})};lab.append(i);items.push({node:lab})});
     items.push({node:el('div','h','Roller oyun başlayınca rastgele seçilir ve dağıtılır.')});
     items.push({h:'MOD'},{t:'🎒 Eşya modu: '+(settings.esyaModu?'açık':'kapalı'),on:()=>{settings.esyaModu=!settings.esyaModu;ls('kg_settings',settings);send({t:'settings',...settings})}});
-    items.push({h:'ODA'},{t:soundOn?'🔊 Ses: açık':'🔇 Ses: kapalı',on:()=>{soundOn=!soundOn;ls('kg_sound',soundOn)}},{t:'📘 Rol rehberi',on:()=>{ui.rehber=!ui.rehber}},{t:'✖ Odayı kapat',cls:'d',on:()=>{send({t:'close'});fatal=true;setTimeout(()=>{location.search=''},150)}});
+    items.push({h:'ODA'},{t:soundOn?'🔊 Ses: açık':'🔇 Ses: kapalı',on:()=>{soundOn=!soundOn;ls('kg_sound',soundOn)}},{t:'📘 Rol rehberi',on:()=>{ui.rehber=!ui.rehber;ui.esyalar=false}},{t:'🎒 Eşyalar',on:()=>{ui.esyalar=!ui.esyalar;ui.rehber=false}},{t:'✖ Odayı kapat',cls:'d',on:()=>{send({t:'close'});fatal=true;setTimeout(()=>{location.search=''},150)}});
     gearMenu(stage,items);
     const st=el('button','ov start','Oyunu başlat');st.disabled=!(n>=4&&n<=12);st.onclick=()=>startGame();stage.append(st);
     if(!ui.custom&&!ui.menu){if(n<4)stage.append(el('div','ov hint','Başlamak için en az 4 oyuncu gerekir. Linki gönder; açan herkes meydana gelir.'));
       else stage.append(el('div','ov hint','Herkes geldiyse başlat; roller rastgele dağıtılır. Süreler ⚙️ menüsünde; karakterine dokunarak rengini değiştir.'))}
-  }else gearMenu(stage,[{t:soundOn?'🔊 Ses: açık':'🔇 Ses: kapalı',on:()=>{soundOn=!soundOn;ls('kg_sound',soundOn)}},{t:'📘 Rol rehberi',on:()=>{ui.rehber=!ui.rehber}},{t:'✖ Odadan çık',cls:'d',on:()=>{location.search=''}}]);
+  }else gearMenu(stage,[{t:soundOn?'🔊 Ses: açık':'🔇 Ses: kapalı',on:()=>{soundOn=!soundOn;ls('kg_sound',soundOn)}},{t:'📘 Rol rehberi',on:()=>{ui.rehber=!ui.rehber;ui.esyalar=false}},{t:'🎒 Eşyalar',on:()=>{ui.esyalar=!ui.esyalar;ui.rehber=false}},{t:'✖ Odadan çık',cls:'d',on:()=>{location.search=''}}]);
   if(ui.rehber)rehberCekmece(stage);
+  if(ui.esyalar)esyaCekmece(stage);
   if(ui.custom){const c=el('div','ov custom');c.append(el('h2',null,'Karakterin'));
     const nm=el('input');nm.id='nameEdit';nm.value=myName;nm.maxLength=16;nm.onchange=()=>{const v=nm.value.trim().slice(0,16);if(v){myName=v;ls('kg_name',myName);sendHello()}};c.append(nm);
     const sw=el('div','sw');COLORS.forEach(col=>{const b=el('button',myLook.color===col?'on':'');b.style.background=col;b.onclick=()=>{myLook.color=col;ls('kg_look',myLook);sendHello();render()};sw.append(b)});c.append(el('div','small',"Renk"),sw);
@@ -1108,11 +1114,12 @@ function renderGameUI(stage){
   // sayaç
   const tm=el('div','ov timerbox');tm.append(el('span','timer',P.ends?fmtTime(P.ends-now()):'—'),el('span',null,night?'🌙':'☀️'),el('small',null,night?'GECE '+P.day:P.phase==='talk'?'GÜNDÜZ '+P.day:'GİZLİ OY · '+(P.voted||[]).length+'/'+alivePlayers().length));stage.append(tm);stage.append(rehberDugme());
   // menü
-  const items=[{t:'🃏 Rolümü göster',on:()=>{ui.roleCard=true}},{t:soundOn?'🔊 Ses: açık':'🔇 Ses: kapalı',on:()=>{soundOn=!soundOn;ls('kg_sound',soundOn)}},{t:'📘 Rol rehberi',on:()=>{ui.rehber=!ui.rehber}}];
+  const items=[{t:'🃏 Rolümü göster',on:()=>{ui.roleCard=true}},{t:soundOn?'🔊 Ses: açık':'🔇 Ses: kapalı',on:()=>{soundOn=!soundOn;ls('kg_sound',soundOn)}},{t:'📘 Rol rehberi',on:()=>{ui.rehber=!ui.rehber;ui.esyalar=false}},{t:'🎒 Eşyalar',on:()=>{ui.esyalar=!ui.esyalar;ui.rehber=false}}];
   if(isHost)items.push({h:'EV SAHİBİ'},{t:'✖ Oyunu iptal et',cls:'d',on:()=>{if(confirm('Oyun iptal edilsin mi?'))endToLobby()}});
   else items.push({t:'✖ Odadan çık',cls:'d',on:()=>{if(confirm('Odadan çıkılsın mı?'))location.search=''}});
   gearMenu(stage,items);
   if(ui.rehber)rehberCekmece(stage);
+  if(ui.esyalar)esyaCekmece(stage);
   // üst kutu: sabah / akşam
   let box=null;
   if(anim.seq==='morning'&&P.morning&&a<7){box=el('div','ov box');P.morning.news.forEach((n,i)=>box.append(el('div',i===0?'t':'',n)))}
@@ -1124,6 +1131,9 @@ function renderGameUI(stage){
   if(me&&priv.role){
     if(ui.roleCard&&!(anim.seq==='evening'&&P.day===1&&a<5)){const c=el('div','ov box center');c.style.borderColor='var(--'+priv.role.team+')';c.append(el('div','small',TEAMN[priv.role.team].toUpperCase()));const ic=el('div',null,priv.role.ico);ic.style.fontSize='44px';c.append(ic,el('div','t',priv.role.label),el('div',null,priv.role.desc));
       if(priv.mates&&priv.mates.length)c.append(el('div','small','Hain arkadaşların: '+priv.mates.map(nameOf).join(', ')));const ok=el('button','ok','Anladım');ok.onclick=()=>{ui.roleCard=false;render()};c.append(ok);stage.append(c)}
+    const yeni=!ui.roleCard&&!(anim.seq==='evening'&&P.day===1&&a<5)&&(priv.esya||[]).map((e,i)=>({e,i,id:P.gameId+':'+i+':'+e.key})).find(x=>sahipMi(ESYA,x.e.key)&&!x.e.kullanildi&&!esyaGoruldu(x.id));
+    if(yeni){const E=ESYA[yeni.e.key];const c=el('div','ov box center esya-yeni');c.dataset.key=yeni.e.key;c.append(el('div','small','🎒 '+(yeni.i===0?'MAÇ EŞYAN':'YENİ EŞYA')),el('div','t',E.ico+' '+E.n),el('div',null,E.desc),el('div','small','👉 Nasıl: '+E.nasil));
+      const ok=el('button','ok','Anladım');ok.onclick=()=>{esyaGoruldu(yeni.id,true);render()};c.append(ok);stage.append(c);if(ui.esyaSes!==yeni.id){ui.esyaSes=yeni.id;SFX.ding()}}
     (priv.esya||[]).forEach((e,i)=>{if(!sahipMi(ESYA,e.key))return;const E=ESYA[e.key];const kumAktif=e.key==='kum'&&!e.kullanildi&&alive&&P.phase==='talk';
       const c=el('button','ov esya-cip'+(e.kullanildi?' bitti':'')+(kumAktif?' kum-hazir':''),E.ico+' '+E.n+(e.kullanildi?' (kullanıldı)':kumAktif?': çevir (+30 sn)':e.pasif?' · kendiliğinden':'')+' ⓘ');c.style.bottom=(118+i*34)+'px';c.dataset.key=e.key;
       c.onclick=()=>{ui.esyaBilgi=ui.esyaBilgi===e.key?null:e.key;render()};stage.append(c)});
@@ -1193,6 +1203,16 @@ function hizliPanel(){
 // 📘 Rol rehberi (Paket 1b §5.4): oyunu durdurmayan çekmece; yalnız herkese açık bilgi (katalog, ipuçları, genel dağılım, oda süreleri).
 // priv/R.g okunmaz; bu maçın gizli oyuncu–rol eşlemesine dokunmaz.
 function rehberDugme(){const b=el('button','ov rehber-dugme','📘');b.title='Rol rehberi';b.onclick=()=>{ui.rehber=!ui.rehber;ui.menu=false;render()};return b}
+// eşya sayfası (menüden ayrı bağlantı): kurallar, senin eşyaların, her eşyanın ne yaptığı ve nasıl kullanıldığı
+function esyaCekmece(stage){
+  const c=el('div','ov rehber esyalar');const ust=el('div','ust');ust.append(el('b',null,'🎒 Eşyalar'));const k=el('button','kapat','✕');k.onclick=()=>{ui.esyalar=false;render()};ust.append(k);c.append(ust);
+  c.append(el('p','small muted','Ev sahibi eşya modunu açarsa herkes maç başında bir eşya alır: rolden bağımsız, tek kullanımlık, şans belirler (kasandan getirdiğin varsa onu alırsın). Sıradan eşyalar bedava havuzdan çıkar, nadir ve efsanevi yalnız kasadan. Tartışmada meydana paket düşer: ilk dokunan alır, en çok 2 eşya taşırsın. Kullanıldığı duyurulur, kullananın adı gizli kalır; maç sonunda kim ne kullandı açıklanır (oy fişi hariç).'));
+  const KAT={siradan:'Sıradan',nadir:'Nadir',efsanevi:'Efsanevi'};const benim=(priv.esya||[]).filter(e=>sahipMi(ESYA,e.key));
+  const kart=(E,durum)=>{const d=el('div','rol esya');d.append(el('b',null,E.ico+' '+E.n+' · '+KAT[E.nadir]+(durum?' · '+durum:'')),el('div','d',E.desc),el('div','ip','👉 Nasıl: '+E.nasil));return d};
+  if(benim.length){c.append(el('h3',null,'Senin eşyaların'));for(const e of benim)c.append(kart(ESYA[e.key],e.kullanildi?'kullanıldı':'elinde'))}
+  for(const kat of ['siradan','nadir','efsanevi']){c.append(el('h3',null,KAT[kat]));for(const E of Object.values(ESYA))if(E.nadir===kat)c.append(kart(E))}
+  stage.append(c);
+}
 function rehberCekmece(stage){
   const c=el('div','ov rehber');const ust=el('div','ust');ust.append(el('b',null,'📘 Rol rehberi'));const k=el('button','kapat','✕');k.onclick=()=>{ui.rehber=false;render()};ust.append(k);c.append(ust);
   for(const [team,baslik] of [['inn','Masumlar'],['imp','Hainler'],['neu','Tarafsızlar']]){
@@ -1200,8 +1220,7 @@ function rehberCekmece(stage){
     Object.keys(ROLES).filter(x=>ROLES[x].team===team).forEach(x=>{const r=ROLES[x];const d=el('div','rol '+team);d.append(el('b',null,r.ico+' '+r.n),el('div','d',r.desc));if(r.ipucu)d.append(el('div','ip','💡 '+r.ipucu));c.append(d)});
     if(team==='imp')c.append(el('p','small muted','Polis, Gözcü, İzci, Dedektif, Tuzakçı, İspiyoncu ve Provokatör hain sürümüyle de gelebilir: gece ya yeteneğini kullanır ya öldürür.'));
   }
-  c.append(el('h3',null,'Eşyalar'));c.append(el('p','small muted','Ev sahibi eşya modunu açarsa herkes maç başında bir eşya alır: rolden bağımsız, tek kullanımlık, şans belirler (kasandan getirdiğin varsa onu alırsın). Üç katman: sıradan eşyalar bedava havuzdan çıkar, nadir ve efsanevi yalnız kasadan. Tartışmada meydana paket düşer; ilk dokunan alır, en çok 2 eşya taşırsın. Kullanıldığı duyurulur, kullananın adı gizli kalır; maç sonunda kim ne kullandı açıklanır (oy fişi hariç).'));
-  const KAT={siradan:'sıradan',nadir:'nadir',efsanevi:'efsanevi'};for(const e of Object.values(ESYA)){const q=el('p','small',e.ico+' '+e.n+' ('+KAT[e.nadir]+'): '+e.desc+' ');q.append(el('span','muted','Nasıl: '+e.nasil));c.append(q)}
+  c.append(el('h3',null,'Eşyalar'));const eb=el('button','esyalar-ac','🎒 Eşyalar ve nasıl kullanılır →');eb.onclick=()=>{ui.rehber=false;ui.esyalar=true;render()};c.append(eb);
   const n=(P.players&&P.players.length)||(P.lobby&&P.lobby.length)||0;
   c.append(el('h3',null,'Dağılım'));
   if(n>=4){const sat=['Hain: '+DAGILIM.hain(n),'Deli: '+(DAGILIM.deli(n)?'var':'yok'),'Saldırgan tarafsız: '+DAGILIM.saldirgan(n),'Pasif tarafsız: '+DAGILIM.pasif(n),'Doktor her oyunda; Polis 5+ kişide'];c.append(el('p','small',n+' oyuncu için — '+sat.join(' · ')))}
