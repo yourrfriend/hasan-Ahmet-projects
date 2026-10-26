@@ -43,10 +43,62 @@ const SETUP=[
 const COLORS=['#3b7bff','#ff6fae','#2fb55a','#ffd23f','#8e4bff','#2fd3c8','#ff7a2f','#f4f1e8','#6b3f2a','#e23b3b','#9bd84a','#ff9ad5'];
 const HATS=['none','beanie','cap','ears','bow','glasses','hood'];
 const DEFAULT_SETTINGS={night:30,talk:120,vote:45};
+// ---------- İlerleme ve eşya modu (tasarım docs/superpowers/specs/2026-10-26-kasaba-gecesi-ilerleme-esya-design.md) ----------
+const ESYA={
+  iksir:{n:'İksir',ico:'🧪',faz:'night',desc:'Bir gece saldırılara karşı korunursun (yıldırım ve hayalet hariç).'},
+  fener:{n:'Fener',ico:'🏮',faz:'night',desc:'Bir gece evine gelenlerin adlarını öğrenirsin.'},
+  duman:{n:'Duman',ico:'💨',faz:'night',desc:'Bir gece ziyaretin görünmez olur: Gözcü, İzci ve fener seni görmez.'},
+  maske:{n:'Maske',ico:'🎭',faz:'night',desc:'Bir gece Dedektif ve İspiyoncu seni Masum görür.'},
+  fis:{n:'Oy fişi',ico:'🗳️',faz:'vote',desc:'Bir oylamada oyun 2 sayılır (tek başına kimseyi astıramaz).'}
+};
+const NADIRLIK={siradan:{fiyat:12,donusum:3},nadir:{fiyat:30,donusum:8},efsanevi:{fiyat:80,donusum:20}};
+const KOZMETIK={
+  sapka:{cicek:{n:'Çiçek',nadir:'siradan'},parti:{n:'Parti külahı',nadir:'siradan'},kask:{n:'Kask',nadir:'siradan'},sef:{n:'Aşçı şapkası',nadir:'siradan'},
+    kovboy:{n:'Kovboy',nadir:'nadir'},korsan:{n:'Korsan',nadir:'nadir'},cadi:{n:'Cadı şapkası',nadir:'nadir'},tac:{n:'Taç',nadir:'efsanevi'},hale:{n:'Hale',nadir:'efsanevi'}},
+  bayrak:{kirmizi:{n:'Kırmızı bayrak',nadir:'siradan',renk:'#e23b3b'},mavi:{n:'Mavi bayrak',nadir:'siradan',renk:'#3b7bff'},yesil:{n:'Yeşil bayrak',nadir:'siradan',renk:'#2fb55a'},mor:{n:'Mor bayrak',nadir:'siradan',renk:'#8e4bff'},
+    yildiz:{n:'Yıldızlı bayrak',nadir:'nadir',renk:'#1e3a8a',ico:'⭐'},ay:{n:'Hilal bayrağı',nadir:'nadir',renk:'#0e1a3d',ico:'🌙'},ejder:{n:'Ejder sancağı',nadir:'efsanevi',renk:'#7a1010',ico:'🐉'},simsek:{n:'Şimşek sancağı',nadir:'efsanevi',renk:'#3a2f1c',ico:'⚡'}},
+  efekt:{yaprak:{n:'Yaprak',nadir:'siradan',ico:'🍂'},yildiz:{n:'Yıldız',nadir:'nadir',ico:'✨'},duman:{n:'Duman',nadir:'nadir',ico:'💨'},havaifisek:{n:'Havai fişek',nadir:'efsanevi',ico:'🎆'}}
+};
+const KASA={esya:50,yildiz:12,siradan:25,nadir:10,efsanevi:3}; // yüzde
+const ROZETLER={
+  ilk_mac:{n:'İlk maç',ico:'🎟️',desc:'İlk maçını oynadın.'},mac_10:{n:'Müdavim',ico:'🏘️',desc:'10 maç oynadın.'},mac_50:{n:'Kasabanın demirbaşı',ico:'🏛️',desc:'50 maç oynadın.'},
+  kurtarici:{n:'Kurtarıcı',ico:'💉',desc:'Doktor olarak bir saldırıyı önledin.'},bekci:{n:'Bekçi',ico:'👮',desc:'Polis olarak bir haini evde tuttun.'},
+  tuzak_ustasi:{n:'Tuzak ustası',ico:'🪤',desc:'Tuzağın birini yakaladı.'},hain_zafer:{n:'Gölgelerin efendisi',ico:'🗡️',desc:'Hain olarak kazandın.'},
+  masum_zafer:{n:'Kasabanın kalkanı',ico:'🛡️',desc:'Masum tarafında kazandın.'},sag_kalan:{n:'Son ışık',ico:'🕯️',desc:'Sona kadar yaşadın ve kazandın.'},
+  tek_kurt:{n:'Yalnız kurt',ico:'🐺',desc:'Tarafsız olarak tek başına kazandın.'},hortlak_zafer:{n:'Mezardan zafer',ico:'👻',desc:'Hortlak olarak asılıp kazandın.'},
+  yildirim:{n:'Yıldırım',ico:'⚡',desc:'Büyücü olarak bir rolü doğru tahmin ettin.'},iksir_kurtardi:{n:'Son yudum',ico:'🧪',desc:'İksirin seni ölümden kurtardı.'},
+  fener_gordu:{n:'Gece nöbeti',ico:'🏮',desc:'Fenerin kapına gelen bir haini gördü.'}
+};
+const TEK_KAZANAN=['serikatil','bombaci','hirsiz','buyucu'];
+function kasaOdulu(rnd){rnd=rnd||Math.random;const r=rnd()*100,r2=rnd();let t=0;const sec=a=>a[Math.min(a.length-1,Math.floor(r2*a.length))];
+  if(r<(t+=KASA.esya))return {tur:'esya',key:sec(Object.keys(ESYA)),adet:1};
+  if(r<(t+=KASA.yildiz))return {tur:'yildiz',adet:3+Math.min(2,Math.floor(r2*3))};
+  const nadir=r<(t+=KASA.siradan)?'siradan':r<(t+=KASA.nadir)?'nadir':'efsanevi';
+  const havuz=[];for(const [tur,ks] of Object.entries(KOZMETIK))for(const [k,v] of Object.entries(ks))if(v.nadir===nadir)havuz.push(tur+':'+k);
+  return {tur:'kozmetik',key:sec(havuz),nadir};
+}
+// kozmetik doğrulama: temel şapkalar ve 'none' herkese; katalogdakiler yalnız sahibine (sahip: Set('tur:anahtar'))
+function kozmetikGecerli(tur,key,sahip){if(typeof key!=='string')return false;
+  if(tur==='sapka'&&HATS.includes(key))return true;if((tur==='bayrak'||tur==='efekt')&&key==='none')return true;
+  return has(KOZMETIK,tur)&&has(KOZMETIK[tur],key)&&!!sahip&&sahip.has(tur+':'+key)}
 const has=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
 
 function roleLabel(r){const b=ROLES[r.key];return b.n+((r.team==='imp'&&b.team!=='imp')?' (Hain)':'')}
 // Kayıt satırından rol etiketi (tek kaynak: index.html, sayfa/ortak.js, sayfa/hikaye.js bunu kullanır): {rol_key,takim,deli_gibi,calinan_rol}
+// maç sonu rozetleri: yalnız günlükteki gerçek olaylardan (oylar tek tek kaydedilmez → oya dayalı rozet yok); maç sayısı rozetleri RPC'de
+function rozetlerFor(R,id){const g=R.g,P=R.P;if(!g||!g.roles[id])return [];const out=new Set();const r=g.roles[id];
+  for(const e of R.gameLog||[]){if(e.tur!=='gece_sonuc')continue;const v=e.veri||{};
+    if((v.kurtaranlar||[]).some(k=>k.kim===id))out.add('kurtarici');
+    if((v.tutanlar||[]).some(t=>t.kim===id&&g.roles[t.hedef]&&g.roles[t.hedef].team==='imp'))out.add('bekci');
+    if((v.tuzak||[]).some(t=>t.kuran===id))out.add('tuzak_ustasi');
+    for(const o of v.olenler||[]){const bolt=o.sekil==='bolt'?o.kimden:(o.sekiller||[]).includes('bolt')?o.yildirim_kimden:null;if(bolt&&bolt.includes(id))out.add('yildirim')}
+    for(const x of v.esyalar||[]){if(x.kim!==id)continue;if(x.key==='iksir'&&x.etki==='korudu')out.add('iksir_kurtardi');if(x.key==='fener'&&x.etki==='hain_gordu')out.add('fener_gordu')}}
+  if(P.phase==='end'&&P.winner&&(P.winner.kazananlar||[]).includes(id)){const me=pl(R,id);
+    if(r.team==='imp')out.add('hain_zafer');if(r.team==='inn'||r.mad)out.add('masum_zafer');
+    if(r.team==='neu'&&TEK_KAZANAN.includes(r.orig||r.key))out.add('tek_kurt');if(r.key==='hortlak')out.add('hortlak_zafer');
+    if(me&&me.alive)out.add('sag_kalan')}
+  return [...out];
+}
 function rolEtiketi(b){if(!b||!b.rol_key)return '?';const r=ROLES[b.rol_key];let ad=r?r.n:b.rol_key;if(b.takim==='imp'&&r&&r.team!=='imp')ad+=' (Hain)';if(b.deli_gibi)ad+=' (aslında Deli)';if(b.calinan_rol)ad+=' (Hırsız çaldı)';return ad}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 // Rol dağılımı (tasarım docs/superpowers/specs/2026-10-24-kasaba-gecesi-sahne-design.md §5.1): eşikler oyuncu
@@ -503,7 +555,7 @@ function privFor(R,id){
     uses:r.uses,vest:r.vest,planted:r.planted.slice(),candle:g.candle[id]||null,payin:P.phase==='end'?payinFor(R,id):null};
 }
 
-return{ROLES,SETUP,COLORS,HATS,DEFAULT_SETTINGS,DAGILIM,TEKRAR,tekrarCezasi,rolDagit,roleLabel,rolEtiketi,autoSetup,cleanSettings,setClock,
+return{ROLES,SETUP,COLORS,HATS,DEFAULT_SETTINGS,ESYA,NADIRLIK,KOZMETIK,KASA,ROZETLER,kasaOdulu,kozmetikGecerli,rozetlerFor,DAGILIM,TEKRAR,tekrarCezasi,rolDagit,roleLabel,rolEtiketi,autoSetup,cleanSettings,setClock,
   lobbyState,createGame,startGame,setPhase,advance,tick,resolveNight,resolveVote,checkWin,kazananlar,gazeteFor,GAZETE_EN_COK,ek,endToLobby,olay,
   act,vote,chat,deadChat,hizli,HIZLI_BEKLE_MS,HIZLI_GUN,HIZLI_TUR,privFor,pl,alivePlayers,inGame};
 });

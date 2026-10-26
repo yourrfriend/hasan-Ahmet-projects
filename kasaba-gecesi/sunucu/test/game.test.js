@@ -674,3 +674,50 @@ test('inceleme: A→B→A iddia sırası son iddiayla biter; yanlış iddialar d
     assert.ok(!/koruyabilirsin/.test(G.ROLES.doktor.ipucu),'doktor kendini koruyamaz (istemcide yol yok); ipucu bunu söylemesin');
   }finally{G.setClock()}
 });
+
+// ---------- İlerleme (Task 1): katalog, kasa ödülü, rozetler ----------
+test('katalog: eşyalar, kozmetikler, nadirlik, kasa ağırlıkları, rozetler tanımlı',()=>{
+  assert.deepStrictEqual(Object.keys(G.ESYA).sort(),['duman','fener','fis','iksir','maske']);
+  for(const e of Object.values(G.ESYA)){assert.ok(e.n&&e.ico&&e.desc&&['night','vote'].includes(e.faz))}
+  assert.deepStrictEqual(Object.keys(G.KOZMETIK).sort(),['bayrak','efekt','sapka']);
+  assert.strictEqual(Object.keys(G.KOZMETIK.sapka).length,9);assert.strictEqual(Object.keys(G.KOZMETIK.bayrak).length,8);assert.strictEqual(Object.keys(G.KOZMETIK.efekt).length,4);
+  for(const tur of Object.values(G.KOZMETIK))for(const k of Object.values(tur))assert.ok(k.n&&G.NADIRLIK[k.nadir],JSON.stringify(k));
+  for(const k of Object.keys(G.KOZMETIK.sapka))assert.ok(!G.HATS.includes(k),'premium şapka temel listede olmamalı: '+k);
+  assert.deepStrictEqual(G.NADIRLIK,{siradan:{fiyat:12,donusum:3},nadir:{fiyat:30,donusum:8},efsanevi:{fiyat:80,donusum:20}});
+  assert.deepStrictEqual(G.KASA,{esya:50,yildiz:12,siradan:25,nadir:10,efsanevi:3});
+  for(const r of Object.values(G.ROZETLER))assert.ok(r.n&&r.ico&&r.desc);
+  for(const k of ['ilk_mac','mac_10','mac_50','kurtarici','bekci','tuzak_ustasi','hain_zafer','masum_zafer','sag_kalan','tek_kurt','hortlak_zafer','yildirim','iksir_kurtardi','fener_gordu'])assert.ok(G.ROZETLER[k],k);
+});
+test('kasaOdulu: her dal ve oranlar',()=>{
+  const seq=a=>{let i=0;return()=>a[i++%a.length]};
+  assert.strictEqual(G.kasaOdulu(seq([0.0,0.5])).tur,'esya');
+  const y=G.kasaOdulu(seq([0.55,0.5]));assert.strictEqual(y.tur,'yildiz');assert.ok(y.adet>=3&&y.adet<=5);
+  const k1=G.kasaOdulu(seq([0.70,0.1]));assert.strictEqual(k1.tur,'kozmetik');assert.strictEqual(k1.nadir,'siradan');assert.match(k1.key,/^(sapka|bayrak|efekt):/);
+  assert.strictEqual(G.kasaOdulu(seq([0.90,0.1])).nadir,'nadir');assert.strictEqual(G.kasaOdulu(seq([0.99,0.1])).nadir,'efsanevi');
+  const say={};for(let i=0;i<10000;i++){const o=G.kasaOdulu();const k=o.tur==='kozmetik'?o.nadir:o.tur;say[k]=(say[k]||0)+1}
+  for(const [k,w] of Object.entries(G.KASA))assert.ok(Math.abs(say[k]/100-w)<2.5,k+' %'+say[k]/100);
+  for(let i=0;i<500;i++){const o=G.kasaOdulu();if(o.tur==='esya')assert.ok(G.ESYA[o.key]&&o.adet===1);if(o.tur==='kozmetik'){const [t,k]=o.key.split(':');assert.strictEqual(G.KOZMETIK[t][k].nadir,o.nadir)}}
+});
+test('kozmetikGecerli: temel şapka herkese, premium yalnız sahibine',()=>{
+  const sahip=new Set(['sapka:tac','bayrak:mavi']);
+  assert.strictEqual(G.kozmetikGecerli('sapka','cap',new Set()),true);assert.strictEqual(G.kozmetikGecerli('sapka','tac',new Set()),false);
+  assert.strictEqual(G.kozmetikGecerli('sapka','tac',sahip),true);assert.strictEqual(G.kozmetikGecerli('bayrak','mavi',sahip),true);
+  assert.strictEqual(G.kozmetikGecerli('bayrak','none',new Set()),true);assert.strictEqual(G.kozmetikGecerli('efekt','none',new Set()),true);
+  assert.strictEqual(G.kozmetikGecerli('bayrak','yok-boyle',sahip),false);assert.strictEqual(G.kozmetikGecerli('sapka','constructor',sahip),false);
+});
+test('rozetlerFor: günlükten — kurtarıcı, bekçi, tuzak ustası, zafer rozetleri, yıldırım',()=>{
+  let R=fixed(['hain','doktor','polis','tuzakci','masum','masum']);
+  G.act(R,'u0',{kill:'u4'});G.act(R,'u1',{ab:'u4'});G.act(R,'u2',{ab:'u0'});G.act(R,'u3',{ab:'u5'});G.advance(R); // polis haini tutar → kimse ölmez
+  G.advance(R);for(const id of ['u1','u2','u3','u4','u5'])G.vote(R,id,'u0');G.vote(R,'u0','skip');
+  assert.strictEqual(R.P.phase,'end');
+  assert.ok(G.rozetlerFor(R,'u2').includes('bekci'),'polis haini tuttu');assert.ok(G.rozetlerFor(R,'u2').includes('masum_zafer'));assert.ok(G.rozetlerFor(R,'u2').includes('sag_kalan'));
+  assert.ok(!G.rozetlerFor(R,'u0').includes('hain_zafer'));
+  R=fixed(['hain','doktor','masum','masum','masum']);G.act(R,'u0',{kill:'u2'});G.act(R,'u1',{ab:'u2'});G.advance(R);
+  assert.ok(G.rozetlerFor(R,'u1').includes('kurtarici'));
+  R=fixed(['hain','tuzakci','masum','masum','masum']);G.act(R,'u1',{ab:'u2'});G.act(R,'u0',{kill:'u2'});G.advance(R);
+  assert.ok(G.rozetlerFor(R,'u1').includes('tuzak_ustasi'));
+  R=fixed(['hain','buyucu','doktor','masum','masum']);G.act(R,'u1',{ab:'u3',guess:'masum'});G.advance(R);
+  assert.ok(G.rozetlerFor(R,'u1').includes('yildirim'));assert.deepStrictEqual(G.rozetlerFor(R,'u3'),[],'ölen masum, oyun sürüyor: rozet yok');
+  R=fixed(['hain','masum','masum','masum']);G.act(R,'u0',{kill:'u1'});G.advance(R);G.advance(R);for(const id of ['u0','u2','u3'])G.vote(R,id,'skip');G.act(R,'u0',{kill:'u2'});G.advance(R);
+  assert.strictEqual(R.P.phase,'end');assert.ok(G.rozetlerFor(R,'u0').includes('hain_zafer'));
+});
