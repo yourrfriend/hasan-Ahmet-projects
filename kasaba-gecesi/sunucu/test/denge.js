@@ -10,7 +10,10 @@ const OYUN=+process.argv[2]||2000;
 // Eşik denemesi (kalibrasyon): DAGILIM_HAIN='n<=7?1:n<=11?2:3' gibi ifadelerle eşikleri geçici değiştir.
 const AYAR={};for(const k of ['hain','saldirgan','pasif','deli','masum']){const e=process.env['DAGILIM_'+k.toUpperCase()];if(e)AYAR[k]=new Function('n','return ('+e+')')} // DAGILIM donmuş: üst yazım startGame'e {dagilim:AYAR} ile geçer
 if(process.env.DAGILIM_TEKHAINSURUMP)AYAR.tekHainSurumP=+process.env.DAGILIM_TEKHAINSURUMP; // 0 / 0.5 / 1 (botlar hain yeteneği kullanmaz: tabloya etkisi yok)
-const ESYA_MODU=!!process.env.DAGILIM_ESYA;
+const ESYA_MODU=!!process.env.DAGILIM_ESYA; // eşya v2: botlar gece eşyasını %30 (hedefli: rastgele hedef), kum/fiş %30, paketi %50 kapmayı dener
+const ESYA_SAY={}; // key → {tasinan,kullanilan}
+let PAKET_N=0,PAKET_ALINAN=0;
+function esyaSec(R,id){const l=(G.privFor(R,id).esya||[]).filter(e=>!e.kullanildi&&G.ESYA[e.key].faz==='night');return l.length?l[0].key:null}
 const ARALIK=(process.argv[3]||'4-12').split('-').map(Number);
 const pick=a=>a[Math.floor(Math.random()*a.length)];
 const SALDIRGAN=['serikatil','bombaci','hirsiz','buyucu'];
@@ -53,12 +56,16 @@ function play(n){
   let steps=0,firstNightDeaths=null,oluAdlar=[];
   while(R.P.phase!=='end'&&steps++<60){
     const alive=G.alivePlayers(R).map(p=>p.id);
-    if(R.P.phase==='night'){for(const id of alive)G.act(R,id,{...nightMove(R,id,alive),esya:ESYA_MODU&&Math.random()<0.3});const before=alive;G.advance(R);
+    if(R.P.phase==='night'){for(const id of alive){const key=ESYA_MODU&&Math.random()<0.3?esyaSec(R,id):null;const hedef=key&&G.ESYA[key].hedef?pick(alive.filter(x=>x!==id)):null;G.act(R,id,{...nightMove(R,id,alive),esya:key,esyaHedef:hedef})}const before=alive;G.advance(R);
       const sonra=G.alivePlayers(R).map(p=>p.id);oluAdlar=before.filter(x=>!sonra.includes(x)).map(x=>R.P.players.find(p=>p.id===x).name);
       if(firstNightDeaths===null)firstNightDeaths=oluAdlar.length}
-    else if(R.P.phase==='talk')G.advance(R);
+    else if(R.P.phase==='talk'){if(ESYA_MODU){for(const id of alive)if(Math.random()<0.3)G.esyaKullan(R,id,'kum');
+        if(R.g.paket){R.g.paket.zaman=0;G.tick(R);if(R.P.paket){PAKET_N++;const n0=R.g.paket.alanlar.length;for(const id of [...alive].sort(()=>Math.random()-.5))if(Math.random()<0.5&&R.g.paket)G.kap(R,id,R.P.day,R.P.gameId)}}}
+      G.advance(R)}
     else if(R.P.phase==='vote'){const day=R.P.day;for(const id of alive){if(R.P.phase!=='vote'||R.P.day!==day)break;G.vote(R,id,dayVote(R,id,alive,oluAdlar),null,null,ESYA_MODU&&Math.random()<0.3)}if(R.P.phase==='vote')G.advance(R)}
   }
+  if(ESYA_MODU){for(const l of Object.values(R.g.esya||{}))for(const e of l){const s=ESYA_SAY[e.key]=ESYA_SAY[e.key]||{tasinan:0,kullanilan:0};s.tasinan++;if(e.kullanildi)s.kullanilan++} // e.key dönüşmüş zarın gerçek eşyası
+    for(const e of R.gameLog)if(e.tur==='paket')PAKET_ALINAN+=e.veri.alan}
   return{bitti:R.P.phase==='end',kazanan:R.P.winner?R.P.winner.team:null,gun:R.P.day,ilkGece:firstNightDeaths||0};
 }
 
@@ -73,3 +80,4 @@ for(let n=ARALIK[0];n<=(ARALIK[1]||ARALIK[0]);n++){
 console.log(`${OYUN} oyun/n · strateji basit (rapor eşiği %45–55 masum; "!" bant dışı; beraberlik = herkes öldü; bitmeyen = 60 fazda sonuç yok, ör. Polis–Bombacı kilidi)`);
 console.log(' n | masum | hain | taraf | berab | gün  | 1.gece | bitmeyen');
 console.log(satirlar.join('\n'));
+if(ESYA_MODU){console.log('\neşya | taşınan | kullanılan');for(const [k,s] of Object.entries(ESYA_SAY).sort((a,b)=>b[1].tasinan-a[1].tasinan))console.log(`${k.padEnd(8)} | ${String(s.tasinan).padStart(7)} | ${String(Math.round(100*s.kullanilan/s.tasinan)).padStart(3)}%`);console.log(`paket: ${PAKET_N} açıldı, ${PAKET_ALINAN} eşya kapıldı (${PAKET_N?Math.round(100*PAKET_ALINAN/PAKET_N):0}% / paket; tek kişilik paket 1, iki kişilik 2 sayılır)`)}

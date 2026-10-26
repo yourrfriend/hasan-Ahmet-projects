@@ -153,6 +153,13 @@ seçilir (`act.esyaHedef`). `pasif:true` → düğme yok, koşul oluşunca kendi
    söylemek" eşyanın anlamı; bilgi rolünü öldürmek haine bir bedel getirir, nadir katmanda bu kabul edilebilir. Yanlışsa bedel:
    vasiyet fazla güçlü çıkar, ölçümde görülür ve toplama 5. adıma alınır (tek satır).
 
+## 5.8 Sonuç (2026-10-26)
+Plan `docs/superpowers/plans/2026-10-26-esya-2.md`, dal `esya-2`. Ölçüm (2000 oyun/n): eşya modu kapalıyla fark gürültü içinde (masum ±2), ilk gece
+ölümü biraz düşük (pasif iksir); kullanım: kum %34, iksir %40, fis %41, maske %46, duman/fener %47, pusula %50, vasiyet %61; paket başına 1,1 eşya
+kapıldı. Uygulamada verilen kararlar (ledger): iksir pasif geçişi Task 2'de; `'paket'` `SECRET_KEYS`'e girmedi (`P.paket` açık alan); faz sonuna
+5 sn'den az kala paket açılmaz; Gözcü kendi ziyaretini sayar (v1). Güvenlik taraması: zar `kaynakKey` ile düşülür; fiş maç sonu listesinde yok;
+fiş paketi kapanları günlükte yok.
+
 ## 6. Builder'a bırakılanlar
 Paket SVG çizimi ve ses; çip yerleşimi; test adları; `denge.js` çıktı biçimi; rehber metninin tam sözleri; hikâye satırlarının
 tam metni; `KASA_ESYA`/`PAKET` sabitlerinin dosyadaki yeri (katalogun yanı).
