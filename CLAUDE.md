@@ -9,7 +9,7 @@ Türkçe yazış; arayüz metinleri Türkçe ve kısa.
 - Tasarım yazıları `docs/superpowers/specs/`, uygulama planları `docs/superpowers/plans/` (superpowers akışı: brainstorm → tasarım → denetleyici → plan → yerel yürütme → taze inceleme).
 
 ## Dallar
-- `main`: **canlı** (`kasaba.munupixi.com` ve `kasaba-test`; 2026-10-26 `adc9ff5`: ilerleme + eşya sistemi 2 + küçükler 3); `/yayinla` buradan kurar (`CANLI_SURUM=main`). Eski tek sayfalık sürüm `v0-tek-sayfa` etiketinde.
+- `main`: **canlı** (`kasaba.munupixi.com` ve `kasaba-test`; kurulu commit `/saglik` `surum` alanında, geçmişi `docs/DURUM.md` başında); `/yayinla` buradan kurar (`CANLI_SURUM=main`). Eski tek sayfalık sürüm `v0-tek-sayfa` etiketinde.
 - Bitmiş, `main`'e alınmış dallar (silinebilir): `sunucu`, `sahne`, `gecmis`, `rol-dagilimi`, `kucukler-1`, `kucukler-2`, `ilerleme`, `esya-2`, `kucukler-3`.
 Her iş `main`'den kendi dalında; sonunda PR `main`'e. Yeni özellik önce `kasaba-test.munupixi.com`'a (`/yayinla kasaba-test <dal>`), kullanıcı dener, sonra canlı.
 
@@ -19,9 +19,17 @@ Her iş `main`'den kendi dalında; sonunda PR `main`'e. Yeni özellik önce `kas
 - Yayın: `/yayinla [AD] [SÜRÜM]`; ayarlar `.claude/yayin.env` (git dışı). Sunucuda değişiklik yapan komutu önce göster, onay al.
 - Supabase (ionos, `/root/supabase-kasaba`): `kasaba-gecesi/sunucu/db/` betikleri; README "Geçmiş ve kullanıcı kaydı". Kayıt, kurulumun `/etc/games/<AD>.env` dosyasındaki `SUPABASE_URL/ANON_KEY/SERVICE_KEY/JWT_SECRET/JWT_JWKS` satırlarıyla açılır (`kur.sh` korur); satır yoksa herkes misafir.
 - Sunucuda tablo sayımı: `docker exec -i supabase-db psql -tA -U postgres -d postgres -c "select count(*) from public.oyunlar"` (SQL'i dosyayla `scp`'le; ssh içinde tırnaklama bozuluyor).
-- Göç testi yerelde: `docker run -d --name kg-pgtest -e POSTGRES_PASSWORD=test supabase/postgres:17.6.1.136` (**host portu verme**: 55432 başka projenin `arx-shadow-pg` konteynerinde, ona dokunma); `supabase_admin` ile `auth.users.is_anonymous` sütunu + sunucudaki `auth.uid()` tanımı; `goc/*.sql` sırayla `psql -U postgres`; `test.sql` GEÇTİ sayısı (17); bitince `docker rm -f kg-pgtest`.
+- Göç testi yerelde (kurulum betiğinin kendisiyle; elle `psql` döngüsü kurma: hata durdurma, göç başına işlem ve beklenen GEÇTİ sayısı betikte):
+  ```sh
+  docker run -d --name kg-pgtest -e POSTGRES_PASSWORD=test supabase/postgres:17.6.1.136   # host portu VERME: 55432 başka projenin arx-shadow-pg'si, ona dokunma
+  docker exec -i kg-pgtest psql -U supabase_admin -d postgres -c "alter table auth.users add column if not exists is_anonymous boolean not null default false"
+  docker exec -i kg-pgtest psql -U supabase_admin -d postgres -c "create or replace function auth.uid() returns uuid language sql stable as \$\$ select coalesce(nullif(current_setting('request.jwt.claim.sub',true),''), (nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'sub'))::uuid \$\$"
+  SUPABASE_DB_KONTEYNER=kg-pgtest kasaba-gecesi/sunucu/db/uygula.sh && SUPABASE_DB_KONTEYNER=kg-pgtest kasaba-gecesi/sunucu/db/uygula.sh --test
+  docker rm -f kg-pgtest
+  ```
+  Bağlantı yalnız `docker exec` ile (portsuz). İmajın kendi `auth.uid()`'i `request.jwt.claims` okumaz: değiştirmezsen RLS senaryoları ilgisiz yere düşer.
 - Eşya modu ölçümü: `DAGILIM_ESYA=1 npm run denge` (eşya başına kullanım ve paket kapma oranı da yazar).
-- kasaba-test'te gerçek deneme: Playwright ev sahibi + `bot.js ODA SAYI` (`WS_URL` ile kurulum seçilir; hain botlar gece öldürür, oylamada çekimser, eşyasını %50 kullanır, paketi %50 kapar, bitince "hazır" basar); betikler oturum scratchpad'inde, gerekirse yeniden yazılır (hafıza: reference-arac-ortami).
+- kasaba-test'te gerçek deneme: Playwright ev sahibi + `bot.js ODA SAYI` (`WS_URL` ile kurulum seçilir; hain botlar gece öldürür, oylamada çekimser, rol iddiası yapar, eşya modunda gece eşyasını ve paketi ~%50 dener, bitince "hazır" basar). `bot.js` depoda değil, oturum scratchpad'inde; yeniden yazarken bu davranışların hepsini koru (gazete `iddia` kartı buna bağlı). Denge botları (`test/denge.js`) ayrıdır, eşyayı %30 kullanır.
 
 ## Sabit kararlar (kullanıcı)
 - Her hain gecede kendi başına öldürür; hain sayısı 4–8 kişide 1, 9–12'de 2; Bombacı ve Seri Katil Polis tarafından tutulamaz. Provokatör'ün +2'si yalnız gerçek bir oyun üstüne eklenir (herkes çekimserse kimse asılmaz). 4–6 kişide Masum yok, 7+'da 1; tek hain %50 sürümlü; rol tekrarı %80 eğilimle azaltılır (kesin yasak değil).
@@ -33,8 +41,12 @@ Her iş `main`'den kendi dalında; sonunda PR `main`'e. Yeni özellik önce `kas
 - Eşya sistemi: eşyayı **şans belirler** (rol sonrası seçim yok); meydan paketi "ilk dokunan alır", kapan **"biri kaptı"** diye gizli, eşya sayısı hayatta olana bağlı; paketler eşya modunun içinde (tek anahtar); oy fişi hiçbir yerde (maç sonu listesi, günlük, hikâye) kimseye bağlanmaz; kilit Seri Katil ve Bombacı'yı durduramaz ve bunu söylemez.
 
 ## Tuzaklar (bu depoya özgü)
-- `index.html`, `game.js`, `server.js`, `hikaye.js` uzun tek satırlardan oluşur: satır içine `// yorum` ekleme, satırın kalanını yorumlar (`node --check` çoğu zaman yakalamaz; bugüne kadar 4 kez yaşandı). Yorumu ayrı satıra koy.
+- Bu depodaki JS/HTML dosyalarının çoğu (`index.html`, `sunucu/*.js`, `sunucu/test/*.js`, `sayfa/*.js`) uzun tek satırlardan oluşur: satır içine `// yorum` ekleme, satırın kalanını yorumlar (`node --check` çoğu zaman yakalamaz; 4 kez yaşandı). Yorumu her zaman ayrı satıra koy.
 - `kontrol.sh --e2e | grep … && git commit` deseni testler düşse de commit eder (boru çıkış kodu grep'in). Çıkış kodunu değişkene al, sonra commit.
+- `kontrol.sh` çıktısı ANSI renk kodlu: `grep "✗"` ile denetlerken önce `sed 's/\x1b\[[0-9;]*m//g'` ile temizle; yoksa boş eşleşme "geçti" sanılır.
+- Rastgelelik/zaman bağımlı kurallar (eşya çekilişi, paket zamanı) testte `G.setRnd(fn)` + `G.setClock(fn)` ile sabitlenir, `finally`'de `G.setRnd(null)`/`G.setClock()`; `game.test.js` `esyali()` belirtilmeyen oyunculara `fis` verir (rastgele zar testi bozmasın).
+- e2e/sunucu testinde `R.g.roles` elle değiştirildiyse fazı ilerletmeden eski rolü geri koy: takım sayısı değişince `checkWin` oyunu bitirir, test 8 sn beklemede düşer (kararsız görünür).
+- Gizlilik (oy fişi, kim kaptı) **sunucuda, günlüğe yazmadan önce** silinir; istemci/hikâye tarafında gizlemek yetmez (günlük maç sonunda okunur). Commit başına otomatik güvenlik taraması bunu yakalıyor; bulgu bildirimi gelirse düzelt ya da gerekçesini yaz.
 - Paralel Bash çağrılarında `cd` kalıcıdır: ikinci komut yanlış klasörde çalışabilir; her komuta mutlak `cd` ile başla.
 - `kur.sh` kurulacak dalın kendi `kur.sh`'siyle çalışmalı (sunucudaki klonu o dala al); eski `kur.sh` yeni dosyaları kopyalamaz ve geri alma tetiklenir (artık `sunucu/*.js` tamamı kopyalanır; `sayfa/` ayrı liste).
 - Self-hosted Supabase v0.8 token'ları ES256 ile imzalar (JWKS); HS256 varsayma. Yerel `fetch` ilk bağlantıda ~400 ms sürebilir: testlerde sabit bekleme yerine yoklama.
