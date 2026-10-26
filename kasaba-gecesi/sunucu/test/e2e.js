@@ -320,8 +320,10 @@ const step=t=>console.log('•',t);
       const sp=pages[aliveNames[0]];
       await sp.fill('#chatInput','merhaba kasaba');await sp.click('.chat button');
       for(const p of Object.values(pages))await p.waitForFunction(()=>(P.chat||[]).some(m=>m.t==='merhaba kasaba'));
-      { const gecer=await sp.evaluate(()=>{const d=document.querySelector('.chat .log div');if(!d)return 'yok';const r=d.getBoundingClientRect();const e=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return !(e&&e.closest('.chat .log'))});
-        assert.strictEqual(gecer,true,'sohbet günlüğü satırı dokunmayı yutmamalı (altındaki ev/çimen seçilebilir)')}
+      { const g=await sp.evaluate(()=>{const d=document.querySelector('.chat .log div');if(!d)return 'yok';const r=d.getBoundingClientRect();const log=d.closest('.chat .log').getBoundingClientRect();
+          const balon=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2),bosluk=document.elementFromPoint(Math.min(log.right-4,r.right+12),r.top+r.height/2);
+          return {balonTutar:!!(balon&&balon.closest('.chat .log')),boslukGecer:!(bosluk&&bosluk.closest('.chat .log')),yer:r.right+12<log.right-4}});
+        assert.strictEqual(g.balonTutar,true,'balon dokunmayı alır (kaydırma/seçme çalışır)');if(g.yer)assert.strictEqual(g.boslukGecer,true,'balon dışındaki boşluk dokunmayı geçirir')}
       // hızlı ifade: ⚡ → Rolüm → Doktor → herkeste sohbette; hemen ikinci dokunuş → "Biraz bekle" uyarısı
       await sp.evaluate(()=>{window.__gonderilen=[];const o=send;send=m=>{window.__gonderilen.push(m.t);return o(m)}}); // istemci bekleme engeli: ikinci dokunuş sunucuya gitmez
       await sp.click('button.hizli');
@@ -397,6 +399,7 @@ const step=t=>console.log('•',t);
       assert.strictEqual(await watcher.$('.endcard a.hikaye'),null,'kayıt kapalıyken hikâye linki yok');
       await pages[newHostName].click('.endcard button.lobi');
       for(const p of [host,...Object.values(pages)])await p.waitForFunction(()=>P.phase==='lobby'&&!priv.role,null,{timeout:5000});
+      for(const p of Object.values(pages))assert.strictEqual(await p.evaluate(()=>hizliSayac.n),0,'⚡ günlük sayaç lobide/yeni maçta sıfırlanır');
       assert.strictEqual((await watcher.$$('.lobby-skor .cip')).length,4,'lobide bu akşamın skoru görünmeli');
     }
 

@@ -744,7 +744,8 @@ test('skor: oyun bitince bir kez işlenir (flush/start/cancel ile ikinci kez de�
 });
 test('flush: kayit.kuyrukla fırlatsa da yayın sürer',async()=>{
   let patlat=false;const o=await bitmisOda({kuyrukla(){if(patlat)throw new Error('patladı')},profil(){},kapat(){},sayac:{}});
-  try{patlat=true;o.cs[1].send({t:'look',name:'Patlak',color:G.COLORS[1],hat:'none'});await o.host.until(c=>(c.P.lobby||[]).some(x=>x.name==='Patlak'));assert.deepStrictEqual(o.host.errs,[])}
+  try{patlat=true;o.cs[1].send({t:'hazir',v:true});await o.host.until(c=>c.P.hazir.includes(o.cs[1].me)); // hazir → G.olay → flush → bosalt fırlatır; yayın yine gelmeli
+    assert.deepStrictEqual(o.host.errs,[]);o.cs[1].send({t:'look',name:'Patlak',color:G.COLORS[1],hat:'none'});await o.host.until(c=>(c.P.lobby||[]).some(x=>x.name==='Patlak'))}
   finally{await o.kapat()}
 });
 test('govdeOku: çok baytlı karakter parça sınırında bölünse de doğru okunur',async()=>{

@@ -176,3 +176,24 @@ test('yazilan sayacı gerçek yazma isteklerini sayar; kapat() süren işi bekle
     assert.ok(t2.istekler.some(x=>x.tablo==='oyunlar'&&x.yontem==='POST'),'kapat süren maç başlangıcını bekledi');
   }finally{t2.gecikmeAyarla(0);await t2.kapat()}
 });
+
+// ---------- taze inceleme düzeltmeleri (kucukler-1) ----------
+test('profil: A→B→A sırasında bekleyen B iptal edilir; yalnız A yazılır',async()=>{
+  const t=await taklitRest();const k=Kayit.olustur({url:t.url,serviceKey:'srv',bekleMs:150,quiet:true});
+  try{
+    const A={ad:'Ece',renk:'#fff',sapka:'cap'},B={ad:'Ece',renk:'#000',sapka:'cap'};
+    k.profil('u1',A);await kadar(()=>k.sayac.profil===1);
+    k.profil('u1',B);k.profil('u1',A);await bekle(400);
+    const pr=t.istekler.filter(x=>x.tablo==='profiller');assert.strictEqual(pr.length,1,'B yazılmamalı: '+JSON.stringify(pr.map(x=>x.govde.renk)));
+  }finally{await k.kapat();await t.kapat()}
+});
+test('kapat(): kuyruktaki kalan olaylar (bitiş dahil) 3 sn içinde yazılır; yeni iş kabul edilmez',async()=>{
+  const t=await taklitRest();t.gecikmeAyarla(60);const k=Kayit.olustur({url:t.url,serviceKey:'srv',kurulum:'kasaba-test',quiet:true,deneme:[20,20,20]});
+  const r=oda({p0:UUID[0],p1:UUID[1],p2:null,p3:null,p4:UUID[2]});
+  try{
+    k.kuyrukla(r,[baslangic()]);await kadar(()=>t.T.olaylar.length===1,5000);
+    k.kuyrukla(r,[olay(2,'gece_sonuc',{olenler:[]}),bitis()]);await bekle(30);
+    const p=k.kapat();k.kuyrukla(r,[olay(10,'hazir',{kim:'p0',v:true})]);await p; // kapanırken gelen iş alınmaz
+    assert.strictEqual(t.T.oyunlar[0].sonuc,'bitti','bitiş kapanmadan önce yazıldı');assert.strictEqual(t.T.olaylar.length,3,'kalan olaylar yazıldı, kapanış sonrası iş alınmadı');
+  }finally{t.gecikmeAyarla(0);await t.kapat()}
+});

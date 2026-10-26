@@ -19,7 +19,7 @@ function olustur(opts={}){
   const log=opts.quiet?()=>{}:(...a)=>console.log(new Date().toISOString(),'kayit:',...a);
   const bekleyen=new Map(); // uye → {veri, t}  (profil tekilleştirme)
   const sonProfil=new Map(); // uye → JSON {ad,renk,sapka}: aynıysa yeniden yazılmaz (süreç ömrü)
-  let kapali=false;
+  let kapali=false,kapaniyor=false,uykuCoz=null; // kapaniyor: yeni iş alınmaz, kuyruk boşalana (en çok 3 sn) dek yazım sürer; uykuCoz: yeniden deneme uykusunu keser
   const kok=()=>opts.url.replace(/\/+$/,'')+'/rest/v1/';
   async function istek(yontem,yol,govde,prefer,sayma){
     const r=await fetch(kok()+yol,{method:yontem,headers:{apikey:opts.serviceKey,Authorization:'Bearer '+opts.serviceKey,'Content-Type':'application/json',...(prefer?{Prefer:prefer}:{})},body:govde==null?undefined:JSON.stringify(govde),signal:AbortSignal.timeout(zamanAsimi)});
@@ -31,7 +31,8 @@ function olustur(opts={}){
   // ---------- profil (upsert; aynı üye için bekleMs içindeki son değer tek istekte) ----------
   function profil(uye,veri){
     if(!acik||kapali||!uye)return;
-    const imza=JSON.stringify({ad:veri.ad||'',renk:veri.renk||null,sapka:veri.sapka||null});if(sonProfil.get(uye)===imza)return;
+    const imza=JSON.stringify({ad:veri.ad||'',renk:veri.renk||null,sapka:veri.sapka||null});
+    if(sonProfil.get(uye)===imza){const b=bekleyen.get(uye);if(b){clearTimeout(b.t);bekleyen.delete(uye)}return} // DB zaten bu görünümde: bekleyen farklı yazım da iptal (A→B→A)
     const b=bekleyen.get(uye);if(b)clearTimeout(b.t);
     const t=setTimeout(()=>{bekleyen.delete(uye);
       gonder('profiller',{uye,ad:veri.ad||'',renk:veri.renk||null,sapka:veri.sapka||null,guncellenme:new Date().toISOString()},'resolution=merge-duplicates,return=minimal')
@@ -43,7 +44,7 @@ function olustur(opts={}){
   const atlanan=new Set(); // misafir ev sahibinin maçları (oyunId): olayları da atlanır
   const kasabaOnbellek=new Map(); // sahip uuid → kasaba id (süreç ömrü)
   function kuyrukla(room,olaylar){
-    if(!acik||kapali||!olaylar||!olaylar.length)return;sayac.olay+=olaylar.length;
+    if(!acik||kapali||kapaniyor||!olaylar||!olaylar.length)return;sayac.olay+=olaylar.length;
     const uyeler={};for(const [id,m] of room.members||[])if(m&&m.uye)uyeler[id]=m.uye;
     kuyruk.push({oda:room.code,hostPub:room.hostId,uyeler,olaylar:olaylar.map(o=>({...o}))});
     sayac.kuyruk=kuyruk.reduce((a,is)=>a+is.olaylar.length,0);
@@ -60,7 +61,7 @@ function olustur(opts={}){
       try{await isiYaz(is);kuyruk.shift();denemeNo=0}
       catch(e){sayac.hata++;if(kapali)return;
         const ms=deneme[Math.min(denemeNo++,deneme.length-1)];log('yazılamadı, '+ms+' ms sonra tekrar:',e.message);
-        await new Promise(r=>{zamanlayici=setTimeout(r,ms)});
+        await new Promise(r=>{uykuCoz=r;zamanlayici=setTimeout(r,ms)});uykuCoz=null;
       }
     }
   }
@@ -118,7 +119,11 @@ function olustur(opts={}){
   }
   return{
     kuyrukla,profil,sonRoller,
-    async kapat(){kapali=true;clearTimeout(zamanlayici);for(const b of bekleyen.values())clearTimeout(b.t);bekleyen.clear();if(isci)await Promise.race([isci.catch(()=>{}),new Promise(r=>setTimeout(r,3000))])}, // süren işi en çok 3 sn bekler
+    async kapat(){ // yeni iş alınmaz; kuyruktaki kalan olaylar (bitiş dahil) en çok 3 sn içinde yazılır, sonra kapanır
+      kapaniyor=true;for(const b of bekleyen.values())clearTimeout(b.t);bekleyen.clear();
+      if(uykuCoz){clearTimeout(zamanlayici);uykuCoz()}
+      const son=Date.now()+3000;while(isci&&Date.now()<son){await Promise.race([isci.catch(()=>{}),new Promise(r=>setTimeout(r,50))]);if(!isci&&kuyruk.length&&Date.now()<son)calistir()}
+      kapali=true;clearTimeout(zamanlayici);if(uykuCoz)uykuCoz()},
     sayac
   };
 }
