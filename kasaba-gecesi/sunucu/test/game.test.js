@@ -115,6 +115,26 @@ test('rolEtiketi: tek kaynak — sürümlü hain, Deli, Hırsız çaldı, bilinm
   assert.strictEqual(G.rolEtiketi(null),'?');assert.strictEqual(G.rolEtiketi({rol_key:null}),'?');
 });
 
+test('oyun olayları: tahminsiz büyücü hamlesi yazılmaz; sira maç başına sıfırlanır; rolDagit deneme 0 dizi döner',()=>{
+  let R=fixed(['hain','buyucu','doktor','masum','masum']);
+  G.act(R,'u1',{ab:'u3'});G.act(R,'u0',{kill:'u4'});G.advance(R);
+  assert.strictEqual(R.gameLog.filter(e=>e.tur==='gece_hamle'&&e.veri.kim==='u1').length,0,'tahminsiz büyücü hamlesi günlükte yok');
+  assert.strictEqual(R.gameLog.filter(e=>e.tur==='gece_hamle'&&e.veri.kim==='u0').length,1);
+  G.endToLobby(R);assert.ok(G.startGame(R,lobbyOf(5)));
+  assert.strictEqual(R.gameLog[0].tur,'baslangic');assert.strictEqual(R.gameLog[0].sira,1,'ikinci maçın ilk olayı sira 1');
+  assert.ok(Array.isArray(G.rolDagit([{key:'hain',team:'imp'},{key:'doktor',team:'inn'}],[{id:'a'},{id:'b'}],{},{deneme:0,kacinmaP:1})));
+});
+
+test('bıçaklanan ve aynı gece yıldırım yiyen kurban: olenler.sekiller ikisini taşır, gazetede yıldırım kartı çıkar',()=>{
+  const R=fixed(['hain','buyucu','doktor','masum','masum']);
+  G.act(R,'u0',{kill:'u3'});G.act(R,'u1',{ab:'u3',guess:'masum'});G.advance(R);
+  const gs=R.gameLog.find(e=>e.tur==='gece_sonuc');const o=gs.veri.olenler.find(x=>x.kim==='u3');
+  assert.ok(o,'u3 öldü');assert.strictEqual(o.sekil,'stab','ilk neden korunur');assert.deepStrictEqual(o.sekiller,['stab','bolt']);
+  assert.deepStrictEqual(o.yildirim_kimden,['u1']);
+  const gz=G.gazeteFor(R);assert.ok(gz.some(k=>/⚡/.test(JSON.stringify(k))),'yıldırım kartı: '+JSON.stringify(gz));
+  assert.ok(gz.some(k=>/⚡/.test(JSON.stringify(k))&&JSON.stringify(k).includes('u1')),'kart büyücüye bağlı');
+});
+
 const notesOf=(R,id)=>R.g.notes[id].join(' | ');
 test('hain polis öldürmeye gidince ziyareti sayılır ve tuzağa yakalanır',()=>{
   // u0 polis(hain) u2'yi öldürmeye gider; u1 gözcü u2'nin evine bakar → kendisiyle birlikte 2 kişi görmeli
@@ -252,7 +272,7 @@ test('olay günlüğü: tuzak, tutma ve ölüm ayrıntıları; gece bitince sır
   R=fixed(['hain','hain','masum','masum']);G.act(R,'u0',{kill:'u2'});G.advance(R);
   assert.strictEqual(R.P.phase,'end');
   const turler=R.log.map(e=>e.tur);assert.deepStrictEqual(turler.slice(-2),['gece_sonuc','bitis']);
-  gs=R.log.find(e=>e.tur==='gece_sonuc');assert.deepStrictEqual(gs.veri.olenler,[{kim:'u2',sekil:'stab',kimden:['u0'],kimden_ad:'Hain',rol:'Masum'}]);
+  gs=R.log.find(e=>e.tur==='gece_sonuc');assert.deepStrictEqual(gs.veri.olenler,[{kim:'u2',sekil:'stab',sekiller:['stab'],kimden:['u0'],kimden_ad:'Hain',rol:'Masum'}]);
 });
 test('olay günlüğü: iptal yazılır, lobide ve bitmiş oyunda yazılmaz',()=>{
   const R=fixed(['hain','masum','masum','masum']);G.advance(R);G.endToLobby(R);
