@@ -8,8 +8,8 @@
 const G=require('../game.js');
 const OYUN=+process.argv[2]||2000;
 // Eşik denemesi (kalibrasyon): DAGILIM_HAIN='n<=7?1:n<=11?2:3' gibi ifadelerle eşikleri geçici değiştir.
-for(const k of ['hain','saldirgan','pasif','deli','masum']){const e=process.env['DAGILIM_'+k.toUpperCase()];if(e)G.DAGILIM[k]=new Function('n','return ('+e+')')}
-if(process.env.DAGILIM_TEKHAINSURUMP)G.DAGILIM.tekHainSurumP=+process.env.DAGILIM_TEKHAINSURUMP; // 0 / 0.5 / 1 (botlar hain yeteneği kullanmaz: tabloya etkisi yok)
+const AYAR={};for(const k of ['hain','saldirgan','pasif','deli','masum']){const e=process.env['DAGILIM_'+k.toUpperCase()];if(e)AYAR[k]=new Function('n','return ('+e+')')} // DAGILIM donmuş: üst yazım startGame'e {dagilim:AYAR} ile geçer
+if(process.env.DAGILIM_TEKHAINSURUMP)AYAR.tekHainSurumP=+process.env.DAGILIM_TEKHAINSURUMP; // 0 / 0.5 / 1 (botlar hain yeteneği kullanmaz: tabloya etkisi yok)
 const ARALIK=(process.argv[3]||'4-12').split('-').map(Number);
 const pick=a=>a[Math.floor(Math.random()*a.length)];
 const SALDIRGAN=['serikatil','bombaci','hirsiz','buyucu'];
@@ -47,7 +47,7 @@ function dayVote(R,id,alive,oluAdlar){
 }
 
 function play(n){
-  const R=G.createGame({night:15,talk:15,vote:15});G.startGame(R,lobby(n));
+  const R=G.createGame({night:15,talk:15,vote:15});G.startGame(R,lobby(n),{dagilim:AYAR});
   let steps=0,firstNightDeaths=null,oluAdlar=[];
   while(R.P.phase!=='end'&&steps++<60){
     const alive=G.alivePlayers(R).map(p=>p.id);

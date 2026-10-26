@@ -63,6 +63,7 @@ const DAGILIM={
   masum:n=>n>=7?1:0,               // yeteneksiz Masum: 4–6 kişide yok, 7+ kişide 1 (kullanıcı kararı 2026-10-25)
   tekHainSurumP:0.5                // tek hainli oyunda hainin sürümlü (Polis-hain, Gözcü-hain…) olma olasılığı; 2 hainde hep 1 sürümlü + 1 düz
 };
+Object.freeze(DAGILIM); // eşikler tek yerde ve değişmez; ölçüm/test için autoSetup(n, ayar) ile geçici üst yazım
 const BILGI_ROLLERI=['polis','gozcu','izci','dedektif','ispiyoncu'];
 // Tekrar eğilimi (geri bildirim paketi §5.3): torba değişmez, yalnız kimin hangi rolü aldığı seçilir. Oyuncu başına son
 // gecmisUz rol R.rolGecmisi'nde (gizli, oda ömrünce) tutulur; kacinmaP olasılıkla deneme kadar karıştırmadan en az cezalısı
@@ -84,17 +85,18 @@ function rolDagit(bag,players,gecmis,opts){
   for(let d=1;d<o.deneme;d++){const sira=shuffle(bag.slice());const c=toplam(sira);if(c<enAz){enAz=c;enIyi=sira;if(c===0)break}}
   return enIyi;
 }
-function autoSetup(n){
+function autoSetup(n,ayar){ // ayar: DAGILIM alanlarını geçici üst yazar (denge.js, testler); üretimde verilmez
+  const D=ayar?{...DAGILIM,...ayar}:DAGILIM;
   const c={};const add=id=>{c[id]=(c[id]||0)+1};
-  const hain=DAGILIM.hain(n),sald=DAGILIM.saldirgan(n),pasif=DAGILIM.pasif(n),deli=DAGILIM.deli(n);
-  const surumlu=hain===1?(Math.random()<DAGILIM.tekHainSurumP?1:0):Math.floor(hain/2);
+  const hain=D.hain(n),sald=D.saldirgan(n),pasif=D.pasif(n),deli=D.deli(n);
+  const surumlu=hain===1?(Math.random()<D.tekHainSurumP?1:0):Math.floor(hain/2);
   const yh=shuffle(['temizlikci','suclayici','polis_h','gozcu_h','dedektif_h','tuzakci_h','izci_h','ispiyoncu_h','provokator_h']).slice(0,surumlu);
   yh.forEach(add);for(let i=yh.length;i<hain;i++)add('hain');
   shuffle(['serikatil','bombaci','hirsiz','buyucu']).slice(0,sald).forEach(add);
   shuffle(['hayatta','hortlak']).slice(0,pasif).forEach(add);
   if(deli)add('deli');
   const m=n-hain-sald-pasif-deli;
-  const yetenekli=Math.min(m-DAGILIM.masum(n),8);
+  const yetenekli=Math.min(m-D.masum(n),8);
   const secilen=['doktor'];if(n>=5&&secilen.length<yetenekli)secilen.push('polis');
   let bilgi=secilen.filter(k=>BILGI_ROLLERI.includes(k)).length;
   const havuzB=shuffle(['gozcu','izci','dedektif','ispiyoncu']),havuzD=shuffle(['tuzakci','provokator']);
@@ -146,7 +148,7 @@ function kapanisFor(R){const g=R.g;const olum={};
 function startGame(R,lobby,secenek){ // secenek: {rovans:true, onceki:gameId} rövanşta
   const players=lobby.slice();if(players.length<4||players.length>12)return false;
   R.logSeq=0; // sira maç başına (rovans_basladi olayı start'tan önce yazılır: eski maçın sırasında kalır)
-  const counts=autoSetup(players.length);
+  const counts=autoSetup(players.length,secenek&&secenek.dagilim);
   const bag=[];for(const e of SETUP)for(let i=0;i<(counts[e.id]||0);i++)bag.push({key:e.key,team:e.team});
   if(!R.rolGecmisi)R.rolGecmisi={};
   const sira=rolDagit(bag,players,R.rolGecmisi);

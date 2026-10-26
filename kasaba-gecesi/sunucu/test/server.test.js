@@ -800,3 +800,16 @@ test('govdeOku: sınır bayt sayar (çok baytlı karakterlerle aşılamaz)',asyn
     await assert.rejects(p2,e=>e.kod===413,'22 bayt > 20: 413');
   }finally{await new Promise(r=>s2.close(r))}
 });
+
+test('hızlı ifade: 8 sn bekleme sahte saatle (opts.clock) — bekleme bitince ikinci ifade kabul edilir',async()=>{
+  let t=1_000_000;const s2=createServer({quiet:true,tickMs:50,clock:()=>t});await new Promise(r=>s2.server.listen(0,'127.0.0.1',r));const b2='127.0.0.1:'+s2.server.address().port;
+  const host=client('hz0','Ev',{host:true},b2);await host.until(c=>c.P&&c.P.room);const room=host.P.room;
+  const cs=[host,...['hz1','hz2','hz3'].map(u=>client(u,'O'+u,{room},b2))];await host.until(c=>c.P.lobby.length===4);
+  try{
+    host.send({t:'start'});await host.until(c=>c.P.phase==='night');const R=s2.rooms.get(room).game;
+    R.P.phase='talk';R.P.day=1; // tartışma (sunucu zamanlayıcısı sahte saatle; faz elle)
+    cs[1].send({t:'hizli',k:'koru',d:1,n:'c1'});await host.until(c=>c.chat.some(m=>m.kisa==='koru'&&m.id===cs[1].me));
+    cs[1].send({t:'hizli',k:'belirsiz',d:1,n:'c2'});await cs[1].until(c=>c.errs.some(e=>e.code==='soft'&&/Biraz bekle/.test(e.m)));
+    t+=8001;cs[1].send({t:'hizli',k:'belirsiz',d:1,n:'c3'});await host.until(c=>c.chat.some(m=>m.kisa==='belirsiz'&&m.id===cs[1].me),3000);
+  }finally{for(const c of cs)await c.close();await new Promise(r=>s2.close(r))}
+});

@@ -146,6 +146,25 @@ test('Hırsız kurbanı: olenler.sekil ve sekiller tutarlı (vanish); aynı gece
   assert.strictEqual(o.sekil,'vanish');assert.deepStrictEqual(o.sekiller,['vanish','bolt']);
 });
 
+test('olay alan şemaları: her olay türünün veri anahtarları sabit (hikâye/gazete/kayıt bunlara bağlı)',()=>{
+  const R=fixed(['hain','doktor','provokator','buyucu','masum','masum']);
+  G.act(R,'u0',{kill:'u4'});G.act(R,'u1',{ab:'u5'});G.act(R,'u2',{ab:'u0'});G.act(R,'u3',{ab:'u5',guess:'masum'});G.advance(R);
+  G.hizli(R,'u1',{k:'rol',rol:'doktor',d:1,n:'a'});G.advance(R);
+  for(const id of ['u1','u2','u3','u5'])G.vote(R,id,'u0');G.vote(R,'u0','skip'); // hain asılır, büyücü tek başına → oyun sürer
+  G.act(R,'u3',{ab:'u1',guess:'doktor'});G.advance(R);
+  const beklenen={
+    baslangic:['ayarlar','oyuncular','roller'],
+    gece_hamle:['hedef','kim','tahmin','tur'],
+    gece_sonuc:['bombalar','caldi','haberler','ispiyon','kurtaranlar','kurtarilan','mum','olenler','provokasyon','tutanlar','tutulan','tuzak','yelek','yildirim','ziyaretler'],
+    iddia:['algilanan_rol','gercek_rol','gercek_takim','kim','rol_iddia'],
+    gunduz_sonuc:['asilan','cekimser','provoke','rol_goruntu','toplamlar'],
+  };
+  const gorulen={};for(const e of R.gameLog)gorulen[e.tur]=[...new Set([...(gorulen[e.tur]||[]),...Object.keys(e.veri)])].sort();
+  for(const [tur,alanlar] of Object.entries(beklenen))assert.deepStrictEqual(gorulen[tur],alanlar,'olay '+tur+' alanları');
+  const olen=R.gameLog.find(e=>e.tur==='gece_sonuc').veri.olenler[0];assert.deepStrictEqual(Object.keys(olen).sort(),['kim','kimden','kimden_ad','rol','sekil','sekiller'],'olenler[] alanları (yildirim_kimden yalnız yıldırımda)');
+  G.endToLobby(R);const ip=R.gameLog.find(e=>e.tur==='iptal');assert.deepStrictEqual(Object.keys(ip.veri).sort(),['faz','gun'],'iptal alanları');
+});
+
 const notesOf=(R,id)=>R.g.notes[id].join(' | ');
 test('hain polis öldürmeye gidince ziyareti sayılır ve tuzağa yakalanır',()=>{
   // u0 polis(hain) u2'yi öldürmeye gider; u1 gözcü u2'nin evine bakar → kendisiyle birlikte 2 kişi görmeli
@@ -343,7 +362,6 @@ test('inceleme: çoklu saldırıda kurtaranlar/yelek tekrarlanmaz; tutulan tekil
 });
 
 const BILGI=['polis','gozcu','izci','dedektif','ispiyoncu'];
-const OZEL=Object.keys(G.ROLES).filter(k=>!['masum','hain'].includes(k));
 test('rol dağılımı: eşikler, tekrarsız özel roller, bilgi rolü ≥ hain, Masum 7+ kişide 1',()=>{
   const bekle={4:[1,0,0,0],5:[1,0,0,0],6:[1,0,0,1],7:[1,0,0,1],8:[1,0,0,1],9:[2,1,1,1],10:[2,1,1,1],11:[2,1,1,1],12:[2,2,1,1]}; // hain, saldırgan, pasif, deli
   for(let n=4;n<=12;n++){
@@ -370,12 +388,12 @@ test('rol dağılımı: eşikler, tekrarsız özel roller, bilgi rolü ≥ hain,
     else assert.strictEqual(surumluSay,500,'2 hainde hep 1 sürümlü n='+n);
   }
   // olasılık sabiti uçları
-  const eski=G.DAGILIM.tekHainSurumP;
-  try{
-    G.DAGILIM.tekHainSurumP=0;for(let i=0;i<100;i++){const c=G.autoSetup(6);assert.strictEqual(c.hain,1,'P=0 → hep düz Hain')}
-    G.DAGILIM.tekHainSurumP=1;for(let i=0;i<100;i++){const c=G.autoSetup(6);assert.strictEqual(c.hain||0,0,'P=1 → hep sürümlü')}
-  }finally{G.DAGILIM.tekHainSurumP=eski}
+  for(let i=0;i<100;i++){const c=G.autoSetup(6,{tekHainSurumP:0});assert.strictEqual(c.hain,1,'P=0 → hep düz Hain')}
+  for(let i=0;i<100;i++){const c=G.autoSetup(6,{tekHainSurumP:1});assert.strictEqual(c.hain||0,0,'P=1 → hep sürümlü')}
   assert.strictEqual(G.DAGILIM.tekHainSurumP,0.5,'varsayılan 0,5');
+  assert.ok(Object.isFrozen(G.DAGILIM),'DAGILIM donmuş: eşikler yalnız autoSetup(n, ayar) ile geçici değişir');
+  assert.throws(()=>{'use strict';G.DAGILIM.tekHainSurumP=0},'donmuş nesneye yazma strict kipte fırlatır');
+  for(let i=0;i<50;i++)assert.strictEqual(G.autoSetup(5,{masum:()=>1}).masum,1,'autoSetup ayar: masum eşiği geçici');
 });
 
 // ---------- Geri bildirim paketi: tekrar eğilimi (rolDagit, R.rolGecmisi) ----------

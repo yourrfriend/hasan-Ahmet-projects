@@ -170,6 +170,14 @@ const step=t=>console.log('•',t);
         const c8=await newCtx();await c8.route(c5Rota.desen,c5Rota.isle);const p8=await open(c8,'İkinci-hayır',base3);
         await p8.waitForSelector('button.hesap-gir',{timeout:8000});await p8.click('button.hesap-gir');await p8.fill('#hesapEposta','ben@ornek.com');await p8.click('button.hesap-gonder');
         await kodBekle(p8,'gir-hayır');await p8.fill('#hesapKod','123456');await p8.click('button.hesap-dogrula');await p8.waitForSelector('.hesap-birlestir',{timeout:8000});
+        // Review Focus 2 (Plan 6): bu cihazın eski anonim token'ı süresi dolmuşsa birleştirme yapılmaz, dürüst metin
+        { const c9x=await newCtx();await c9x.route(c5Rota.desen,c5Rota.isle);const p9x=await open(c9x,'Süresi-dolmuş',base3);
+          await p9x.waitForSelector('button.hesap-gir',{timeout:8000});await p9x.click('button.hesap-gir');await p9x.fill('#hesapEposta','dolmus@ornek.com');await p9x.click('button.hesap-gonder');
+          await kodBekle(p9x,'gir-dolmuş');await p9x.fill('#hesapKod','123456');await p9x.click('button.hesap-dogrula');await p9x.waitForSelector('.hesap-birlestir',{timeout:8000});
+          const dolmus=Kimlik.imzala({sub:ben,exp:Math.floor(Date.now()/1000)-60,role:'authenticated',aud:'authenticated',is_anonymous:true},'x');
+          await p9x.evaluate(t=>{ui.hesap.eski=t},dolmus);await p9x.click('.hesap-birlestir button.ekle');
+          await p9x.waitForFunction(()=>/taşınamadı/.test((document.querySelector('.hesap-birlestir')||{}).textContent||''),null,{timeout:10000}); // bilgi satırı .hesap-birlestir içinde p.small
+          assert.match(await p9x.textContent('.hesap-birlestir'),/taşınamadı \(eski_suresi_dolmus\)/,'süresi dolmuş eski token: dürüst metin');await c9x.close()}
         await p8.click('.hesap-birlestir button.hayir');await p8.waitForFunction(()=>/Hesabın: ben@ornek\.com/.test((document.querySelector('.hesap-durum')||{}).textContent||''),null,{timeout:10000});
         assert.strictEqual(birlesmeler.length,2,'Hayır → birleştirme çağrısı yok');
         await c8.close();

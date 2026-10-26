@@ -197,3 +197,16 @@ test('kapat(): kuyruktaki kalan olaylar (bitiş dahil) 3 sn içinde yazılır; y
     assert.strictEqual(t.T.oyunlar[0].sonuc,'bitti','bitiş kapanmadan önce yazıldı');assert.strictEqual(t.T.olaylar.length,3,'kalan olaylar yazıldı, kapanış sonrası iş alınmadı');
   }finally{t.gecikmeAyarla(0);await t.kapat()}
 });
+
+test('karışık demet: biten maçın bitişi + yeni maçın başlangıcı aynı demette; yeni maç 409 ile atlanır, bitiş yazılır',async()=>{
+  const t=await taklitRest();let durum={};t.hataAyarla(x=>durum[x.yontem+' '+x.tablo+' '+(x.govde&&x.govde.id||'')]||null);
+  const k=Kayit.olustur({url:t.url,serviceKey:'srv',kurulum:'t',quiet:true,deneme:[30,30,30]});const r=oda({p0:UUID[0],p1:UUID[1]});
+  try{
+    k.kuyrukla(r,[baslangic()]);await kadar(()=>t.T.oyunlar.length===1,5000);
+    const OYUN2='77777777-2222-4333-8444-555555555555';durum={['POST oyunlar '+OYUN2]:409};
+    k.kuyrukla(r,[bitis(),baslangic(OYUN2),olay(2,'gece_hamle',{kim:'p0'},1,'night',OYUN2)]);
+    await kadar(()=>t.T.oyunlar[0].sonuc==='bitti'&&k.sayac.atlanan===1,5000);
+    assert.strictEqual(t.T.oyunlar[0].sonuc,'bitti','ilk maçın bitişi yazıldı');assert.strictEqual(t.T.oyunlar.length,1,'ikinci maç yazılmadı');
+    await bekle(200);assert.ok(!t.T.olaylar.some(o=>o.oyun_id===OYUN2),'atlanan maçın olayı yok');assert.strictEqual(k.sayac.dusen,1,'yalnız baslangic düştü; atlanan maçın olayı istek üretmez');
+  }finally{await k.kapat();await t.kapat()}
+});

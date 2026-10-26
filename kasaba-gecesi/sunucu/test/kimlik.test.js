@@ -1,5 +1,5 @@
 'use strict';
-// kimlik.js: Supabase (GoTrue) HS256 token'ını yerelde doğrular; ağ yok.
+// kimlik.js: Supabase (GoTrue) token'ını yerelde doğrular — HS256 (secret) ve ES256/RS256 (JWKS); ağ yok.
 const test=require('node:test');const assert=require('node:assert');const crypto=require('crypto');
 const K=require('../kimlik.js');
 const SUB='8f1a2b3c-4d5e-4f60-8a9b-0c1d2e3f4a5b',GIZLI='cok-gizli-anahtar';

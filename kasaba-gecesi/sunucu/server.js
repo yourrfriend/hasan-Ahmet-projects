@@ -36,6 +36,7 @@ const cleanUid=v=>typeof v==='string'?v.replace(/[^A-Za-z0-9_-]/g,'').slice(0,24
 const cleanName=v=>typeof v==='string'?v.trim().slice(0,16):'';
 
 function createServer(opts={}){
+  if(opts.clock)G.setClock(opts.clock); // testler: sahte saat (hızlı ifade beklemesi vb.); close() sıfırlar
   const rooms=new Map();
   const log=opts.quiet?()=>{}:(...a)=>console.log(new Date().toISOString(),...a);
   const ipOda=opts.ipOda||IP_ODA,ipSoket=opts.ipSoket||IP_SOKET,ipOdaDakika=opts.ipOdaDakika||IP_ODA_DAKIKA;
@@ -406,7 +407,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
     }
   },opts.tickMs||500);
 
-  function close(cb){clearInterval(pingIv);clearInterval(tickIv);clearTimeout(jwksZamanlayici);for(const r of [...rooms.values()]){clearTimeout(r.flushT);bosalt(r)}for(const ws of wss.clients)ws.terminate();wss.close();Promise.resolve(kayit.kapat()).catch(()=>{}).then(()=>server.close(cb))} // kayıt kuyruğundaki süren iş bitsin (en çok 3 sn)
+  function close(cb){clearInterval(pingIv);clearInterval(tickIv);clearTimeout(jwksZamanlayici);for(const r of [...rooms.values()]){clearTimeout(r.flushT);bosalt(r)}for(const ws of wss.clients)ws.terminate();wss.close();if(opts.clock)G.setClock();Promise.resolve(kayit.kapat()).catch(()=>{}).then(()=>server.close(cb))} // kayıt kuyruğundaki süren iş bitsin (en çok 3 sn)
   return {server,wss,rooms,close,govdeOku,uyarilar};
 }
 
