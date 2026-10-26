@@ -485,7 +485,7 @@ const step=t=>console.log('•',t);
         const t=await pe.textContent('.ov.esya-yeni');assert.ok(t.includes(G.ESYA[k].n)&&t.includes(G.ESYA[k].nasil),'yeni eşya kartı: '+t);await pe.click('.ov.esya-yeni button.ok')}
       await pe.waitForFunction(()=>!document.querySelector('.ov.esya-yeni'));
       // oyun içi menü: ayrı Eşyalar bağlantısı
-      await pe.click('.gear');await pe.click('text=🎒 Eşyalar');await pe.waitForSelector('.ov.esyalar',{timeout:3000});assert.match(await pe.textContent('.ov.esyalar'),/Senin eşyaların[\s\S]*Kilit/);await pe.click('.ov.esyalar button.kapat');
+      await pe.click('.gear');await pe.click('text=🎒 Eşyalar');await pe.waitForSelector('.ov.esyalar',{timeout:3000});assert.strictEqual(await pe.$('.ov.menu'),null,'Eşyalar açılınca menü kapanır');assert.match(await pe.textContent('.ov.esyalar'),/Senin eşyaların[\s\S]*Kilit/);await pe.click('.ov.esyalar button.kapat');
       await pe.waitForFunction(()=>document.querySelectorAll('.ov.esya-cip').length===2,null,{timeout:5000});
       const cips=await pe.$$eval('.ov.esya-cip',e=>e.map(x=>x.textContent));assert.match(cips[0],/İksir.*kendiliğinden/);assert.match(cips[1],/Kilit/);
       { const k=await pe.evaluate(()=>{const r=e=>e.getBoundingClientRect();const cs=[...document.querySelectorAll('.ov.esya-cip')].map(r);return ['.notesbtn','.ov.mine'].map(s=>{const o=r(document.querySelector(s));return cs.some(c=>!(c.right<=o.left||o.right<=c.left||c.bottom<=o.top||o.bottom<=c.top))})});
