@@ -380,7 +380,7 @@ test('rol dağılımı: eşikler, tekrarsız özel roller, bilgi rolü ≥ hain,
       if(hain>=2)assert.ok((c.hain||0)>=1,'2 hainde en az bir düz Hain n='+n);
       assert.ok(c.doktor===1,'doktor hep');assert.strictEqual(c.polis||0,n>=5?1:0,'polis 5+');
       const bilgi=say(id=>BILGI.includes(id));assert.ok(bilgi>=hain,'bilgi rolü ≥ hain n='+n+' '+JSON.stringify(c));
-      assert.strictEqual(c.masum||0,n>=7?1:0,'masum n='+n+' '+JSON.stringify(c));
+      assert.strictEqual(c.masum||0,n>=7&&n!==9?1:0,'masum n='+n+' (9 kişide yok: Tuzakçı/Provokatör yuvası) '+JSON.stringify(c));
       kumeler.add(ids.sort().join(','));
     }
     if(n>=7)assert.ok(kumeler.size>1,'n='+n+' hep aynı küme');
@@ -676,6 +676,10 @@ test('inceleme: A→B→A iddia sırası son iddiayla biter; yanlış iddialar d
 });
 
 // ---------- İlerleme (Task 1): katalog, kasa ödülü, rozetler ----------
+test('9 kişi: Masum yok, serbest yuva Tuzakçı/Provokatör ya da ikinci bilgi rolü (kullanıcı 2026-10-27)',()=>{
+  let td=0;const N=4000;for(let i=0;i<N;i++){const c=G.autoSetup(9);assert.ok(!c.masum,'masum yok');if(c.tuzakci||c.provokator)td++}
+  assert.ok(Math.abs(td/N*100-40)<4,'Tuzakçı/Provokatör sıklığı ~%40: %'+(td/N*100).toFixed(1));
+});
 test('katalog: eşyalar, kozmetikler, nadirlik, kasa ağırlıkları, rozetler tanımlı',()=>{
   assert.deepStrictEqual(Object.keys(G.ESYA).sort(),['duman','fener','fis','iksir','kilit','kum','maske','pusula','vasiyet','zar']);
   for(const e of Object.values(G.ESYA)){assert.ok(typeof e.nasil==='string'&&e.nasil.length>20,'nasıl kullanılır metni: '+e.n);assert.ok(e.n&&e.ico&&e.desc&&['night','talk','vote','pasif','none'].includes(e.faz)&&G.NADIRLIK[e.nadir],JSON.stringify(e))}

@@ -237,7 +237,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 <div id="app"><div class="panel"><p class="muted">Yükleniyor…</p></div></div>
 <script>
 // Script daha başlamadan çökerse "Yükleniyor…" yerine hatayı göster (sürüm damgasıyla).
-window.KG_VER='2026-11-03a';
+window.KG_VER='2026-11-03b';
 window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ff6b6b"><p><b>Sayfa açılamadı.</b> Sürüm '+KG_VER+'</p><p class="small" style="word-break:break-all">'+String(e.message||e.error||e)+(e.filename?' @'+e.lineno:'')+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}});
 setTimeout(function(){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ffb347"><p><b>Sayfa yüklenemedi.</b> Sürüm '+KG_VER+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}},8000);
 </script>
@@ -1224,7 +1224,7 @@ function rehberCekmece(stage){
   const n=(P.players&&P.players.length)||(P.lobby&&P.lobby.length)||0;
   c.append(el('h3',null,'Dağılım'));
   if(n>=4){const sat=['Hain: '+DAGILIM.hain(n),'Deli: '+(DAGILIM.deli(n)?'var':'yok'),'Saldırgan tarafsız: '+DAGILIM.saldirgan(n),'Pasif tarafsız: '+DAGILIM.pasif(n),'Doktor her oyunda; Polis 5+ kişide'];c.append(el('p','small',n+' oyuncu için — '+sat.join(' · ')))}
-  c.append(el('p','small muted','4–8 kişide 1 hain, 9–12\'de 2. Deli 6+, saldırgan tarafsız 9+ (12\'de iki), pasif tarafsız 9+. Her özel rol en fazla bir kez; bilgi veren rol sayısı hain sayısından az olmaz.'));
+  c.append(el('p','small muted','4–8 kişide 1 hain, 9–12\'de 2. Deli 6+, saldırgan tarafsız 9+ (12\'de iki), pasif tarafsız 9+. Yeteneksiz Masum 7+ kişide bir tane (9 kişide yok). Her özel rol en fazla bir kez; bilgi veren rol sayısı hain sayısından az olmaz.'));
   if(P.settings){c.append(el('h3',null,'Bu oda'));c.append(el('p','small','Gece '+P.settings.night+' sn · Tartışma '+P.settings.talk+' sn · Oylama '+P.settings.vote+' sn'))}
   stage.append(c);
 }

@@ -9,7 +9,7 @@
 
 **Roller (19):** Masum, Doktor, Deli, Polis, Gözcü, İzci, Dedektif, Tuzakçı, İspiyoncu, Provokatör · Hain, Temizlikçi, Suçlayıcı (+ masum rollerin hain sürümleri) · Hayatta Kalan, Seri Katil, Bombacı, Hırsız, Büyücü, Hortlak.
 
-**Rol dağılımı** (`sunucu/game.js` `autoSetup`, tasarım `docs/superpowers/specs/2026-10-24-kasaba-gecesi-sahne-design.md` §5.1): her özel rol bir oyunda en fazla bir kez çıkar; Doktor hep, Polis 5+ kişide; bilgi rolü sayısı (Polis, Gözcü, İzci, Dedektif, İspiyoncu) hain sayısından az olmaz; 4–6 kişide Masum yok, 7+ kişide 1 Masum, geri kalan masumların hepsi yetenekli (geri bildirim paketi, `docs/superpowers/specs/2026-10-25-kasaba-gecesi-rol-dagilimi-geri-bildirim-design.md`).
+**Rol dağılımı** (`sunucu/game.js` `autoSetup`, tasarım `docs/superpowers/specs/2026-10-24-kasaba-gecesi-sahne-design.md` §5.1): her özel rol bir oyunda en fazla bir kez çıkar; Doktor hep, Polis 5+ kişide; bilgi rolü sayısı (Polis, Gözcü, İzci, Dedektif, İspiyoncu) hain sayısından az olmaz; 4–6 kişide Masum yok, 7+ kişide 1 Masum (9 kişide yok: o yuva Tuzakçı/Provokatör ya da ikinci bilgi rolüne açılır, 2026-10-27), geri kalan masumların hepsi yetenekli (geri bildirim paketi, `docs/superpowers/specs/2026-10-25-kasaba-gecesi-rol-dagilimi-geri-bildirim-design.md`).
 
 | kişi | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 |
 |---|---|---|---|---|---|---|---|---|---|

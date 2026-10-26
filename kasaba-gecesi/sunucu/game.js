@@ -127,7 +127,7 @@ const DAGILIM={
   saldirgan:n=>n>=12?2:n>=9?1:0,   // serikatil / bombaci / hirsiz / buyucu
   pasif:n=>n>=9?1:0,               // hayatta / hortlak
   deli:n=>n>=6?1:0,
-  masum:n=>n>=7?1:0,               // yeteneksiz Masum: 4–6 kişide yok, 7+ kişide 1 (kullanıcı kararı 2026-10-25)
+  masum:n=>n>=7&&n!==9?1:0,     // yeteneksiz Masum: 4–6 kişide yok, 7+ kişide en çok 1 (kullanıcı 2026-10-25); 9 kişide yok: yuva Tuzakçı/Provokatör'e açılır (kullanıcı 2026-10-27)
   tekHainSurumP:0.5                // tek hainli oyunda hainin sürümlü (Polis-hain, Gözcü-hain…) olma olasılığı; 2 hainde hep 1 sürümlü + 1 düz
 };
 Object.freeze(DAGILIM); // eşikler tek yerde ve değişmez; ölçüm/test için autoSetup(n, ayar) ile geçici üst yazım
