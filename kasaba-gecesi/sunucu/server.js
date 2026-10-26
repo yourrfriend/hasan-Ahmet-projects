@@ -375,7 +375,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
     const kaz=new Set((P.winner&&P.winner.kazananlar)||[]),kul=G.esyaKullanimi(R);
     for(const p of P.players){const uye=(room.oyunUyeleri&&room.oyunUyeleri.get(p.id))||(room.members.get(p.id)||{}).uye;if(!uye)continue;
       const odul=G.kasaOdulu();if(odul.tur==='kozmetik')odul.donusum=G.NADIRLIK[odul.nadir].donusum;
-      const k=kul[p.id];const harcanan=k&&k.kaynak==='envanter'&&k.kullanildi?k.key:null;
+      const k=(kul[p.id]||[]).find(e=>e.kaynak==='envanter'&&e.kullanildi);const harcanan=k?k.key:null; // v2: dizi (envanterden en çok bir eşya gelir)
       const gonder=()=>kayit.macSonu(uye,P.oyunId,{odul,rozetler:G.rozetlerFor(R,p.id),harcanan,bonus:kaz.has(p.id)?2:0});
       // RPC idempotent: geçici hata (null) bir kez yeniden denenir; yine olmazsa ayırma kalkar, eşya düşülmez
       gonder().then(r=>r||new Promise(res=>setTimeout(res,ilerlemeDenemeMs)).then(gonder)).then(r=>{

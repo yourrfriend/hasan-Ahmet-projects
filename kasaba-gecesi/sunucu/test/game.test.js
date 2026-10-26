@@ -157,7 +157,7 @@ test('olay alan şemaları: her olay türünün veri anahtarları sabit (hikâye
     gece_hamle:['hedef','kim','tahmin','tur'],
     gece_sonuc:['bombalar','caldi','esyalar','haberler','ispiyon','kurtaranlar','kurtarilan','mum','olenler','provokasyon','tutanlar','tutulan','tuzak','yelek','yildirim','ziyaretler'],
     iddia:['algilanan_rol','gercek_rol','gercek_takim','kim','rol_iddia'],
-    gunduz_sonuc:['asilan','cekimser','fis','provoke','rol_goruntu','toplamlar'],
+    gunduz_sonuc:['asilan','cekimser','fis','kum','provoke','rol_goruntu','toplamlar','vasiyet'],
   };
   const gorulen={};for(const e of R.gameLog)gorulen[e.tur]=[...new Set([...(gorulen[e.tur]||[]),...Object.keys(e.veri)])].sort();
   for(const [tur,alanlar] of Object.entries(beklenen))assert.deepStrictEqual(gorulen[tur],alanlar,'olay '+tur+' alanları');
@@ -680,7 +680,7 @@ test('katalog: eşyalar, kozmetikler, nadirlik, kasa ağırlıkları, rozetler t
   assert.deepStrictEqual(Object.keys(G.ESYA).sort(),['duman','fener','fis','iksir','kilit','kum','maske','pusula','vasiyet','zar']);
   for(const e of Object.values(G.ESYA)){assert.ok(e.n&&e.ico&&e.desc&&['night','talk','vote','pasif','none'].includes(e.faz)&&G.NADIRLIK[e.nadir],JSON.stringify(e))}
   assert.deepStrictEqual(Object.keys(G.ESYA).filter(k=>G.ESYA[k].hedef).sort(),['kilit','pusula']);
-  assert.deepStrictEqual(Object.keys(G.ESYA).filter(k=>G.ESYA[k].pasif).sort(),['vasiyet']); // iksir Task 2'de pasif olur
+  assert.deepStrictEqual(Object.keys(G.ESYA).filter(k=>G.ESYA[k].pasif).sort(),['iksir','vasiyet']);
   assert.deepStrictEqual(G.ESYA_KATMAN('siradan').sort(),['fis','kum','pusula','zar']);assert.deepStrictEqual(G.ESYA_KATMAN('nadir').sort(),['duman','fener','iksir','maske','vasiyet']);
   assert.deepStrictEqual(G.ESYA_KATMAN('efsanevi'),['kilit']);assert.strictEqual(G.ESYA_YUVA,2);
   assert.deepStrictEqual(G.KASA_ESYA,{siradan:50,nadir:40,efsanevi:10});assert.deepStrictEqual(G.PAKET,{sans:0.6,sure:5000,nadirP:0.25,maxMac:3,uzat:30000});
@@ -740,72 +740,141 @@ test('rozetlerFor: günlükten — kurtarıcı, bekçi, tuzak ustası, zafer roz
 });
 
 // ---------- İlerleme (Task 2): eşya modu ----------
-function esyali(roles,esyalar){const R=G.createGame({night:30,talk:120,vote:45,esyaModu:true});
-  G.startGame(R,lobbyOf(roles.length),{esyalar:Object.fromEntries(Object.entries(esyalar).map(([id,k])=>[id,{key:k,kaynak:'envanter'}]))});
+// belirtilmeyen oyuncular 'fis' taşır (bedava çekiliş rastgele; zar nadir eşyaya dönüp testi bozmasın)
+function esyali(roles,esyalar){const R=G.createGame({night:30,talk:120,vote:45,esyaModu:true});const tam={};roles.forEach((_,i)=>tam['u'+i]='fis');Object.assign(tam,esyalar);
+  G.startGame(R,lobbyOf(roles.length),{esyalar:Object.fromEntries(Object.entries(tam).map(([id,k])=>[id,{key:k,kaynak:'envanter'}]))});
   roles.forEach((k,i)=>{const e=G.SETUP.find(x=>x.id===k);R.g.roles['u'+i]={key:e.key,team:e.team,mad:null,uses:{},vest:3,planted:[]}});return R}
 const haber=R=>(R.P.morning&&R.P.morning.news||[]).join(' | ');
 const gs=R=>R.gameLog.filter(e=>e.tur==='gece_sonuc').pop().veri;
 test('eşya modu kapalı: eşya yok, olaylarda esyalar [] ve fis null, ayar false',()=>{
   const R=fixed(['hain','doktor','masum','masum','masum']);assert.strictEqual(R.P.settings.esyaModu,false);assert.ok(!R.g.esya||!Object.keys(R.g.esya).length);
-  G.act(R,'u0',{kill:'u2',esya:true});G.advance(R);assert.deepStrictEqual(gs(R).esyalar,[]);
+  G.act(R,'u0',{kill:'u2',esya:'fener'});G.advance(R);assert.deepStrictEqual(gs(R).esyalar,[]);
+  assert.strictEqual(G.esyaKullan(R,'u0','kum'),false);
   G.advance(R);for(const id of ['u0','u1','u3','u4'])G.vote(R,id,'skip',null,null,true);
-  assert.strictEqual(R.gameLog.find(e=>e.tur==='gunduz_sonuc').veri.fis,null);assert.strictEqual(G.privFor(R,'u0').esya,null);
+  const v=R.gameLog.find(e=>e.tur==='gunduz_sonuc').veri;assert.strictEqual(v.fis,null);assert.strictEqual(v.kum,false);assert.strictEqual(v.vasiyet,null);assert.strictEqual(G.privFor(R,'u0').esya,null);
   assert.strictEqual(G.cleanSettings({esyaModu:true}).esyaModu,true);assert.strictEqual(G.cleanSettings({esyaModu:'evet'}).esyaModu,false);assert.strictEqual(G.cleanSettings({}).esyaModu,false);
 });
-test('eşya dağıtımı: herkese bir eşya; seçilen envanterden, geçersiz/eksik rastgele bedava; priv kendi eşyası; P gizli',()=>{
-  const R=esyali(['hain','masum','masum','masum','masum'],{u0:'iksir',u1:'yok-boyle'});
-  for(let i=0;i<5;i++){const e=R.g.esya['u'+i];assert.ok(e&&G.ESYA[e.key],'u'+i);assert.strictEqual(e.kullanildi,false)}
-  assert.deepStrictEqual(R.g.esya.u0,{key:'iksir',kaynak:'envanter',kullanildi:false});assert.strictEqual(R.g.esya.u1.kaynak,'bedava');assert.strictEqual(R.g.esya.u2.kaynak,'bedava');
-  assert.deepStrictEqual(G.privFor(R,'u0').esya,{key:'iksir',kullanildi:false});noLeak(R.P);assert.strictEqual(R.P.settings.esyaModu,true);
+test('eşya dağıtımı 2: herkese tek eşyalı dizi; seçilen envanterden, geçersiz/eksik bedava havuzdan; zar nadir eşyaya döner; priv dizi; P gizli',()=>{
+  const R=esyali(['hain','masum','masum','masum','masum'],{u0:'iksir',u1:'yok-boyle',u3:'zar'});
+  for(let i=0;i<5;i++){const e=R.g.esya['u'+i];assert.ok(Array.isArray(e)&&e.length===1&&G.ESYA[e[0].key],'u'+i);assert.strictEqual(e[0].kullanildi,false)}
+  assert.deepStrictEqual(R.g.esya.u0,[{key:'iksir',kaynak:'envanter',kullanildi:false}]);assert.strictEqual(R.g.esya.u1[0].kaynak,'bedava');assert.strictEqual(R.g.esya.u2[0].kaynak,'envanter');
+  assert.ok(['fis','kum','pusula'].includes(R.g.esya.u1[0].key)||R.g.esya.u1[0].zar,'bedava havuz sıradan (zar dönüşmüş olabilir)');
+  const z=R.g.esya.u3[0];assert.strictEqual(G.ESYA[z.key].nadir,'nadir');assert.strictEqual(z.zar,true);assert.strictEqual(z.kaynak,'envanter');assert.match(R.g.notes.u3.join(' | '),/🎲 Zar: .* çıktı/);
+  assert.deepStrictEqual(G.privFor(R,'u0').esya,[{key:'iksir',kullanildi:false,pasif:true,hedefli:false}]);noLeak(R.P);assert.strictEqual(R.P.settings.esyaModu,true);
+  assert.deepStrictEqual(Object.keys(G.privFor(R,'u3').esya[0]).sort(),['hedefli','key','kullanildi','pasif']);
+  R.g.esya.u2.push({key:'kilit',kaynak:'paket',kullanildi:false});assert.strictEqual(G.privFor(R,'u2').esya.length,2);assert.deepStrictEqual(G.privFor(R,'u2').esya[1],{key:'kilit',kullanildi:false,pasif:false,hedefli:true});
 });
-test('iksir: saldırıdan korur, anonim haber, tek kullanım; Doktor önce kurtarırsa iksir harcanır ama koruma Doktor\'un',()=>{
+test('eski biçim act{esya:true} yok sayılır; sahip olunmayan / fazı uymayan eşya harcanmaz',()=>{
+  const R=esyali(['hain','masum','masum','masum','masum'],{u1:'fener',u2:'fis'});
+  G.act(R,'u1',{esya:true});G.act(R,'u2',{esya:'fis'});G.act(R,'u3',{esya:'fener'});G.advance(R);
+  assert.deepStrictEqual(gs(R).esyalar,[]);assert.strictEqual(R.g.esya.u1[0].kullanildi,false);assert.strictEqual(R.g.esya.u2[0].kullanildi,false);assert.ok(!/fener/.test(haber(R)));
+});
+test('iksir pasif: saldırıda kendiliğinden harcanır ve haber; saldırısız gece harcanmaz; Doktor önce; iki saldırı tek harcama',()=>{
   let R=esyali(['hain','masum','masum','masum','masum'],{u1:'iksir'});
-  G.act(R,'u0',{kill:'u1'});G.act(R,'u1',{esya:true});G.advance(R);
+  G.act(R,'u0',{kill:'u1'});G.advance(R);
   assert.ok(G.pl(R,'u1').alive);assert.match(haber(R),/Bu gece biri iksir içti ve saldırıdan sağ çıktı/);assert.ok(!/u1|Oyuncu1/.test(haber(R)),'kullanan gizli');
-  assert.deepStrictEqual(gs(R).esyalar,[{kim:'u1',key:'iksir',etki:'korudu'}]);assert.strictEqual(R.g.esya.u1.kullanildi,true);assert.ok(G.rozetlerFor(R,'u1').includes('iksir_kurtardi'));
+  assert.deepStrictEqual(gs(R).esyalar,[{kim:'u1',key:'iksir',etki:'korudu',hedef:null}]);assert.strictEqual(R.g.esya.u1[0].kullanildi,true);assert.ok(G.rozetlerFor(R,'u1').includes('iksir_kurtardi'));
   G.advance(R);for(const id of ['u0','u1','u2','u3','u4'])G.vote(R,id,'skip');
-  G.act(R,'u0',{kill:'u1'});G.act(R,'u1',{esya:true});G.advance(R);assert.ok(!G.pl(R,'u1').alive,'ikinci kez iksir yok');
+  G.act(R,'u0',{kill:'u1'});G.advance(R);assert.ok(!G.pl(R,'u1').alive,'ikinci kez iksir yok');
+  R=esyali(['hain','masum','masum','masum','masum'],{u1:'iksir'});G.act(R,'u0',{kill:'u2'});G.advance(R);
+  assert.strictEqual(R.g.esya.u1[0].kullanildi,false,'saldırı yoksa harcanmaz');assert.ok(!/iksir/.test(haber(R)));assert.deepStrictEqual(gs(R).esyalar,[]);
   R=esyali(['hain','doktor','masum','masum','masum'],{u2:'iksir'});
-  G.act(R,'u0',{kill:'u2'});G.act(R,'u1',{ab:'u2'});G.act(R,'u2',{esya:true});G.advance(R);
-  assert.ok(G.pl(R,'u2').alive);assert.match(haber(R),/Doktor kurtardı/);assert.match(haber(R),/Bu gece biri iksir içti\./);assert.ok(!/sağ çıktı/.test(haber(R).split('iksir')[1]||''));
-  assert.deepStrictEqual(gs(R).esyalar,[{kim:'u2',key:'iksir',etki:null}]);assert.ok(G.rozetlerFor(R,'u1').includes('kurtarici'));assert.ok(!G.rozetlerFor(R,'u2').includes('iksir_kurtardi'));
+  G.act(R,'u0',{kill:'u2'});G.act(R,'u1',{ab:'u2'});G.advance(R);
+  assert.ok(G.pl(R,'u2').alive);assert.match(haber(R),/Doktor kurtardı/);assert.ok(!/iksir/.test(haber(R)),'Doktor kurtardıysa iksir kalır');assert.strictEqual(R.g.esya.u2[0].kullanildi,false);
+  assert.deepStrictEqual(gs(R).esyalar,[]);assert.ok(G.rozetlerFor(R,'u1').includes('kurtarici'));assert.ok(!G.rozetlerFor(R,'u2').includes('iksir_kurtardi'));
+  R=esyali(['hain','serikatil','masum','masum','masum','masum','masum','masum','masum'],{u2:'iksir'});
+  G.act(R,'u0',{kill:'u2'});G.act(R,'u1',{ab:'u2'});G.advance(R);
+  assert.ok(G.pl(R,'u2').alive,'iki saldırıdan da korur');assert.strictEqual(gs(R).esyalar.filter(e=>e.key==='iksir').length,1,'tek kayıt');assert.strictEqual((haber(R).match(/iksir içti/g)||[]).length,1);
 });
 test('fener: kapına gelenlerin adları; hain geldiyse etki ve rozet',()=>{
   const R=esyali(['hain','doktor','masum','masum','masum'],{u2:'fener'});
-  G.act(R,'u0',{kill:'u2'});G.act(R,'u1',{ab:'u2'});G.act(R,'u2',{esya:true});G.advance(R);
+  G.act(R,'u0',{kill:'u2'});G.act(R,'u1',{ab:'u2'});G.act(R,'u2',{esya:'fener'});G.advance(R);
   const n=R.g.notes.u2.join(' | ');assert.match(n,/Fenerinle gördün: evine .*Oyuncu0/);assert.match(n,/Oyuncu1/);
-  assert.match(haber(R),/Bu gece biri fenerle bekledi/);assert.deepStrictEqual(gs(R).esyalar,[{kim:'u2',key:'fener',etki:'hain_gordu'}]);assert.ok(G.rozetlerFor(R,'u2').includes('fener_gordu'));
-  const R2=esyali(['hain','masum','masum','masum','masum'],{u3:'fener'});G.act(R2,'u3',{esya:true});G.advance(R2);assert.match(R2.g.notes.u3.join(' | '),/Fenerinle gördün: evine kimse gelmedi/);
+  assert.match(haber(R),/Bu gece biri fenerle bekledi/);assert.deepStrictEqual(gs(R).esyalar,[{kim:'u2',key:'fener',etki:'hain_gordu',hedef:null}]);assert.ok(G.rozetlerFor(R,'u2').includes('fener_gordu'));
+  const R2=esyali(['hain','masum','masum','masum','masum'],{u3:'fener'});G.act(R2,'u3',{esya:'fener'});G.advance(R2);assert.match(R2.g.notes.u3.join(' | '),/Fenerinle gördün: evine kimse gelmedi/);
 });
-test('duman: Gözcü sayısından ve İzci\'den düşer, günlükte gerçek ziyaret kalır',()=>{
-  const R=esyali(['hain','gozcu','izci','masum','masum'],{u0:'duman'});
-  G.act(R,'u0',{kill:'u3',esya:true});G.act(R,'u1',{ab:'u3'});G.act(R,'u2',{ab:'u0'});G.advance(R);
+test('duman: Gözcü sayısından, İzci\'den ve pusuladan düşer, günlükte gerçek ziyaret kalır',()=>{
+  const R=esyali(['hain','gozcu','izci','masum','masum'],{u0:'duman',u4:'pusula'});
+  G.act(R,'u0',{kill:'u3',esya:'duman'});G.act(R,'u1',{ab:'u3'});G.act(R,'u2',{ab:'u0'});G.act(R,'u4',{esya:'pusula',esyaHedef:'u0'});G.advance(R);
   assert.ok(!G.pl(R,'u3').alive,'duman saldırıyı engellemez');
   assert.match(R.g.notes.u1.join(' | '),/Oyuncu3 evine bu gece 1 kişi geldi/,'yalnız gözcünün kendisi sayılır');
-  assert.match(R.g.notes.u2.join(' | '),/Oyuncu0 gece evinden çıkmadı/);assert.match(haber(R),/Bu gece kasabada duman vardı/);
+  assert.match(R.g.notes.u2.join(' | '),/Oyuncu0 gece evinden çıkmadı/);assert.match(R.g.notes.u4.join(' | '),/Pusula: Oyuncu0 bu gece evinden çıkmadı/);assert.match(haber(R),/Bu gece kasabada duman vardı/);
   assert.ok(gs(R).ziyaretler.u3.includes('u0'),'gizli günlük gerçek ziyareti tutar');
 });
 test('maske: Dedektif ve İspiyoncu Masum görür',()=>{
   const R=esyali(['hain','dedektif','ispiyoncu','masum','masum'],{u0:'maske'});
-  G.act(R,'u0',{esya:true});G.act(R,'u1',{ab:'u0'});G.act(R,'u2',{ab:'u0'});G.advance(R);
+  G.act(R,'u0',{esya:'maske'});G.act(R,'u1',{ab:'u0'});G.act(R,'u2',{ab:'u0'});G.advance(R);
   assert.match(R.g.notes.u1.join(' | '),/Oyuncu0 şunlardan biri: .*Masum/);assert.match(haber(R),/Oyuncu0 = Masum/);assert.match(haber(R),/Bu gece biri maske taktı/);
+});
+test('pusula: hedef evinden çıktı mı; tutulan çıkmadı; sahibi ziyaret sayılmaz; kendi/ölü hedef yok sayılır',()=>{
+  let R=esyali(['hain','gozcu','masum','masum','masum'],{u2:'pusula'});
+  G.act(R,'u0',{kill:'u3'});G.act(R,'u1',{ab:'u2'});G.act(R,'u2',{esya:'pusula',esyaHedef:'u0'});G.advance(R);
+  assert.match(R.g.notes.u2.join(' | '),/Pusula: Oyuncu0 bu gece evinden çıktı/);assert.match(haber(R),/🧭 Bu gece biri pusulaya baktı/);assert.ok(!/Oyuncu2/.test(haber(R)));
+  assert.deepStrictEqual(gs(R).esyalar,[{kim:'u2',key:'pusula',etki:'cikti',hedef:'u0'}]);assert.match(R.g.notes.u1.join(' | '),/Oyuncu2 evine bu gece 1 kişi geldi/,'pusula ziyaret değil: yalnız Gözcü kendisi sayılır');
+  assert.ok(!gs(R).ziyaretler.u0.includes('u2'));
+  R=esyali(['hain','polis','masum','masum','masum'],{u2:'pusula'});
+  G.act(R,'u0',{kill:'u3'});G.act(R,'u1',{ab:'u0'});G.act(R,'u2',{esya:'pusula',esyaHedef:'u0'});G.advance(R);
+  assert.match(R.g.notes.u2.join(' | '),/Oyuncu0 bu gece evinden çıkmadı/);assert.strictEqual(gs(R).esyalar[0].etki,'cikmadi');
+  R=esyali(['hain','masum','masum','masum','masum'],{u2:'pusula'});G.act(R,'u2',{esya:'pusula',esyaHedef:'u2'});G.advance(R);
+  assert.strictEqual(R.g.esya.u2[0].kullanildi,false,'kendi evi yok sayılır');assert.deepStrictEqual(gs(R).esyalar,[]);
+  G.advance(R);for(const id of ['u0','u1','u2','u3','u4'])G.vote(R,id,'u4');G.act(R,'u2',{esya:'pusula',esyaHedef:'u4'});G.advance(R);
+  assert.strictEqual(R.g.esya.u2[0].kullanildi,false,'ölü hedef yok sayılır');
+});
+test('kilit: hedef hamle yapamaz (hain öldüremez), notlar ve anonim haber; Seri Katil durdurulamaz ve sessiz; Polis sahibini tutsa da işler',()=>{
+  let R=esyali(['hain','masum','masum','masum','masum'],{u1:'kilit'});
+  G.act(R,'u0',{kill:'u2'});G.act(R,'u1',{esya:'kilit',esyaHedef:'u0'});G.advance(R);
+  assert.ok(G.pl(R,'u2').alive,'kilitli hain öldüremedi');assert.match(R.g.notes.u0.join(' | '),/Bu gece kapın kilitliydi, evden çıkamadın/);assert.match(R.g.notes.u1.join(' | '),/Kapıyı kilitledin: Oyuncu0/);
+  assert.match(haber(R),/🔒 Bu gece birinin kapısı kilitlendi/);assert.ok(!/Oyuncu1|Oyuncu0/.test(haber(R).split('🔒')[1]));assert.match(haber(R),/Sakin bir gece/);
+  assert.deepStrictEqual(gs(R).esyalar,[{kim:'u1',key:'kilit',etki:'kilitledi',hedef:'u0'}]);assert.deepStrictEqual(gs(R).tutulan,[],'kilit Polis tutması sayılmaz');assert.ok(!G.rozetlerFor(R,'u1').includes('bekci'));
+  R=esyali(['hain','serikatil','masum','masum','masum','masum','masum','masum','masum'],{u2:'kilit'});
+  G.act(R,'u1',{ab:'u3'});G.act(R,'u2',{esya:'kilit',esyaHedef:'u1'});G.advance(R);
+  assert.ok(!G.pl(R,'u3').alive,'Seri Katil durdurulamaz');assert.match(R.g.notes.u2.join(' | '),/Kapıyı kilitledin: Oyuncu1/);assert.ok(!/kilitliydi/.test(R.g.notes.u1.join(' | ')));
+  assert.strictEqual(gs(R).esyalar[0].etki,'durduramadi');assert.match(haber(R),/🔒 Bu gece birinin kapısı kilitlendi/);assert.strictEqual(R.g.esya.u2[0].kullanildi,true);
+  R=esyali(['hain','polis','masum','masum','masum'],{u2:'kilit'});
+  G.act(R,'u0',{kill:'u3'});G.act(R,'u1',{ab:'u2'});G.act(R,'u2',{esya:'kilit',esyaHedef:'u0'});G.advance(R);
+  assert.ok(G.pl(R,'u3').alive,'tutulan sahibin kilidi yine işler');assert.ok(gs(R).tutulan.includes('u2'));
+  R=esyali(['hain','polis','masum','masum','masum'],{u2:'kilit'});
+  G.act(R,'u0',{kill:'u3'});G.act(R,'u1',{ab:'u0'});G.act(R,'u2',{esya:'kilit',esyaHedef:'u1'});G.advance(R);
+  assert.ok(!G.pl(R,'u3').alive,'kilitli Polis tutamadı, hain öldürdü');assert.deepStrictEqual(gs(R).tutulan,[]);
+});
+test('vasiyet pasif: gece ölümünde o gecenin notları sabah adla; asılmada oylama özetinde; not yoksa boştu; ölümle harcanır',()=>{
+  let R=esyali(['hain','gozcu','masum','masum','masum'],{u1:'vasiyet'});
+  G.act(R,'u0',{kill:'u1'});G.act(R,'u1',{ab:'u3'});G.advance(R);
+  assert.ok(!G.pl(R,'u1').alive);assert.match(haber(R),/📜 Oyuncu1'in vasiyeti: Oyuncu3 evine bu gece 1 kişi geldi\./);assert.strictEqual(R.g.esya.u1[0].kullanildi,true);
+  assert.deepStrictEqual(gs(R).esyalar,[{kim:'u1',key:'vasiyet',etki:'okundu',hedef:null}]);
+  R=esyali(['hain','masum','masum','masum','masum'],{u1:'vasiyet'});G.act(R,'u0',{kill:'u2'});G.advance(R);
+  assert.strictEqual(R.g.esya.u1[0].kullanildi,false,'ölmedi, harcanmadı');assert.ok(!/vasiyet/.test(haber(R)));
+  G.advance(R);for(const id of ['u0','u3','u4'])G.vote(R,id,'u1');G.vote(R,'u1','skip');
+  assert.ok(!G.pl(R,'u1').alive);assert.match(R.P.evening.summary,/📜 Oyuncu1'in vasiyeti boştu/);assert.strictEqual(R.g.esya.u1[0].kullanildi,true);
+  const v=R.gameLog.filter(e=>e.tur==='gunduz_sonuc').pop().veri;assert.deepStrictEqual(v.vasiyet,{kim:'u1'});assert.strictEqual(v.kum,false);
+});
+test('kum saati: tartışma 30 sn uzar, sohbette anonim satır, günde bir kez; gece/oylamada ve sahipsizde false',()=>{
+  const R=esyali(['hain','masum','masum','masum','masum'],{u1:'kum',u2:'kum'});
+  assert.strictEqual(G.esyaKullan(R,'u1','kum'),false,'gece');G.advance(R);
+  const once=R.P.ends,n0=R.P.chat.length;assert.strictEqual(G.esyaKullan(R,'u3','kum'),false,'sahibi değil');assert.strictEqual(G.esyaKullan(R,'u1','fis'),false);
+  assert.strictEqual(G.esyaKullan(R,'u1','kum'),true);assert.strictEqual(R.P.ends,once+30000);assert.strictEqual(R.g.esya.u1[0].kullanildi,true);
+  const son=R.P.chat[R.P.chat.length-1];assert.strictEqual(R.P.chat.length,n0+1);assert.ok(son.sys&&/⏳ Biri kum saatini çevirdi: \+30 sn/.test(son.t)&&!/Oyuncu1/.test(son.t));
+  assert.strictEqual(G.esyaKullan(R,'u2','kum'),false,'aynı gün ikinci');assert.strictEqual(R.P.ends,once+30000);assert.strictEqual(R.g.esya.u2[0].kullanildi,false);
+  assert.strictEqual(G.esyaKullan(R,'u1','kum'),false,'harcanmış');G.advance(R);assert.strictEqual(G.esyaKullan(R,'u2','kum'),false,'oylamada');
+  for(const id of ['u0','u1','u2','u3','u4'])G.vote(R,id,'skip');assert.strictEqual(R.gameLog.filter(e=>e.tur==='gunduz_sonuc').pop().veri.kum,true);
+  G.advance(R);assert.strictEqual(R.P.phase,'talk');assert.strictEqual(G.esyaKullan(R,'u2','kum'),true,'ertesi gün yine');
 });
 test('oy fişi: oyu 2 sayar, eşiğe sayılmaz, eşitliği bozar; anonim özet',()=>{
   let R=esyali(['hain','masum','masum','masum','masum'],{u0:'fis'});G.advance(R);G.advance(R);
   G.vote(R,'u0','u1',null,null,true);for(const id of ['u1','u2','u3','u4'])G.vote(R,id,'skip');
-  assert.ok(G.pl(R,'u1').alive,'tek oy + fiş astırmaz');assert.strictEqual(R.g.esya.u0.kullanildi,true,'birine oy verdiyse harcanır');
+  assert.ok(G.pl(R,'u1').alive,'tek oy + fiş astırmaz');assert.strictEqual(R.g.esya.u0[0].kullanildi,true,'birine oy verdiyse harcanır');
   R=esyali(['hain','masum','masum','masum','masum','masum'],{u0:'fis'});G.advance(R);G.advance(R);
   G.vote(R,'u0','u1',null,null,true);G.vote(R,'u3','u1');G.vote(R,'u2','u4');G.vote(R,'u5','u4');G.vote(R,'u1','skip');G.vote(R,'u4','skip');
   assert.ok(!G.pl(R,'u1').alive,'fiş eşitliği bozdu');const v=R.gameLog.find(e=>e.tur==='gunduz_sonuc').veri;assert.strictEqual(v.fis,1,'fiş sayısı (kimlik yazılmaz)');assert.deepStrictEqual(v.toplamlar,{u1:3,u4:2});
   assert.match(R.P.evening.summary,/Biri oy fişi kullandı/);
   R=esyali(['hain','masum','masum','masum','masum'],{u0:'fis'});G.advance(R);G.advance(R);G.vote(R,'u0','skip',null,null,true);for(const id of ['u1','u2','u3','u4'])G.vote(R,id,'skip');
-  assert.strictEqual(R.g.esya.u0.kullanildi,false,'çekimserde fiş harcanmaz');
+  assert.strictEqual(R.g.esya.u0[0].kullanildi,false,'çekimserde fiş harcanmaz');
 });
-test('esyaKullanimi ve gazete: harcananlar, kullanmadan ölen harcamaz; gazete eşya kartı adıyla',()=>{
+test('esyaKullanimi ve gazete: harcananlar dizi, kullanmadan ölen harcamaz; gazete eşya kartı adıyla',()=>{
   const R=esyali(['hain','masum','masum','masum'],{u1:'iksir',u2:'fener'});
-  G.act(R,'u0',{kill:'u1'});G.act(R,'u1',{esya:true});G.advance(R);G.advance(R);for(const id of ['u0','u1','u2','u3'])G.vote(R,id,'skip');
+  G.act(R,'u0',{kill:'u1'});G.advance(R);G.advance(R);for(const id of ['u0','u1','u2','u3'])G.vote(R,id,'skip');
   G.act(R,'u0',{kill:'u2'});G.advance(R);G.advance(R);for(const id of ['u0','u1','u3'])G.vote(R,id,'skip');G.act(R,'u0',{kill:'u3'});G.advance(R);
   assert.strictEqual(R.P.phase,'end');const k=G.esyaKullanimi(R);
-  assert.deepStrictEqual(k.u1,{key:'iksir',kaynak:'envanter',kullanildi:true});assert.deepStrictEqual(k.u2,{key:'fener',kaynak:'envanter',kullanildi:false});
+  assert.deepStrictEqual(k.u1,[{key:'iksir',kaynak:'envanter',kullanildi:true}]);assert.deepStrictEqual(k.u2,[{key:'fener',kaynak:'envanter',kullanildi:false}]);
   assert.ok(G.gazeteFor(R).some(c=>/🧪/.test(c.metin)&&/Oyuncu1/.test(c.metin)),JSON.stringify(G.gazeteFor(R)));
 });
