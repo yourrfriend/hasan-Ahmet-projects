@@ -70,13 +70,10 @@ Formül ("tehdit bütçesi"); `n` oyuncu sayısı (4–12):
   dengeyi eşikler ve kalibrasyon belirler.)
 - Pasif tarafsız (Hayatta Kalan, Hortlak; eşit olasılık): `n ≥ 9` → 1.
 - Deli: `n ≥ 6` → 1 (masum sayılır).
-- Masumlar (`m = n − hain − tarafsız − deli`): yetenekli sayısı `min(m, max(ceil(0,75 × m), hain + 1))` — "+1"
-  Doktor'dur, böylece bilgi rolü ≥ hain her zaman sağlanabilir; gerisi düz **Masum** (bu kurallarla Masum 8, 9 ve
-  12 kişide çıkar). Yetenekliler: Doktor hep; Polis `n ≥ 5`; sonra havuzdan tekrarsız (Gözcü, İzci,
+- Masumlar (`m = n − hain − tarafsız − deli`): **güncel kural (2026-10-25 geri bildirim paketi):** 4–6 kişide Masum yok, 7+ kişide 1 Masum (`DAGILIM.masum`), kalan masumların hepsi yetenekli. Yetenekliler: Doktor hep; Polis `n ≥ 5`; sonra havuzdan tekrarsız (Gözcü, İzci,
   Dedektif, Tuzakçı, İspiyoncu, Provokatör), önce bilgi rolleri gelecek şekilde: **bilgi rolü sayısı ≥ hain sayısı**
-  (Gözcü, İzci, Dedektif, Polis, İspiyoncu bilgi rolüdür).
-- Bu sayılar varsayılandır; **kalibrasyon** (5.1.1) sonucuna göre eşikler (`n ≥ 7`, `n ≥ 11`, `n ≥ 9`) ve
-  `round(n/4)` yuvarlaması değişebilir. Son tablo README'ye yazılır.
+  (Gözcü, İzci, Dedektif, Polis, İspiyoncu bilgi rolüdür). Tek hainli oyunda hain `DAGILIM.tekHainSurumP` (0,5) olasılıkla sürümlü.
+- Eşikler `game.js` `DAGILIM`'da sabit ve donmuş (ölçüm/test için `autoSetup(n, ayar)` ile geçici üst yazım); güncel tablo README "Rol dağılımı" bölümünde, geri bildirim tasarımı `2026-10-25-kasaba-gecesi-rol-dagilimi-geri-bildirim-design.md`.
 
 5.1.1 Kalibrasyon: `kasaba-gecesi/sunucu/test/denge.js` (komut: `node test/denge.js [oyun=2000]`):
 her `n` için `createGame`/`startGame`/`act`/`vote`/`advance` ile oyunlar oynatır; basit strateji —

@@ -217,18 +217,14 @@ satırlar yazılır ama kimse okuyamaz. `oyun_oyunculari.rol_key` de aynı kural
 
 ### 5.8 Kurulum ve işletme
 
-- Supabase: resmi `supabase/docker` paketi, `/opt/supabase-kasaba` içinde, kendi `.env`'i (şifreler
-  `openssl rand` ile), kendi Docker ağı; GoTrue'da anonim giriş ve kimlik bağlama açık, `JWT_EXPIRY=604800`.
+- Supabase: resmi `supabase/docker` paketi, **`/root/supabase-kasaba`** içinde (ionos'ta Docker snap `/opt`'u okuyamaz; güncel: README "Geçmiş ve kullanıcı kaydı"), kendi `.env`'i (anahtarları Supabase `setup.sh` üretir), kendi Docker ağı; GoTrue'da anonim giriş açık, kimlik bağlama **e-posta + 6 haneli kod** (Google yok; Plan 6), `JWT_EXPIRY=604800`.
 - Dışarıya: Caddy parçası `/etc/caddy/games/supabase.caddy` → **`kasaba-api.munupixi.com`** → `127.0.0.1:8000`
   (tünel kipinde `http://kasaba-api.munupixi.com:8080`). Ad tek seviyeli olmak zorunda: Cloudflare'in ücretsiz
   sertifikası `a.b.munupixi.com` biçimini kapsamaz (`api.kasaba.…` olmaz). Aynı ad GoTrue `API_EXTERNAL_URL`,
-  `SITE_URL` ve Google yönlendirme adresinde kullanılır. Parça `kur.sh`'nin yazdığı kurulum parçalarından
+  `SITE_URL`'de kullanılır. Parça `kur.sh`'nin yazdığı kurulum parçalarından
   ayrıdır (`kur.sh` ona dokunmaz) ama aynı kip mantığına uyar; `db/caddy.sh` kipi `/etc/games/.sunucu.env`'den okuyup üretir.
-- ionos'ta başka Supabase **yok** (mevcut `retracted-authors` kurulumu netcup16gb1'de). Yine de resmi paketin
-  sabit `container_name`'leri ve portları değiştirilir: `COMPOSE_PROJECT_NAME=supabase-kasaba`, konteyner
-  adları `sk-*`, tüm portlar `127.0.0.1`'e bağlı; Kong 8000 (boş), Studio **3001** (3000 ionos'ta Grafana'da),
-  Analytics 4000, Postgres 5432, Supavisor 6543 (hepsi boş; 3000, 3100, 9090, 9093, 8443, 8880 dolu).
-- Studio'ya erişim: SSH tüneli ya da Tailscale (`flamboyant-perlman` Tailscale'de). Dışarı açılmaz.
+- ionos'ta başka Supabase **yok** (mevcut `retracted-authors` kurulumu netcup16gb1'de). Güncel kurulum (`db/kur-supabase.sh`): resmi paketin konteyner adları (`supabase-db`, `supabase-auth`…), tüm portlar `127.0.0.1`'e bağlı — ağ geçidi 8000, Postgres 5432, Supavisor 6543 (`kur-supabase.sh` sonunda `0.0.0.0` dinleyen port görülürse hata).
+- Studio'ya erişim: `ssh -L 8000:127.0.0.1:8000 ionos` → `http://localhost:8000` (ya da Tailscale `flamboyant-perlman`). Dışarı açılmaz.
 - Şema: `kasaba-gecesi/sunucu/db/*.sql` (numaralı göçler) ve `db/uygula.sh` (Postgres konteynerinde `psql`,
   uygulananları `goc_gecmisi` tablosunda tutar). `kur.sh` bunu çağırmaz; ayrı adım, README'de.
 - Yedek: günlük `pg_dump` → `/var/backups/supabase-kasaba/`, 14 gün tutulur (systemd timer, `db/yedek.sh`).
@@ -262,9 +258,7 @@ Her aşama ayrı commit dizisi, `gecmis` dalında; 1. ve 4. aşamadan sonra canl
 
 ## 7. Kullanıcıdan gerekenler
 
-- Google OAuth istemci kimliği ve gizli anahtarı (Google Cloud Console → OAuth consent + Credentials;
-  yönlendirme adresi `https://kasaba-api.munupixi.com/auth/v1/callback`). 6. aşamaya kadar gerekmez.
-- ionos'ta 2–3 GB RAM'in Supabase'e ayrılması ve `/opt/supabase-kasaba` için onay.
+- (Güncel: Google OAuth yerine Resend + e-posta kodu, Plan 6; `/root/supabase-kasaba`.) ionos'ta 2–3 GB RAM'in Supabase'e ayrılması onaylandı.
 
 ## 8. İnşaatçıya bırakılanlar
 
