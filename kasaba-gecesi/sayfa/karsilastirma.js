@@ -23,7 +23,7 @@ function karsilastir(ben,oyunlar,oyuncular){
     const u=uyeler.get(p.uye)||{uye:p.uye,ad:p.ad||'?',birlikte:0,ayniTarafZafer:0,karsi:{ben:0,o:0},azMac:true};
     u.birlikte++;if(p.ad)u.ad=p.ad;
     const benK=kazandiMi(b,oyun),oK=kazandiMi(p,oyun);
-    if(b.takim===p.takim){if(benK&&oK)u.ayniTarafZafer++}
+    if(b.takim===p.takim&&b.takim!=='neu'){if(benK&&oK)u.ayniTarafZafer++} // iki tarafsız aynı taraf değildir (her biri tek başına kazanır)
     else{if(benK)u.karsi.ben++;if(oK)u.karsi.o++}
     uyeler.set(p.uye,u);
   }

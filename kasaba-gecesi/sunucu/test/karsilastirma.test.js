@@ -34,3 +34,13 @@ test('karşılaştır: birlikte maç, aynı tarafta zafer, karşı tarafta sen�
   const r2=karsilastir(BEN,[{...oyun('g5','inn'),sonuc:'devam'}],[oyuncu('g5',BEN,'inn'),oyuncu('g5',A,'inn'),{...oyuncu('g5','x',"inn"),uye:null}]);
   assert.deepStrictEqual(r2,[]);
 });
+
+test('karşılaştır: iki tarafsız aynı taraf sayılmaz — tek başına kazanan karşı tarafta sayılır',()=>{
+  const oyunlar=[oyun('g1','neu'),oyun('g2','neu')];
+  const oyuncular=[
+    oyuncu('g1',BEN,'neu','hirsiz',true),oyuncu('g1',A,'neu','bombaci',false),   // g1: ben (Hırsız, sağ) kazandı; A (Bombacı) öldü
+    oyuncu('g2',BEN,'neu','serikatil',false),oyuncu('g2',A,'neu','buyucu',true), // g2: A kazandı
+  ];
+  const by=Object.fromEntries(karsilastir(BEN,oyunlar,oyuncular).map(x=>[x.uye,x]));
+  assert.deepStrictEqual(by[A],{uye:A,ad:'a',birlikte:2,ayniTarafZafer:0,karsi:{ben:1,o:1},azMac:true});
+});
