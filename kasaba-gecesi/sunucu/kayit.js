@@ -13,7 +13,7 @@
 const DENEME=[1000,5000,15000,60000,300000];
 const {ek,TEKRAR}=require('./game.js'); // kasaba adı: "Ece'nin Kasabası" (game.js saf; tek kaynak); TEKRAR.gecmisUz: rol geçmişi uzunluğu
 function olustur(opts={}){
-  const sayac={olay:0,yazilan:0,hata:0,dusen:0,atlanan:0,profil:0,kuyruk:0,gecmisOkunan:0,gecmisHata:0};
+  const sayac={olay:0,yazilan:0,hata:0,dusen:0,atlanan:0,profil:0,kuyruk:0,gecmisOkunan:0,gecmisHata:0,kasa:0,ilerlemeHata:0};
   const acik=!!(opts.url&&opts.serviceKey);const bekleMs=opts.bekleMs??2000,zamanAsimi=opts.zamanAsimiMs??5000;
   const deneme=opts.deneme||DENEME,kuyrukSinir=opts.kuyrukSinir||10000,kurulum=opts.kurulum||'bilinmiyor';
   const log=opts.quiet?()=>{}:(...a)=>console.log(new Date().toISOString(),'kayit:',...a);
@@ -117,8 +117,14 @@ function olustur(opts={}){
       return (rows||[]).map(r=>({key:r.calinan_rol?'hirsiz':r.rol_key,team:r.calinan_rol?'neu':r.takim})).filter(r=>r.key&&r.team); // Hırsız: başlangıç rolü ve takımı (oda belleğiyle aynı)
     }catch(e){sayac.gecmisHata++;log('rol geçmişi okunamadı',String(uye).slice(0,8),e.message);return null}
   }
+  // ---------- ilerleme (göç 008): yalnız service_role RPC'leri; hata/ayarsız → null (oyunu beklemez, tekrar denenmez) ----------
+  async function rpcCagir(ad,govde){if(!acik||kapali)return null;try{return await istek('POST','rpc/'+ad,govde,null,true)}catch(e){sayac.ilerlemeHata++;log(ad+' başarısız',e.message);return null}}
+  const envanterOku=uye=>uye?rpcCagir('envanter_oku',{p_uye:uye}):Promise.resolve(null);
+  async function macSonu(uye,oyunId,o){if(!uye||!oyunId)return null;o=o||{};
+    const r=await rpcCagir('mac_sonu',{p_uye:uye,p_oyun:oyunId,p_odul:o.odul||null,p_rozetler:o.rozetler||[],p_harcanan:o.harcanan||null,p_bonus:o.bonus||0});if(r)sayac.kasa++;return r}
+  const kozmetikAl=(uye,key,fiyat)=>uye?rpcCagir('kozmetik_al',{p_uye:uye,p_key:key,p_fiyat:fiyat}):Promise.resolve(null);
   return{
-    kuyrukla,profil,sonRoller,
+    kuyrukla,profil,sonRoller,envanterOku,macSonu,kozmetikAl,
     async kapat(){ // yeni iş alınmaz; kuyruktaki kalan olaylar (bitiş dahil) en çok 3 sn içinde yazılır, sonra kapanır
       kapaniyor=true;for(const b of bekleyen.values())clearTimeout(b.t);bekleyen.clear();
       if(uykuCoz){clearTimeout(zamanlayici);uykuCoz()}

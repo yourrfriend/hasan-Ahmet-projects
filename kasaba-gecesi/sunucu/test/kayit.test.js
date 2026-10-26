@@ -210,3 +210,20 @@ test('karışık demet: biten maçın bitişi + yeni maçın başlangıcı aynı
     await bekle(200);assert.ok(!t.T.olaylar.some(o=>o.oyun_id===OYUN2),'atlanan maçın olayı yok');assert.strictEqual(k.sayac.dusen,1,'yalnız baslangic düştü; atlanan maçın olayı istek üretmez');
   }finally{await k.kapat();await t.kapat()}
 });
+
+// ---------- İlerleme (Task 4): RPC çağrıları ----------
+test('ilerleme RPC: envanterOku, macSonu, kozmetikAl doğru gövde ve anahtarla; hata ve ayarsız → null',async()=>{
+  const t=await taklitRest();const k=Kayit.olustur({url:t.url,serviceKey:'srv',kurulum:'kasaba-test',quiet:true});
+  try{
+    t.rpcAyarla('envanter_oku',g=>({yildiz:7,esyalar:{iksir:2},kozmetikler:['sapka:tac'],_uye:g.p_uye}));
+    const e=await k.envanterOku(UUID[0]);assert.deepStrictEqual(e,{yildiz:7,esyalar:{iksir:2},kozmetikler:['sapka:tac'],_uye:UUID[0]});
+    const m=await k.macSonu(UUID[0],'oyun-1',{odul:{tur:'esya',key:'fener',adet:1},rozetler:['kurtarici'],harcanan:'iksir',bonus:2});
+    assert.strictEqual(m.odul.key,'fener');assert.deepStrictEqual(m.yeni_rozetler,['kurtarici']);
+    const r=t.istekler.find(x=>x.tablo==='rpc/mac_sonu');assert.deepStrictEqual(r.govde,{p_uye:UUID[0],p_oyun:'oyun-1',p_odul:{tur:'esya',key:'fener',adet:1},p_rozetler:['kurtarici'],p_harcanan:'iksir',p_bonus:2});
+    assert.deepStrictEqual(await k.kozmetikAl(UUID[0],'bayrak:mavi',12),{ok:true,yildiz:0});
+    assert.deepStrictEqual(t.istekler.find(x=>x.tablo==='rpc/kozmetik_al').govde,{p_uye:UUID[0],p_key:'bayrak:mavi',p_fiyat:12});
+    assert.strictEqual(k.sayac.kasa,1);assert.strictEqual(k.sayac.yazilan,0,'RPC yazilan sayacına girmez');
+    t.hataAyarla(()=>500);assert.strictEqual(await k.envanterOku(UUID[0]),null);assert.strictEqual(await k.macSonu(UUID[0],'o2',{}),null);assert.strictEqual(k.sayac.ilerlemeHata,2);
+  }finally{await k.kapat();await t.kapat()}
+  const k2=Kayit.olustur({quiet:true});assert.strictEqual(await k2.envanterOku(UUID[0]),null);assert.strictEqual(await k2.macSonu(UUID[0],'o',{}),null);assert.strictEqual(await k2.kozmetikAl(UUID[0],'x',1),null);await k2.kapat();
+});
