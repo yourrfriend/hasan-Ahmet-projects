@@ -154,6 +154,15 @@ paket: 26942 açıldı, 30322 eşya kapıldı (113% / paket; tek kişilik paket 
 - **Kötüye kullanım (Plan 7):** kod maili üreten her istek oyun sunucusunun `POST /eposta/kod` ucundan geçer — Cloudflare **Turnstile** (Managed widget, görünmez; betik Cloudflare'den yüklenir, bu depoda CDN'siz ilkesinin tek istisnası), tavanlar (IP 10 dk'da 3 / saatte 6; adres saatte 3 / günde 6; kurulum `KOD_SAATLIK` 30 / `KOD_GUNLUK` 80; kanca `KANCA_GUNLUK` 90 — Resend'in günlük 100'ünün altında), aşımda dürüst Türkçe metin; anonim kimlik de `POST /hesap/anonim` ile sunucudan (IP başına saatte 10). Sunucu GoTrue'ya **yerel adresten** konuşur (`SUPABASE_IC_URL=http://127.0.0.1:8000`); dış kapıda `/auth/v1/otp`, `/magiclink`, `/resend`, `PUT /auth/v1/user` 403, `caddy.sh --signup-kapali` ile `/auth/v1/signup` da 403 (yalnız canlı bu sürüme geçince; eski istemci doğrudan `/signup` kullanır). Env: `TURNSTILE_SITE=`, `TURNSTILE_SECRET=`, `TURNSTILE_HOSTNAMES=` (isteğe bağlı; varsayılan `ALAN`), `SUPABASE_IC_URL=`, `KOD_GUNLUK=` (kasaba-test 20). `/saglik` → `kod:{istek,gonderildi,ip_sinir,adres_sinir,kota,turnstile_red,anon,anon_sinir}`; kota dolunca günlükte `UYARI`. Caddy `trusted_proxies private_ranges` ile GoTrue gerçek IP'yi görür (kendi IP sınırları anlamlı olsun). Yerel geliştirme: Cloudflare test anahtarları (`1x00000000000000000000AA` / `1x0000000000000000000000000000000AA`).
 - Testler: `test/eposta.test.js`, `test/hesap.test.js`, `test/kod.test.js`, `server.test.js` (kanca, birleştirme, kod ucu, anonim), e2e (sahte GoTrue ve sahte Turnstile ile bağla/gir/birleştir/tavan/betik yok/sunucu yok). kasaba-test'te gerçek deneme yapıldı (2026-10-25): bağlama, ikinci cihaz girişi, 1 maçın taşınması, eski anonim kullanıcının silinmesi.
 
+### Gerçek deneme (botlarla)
+Kurulu bir sürümü (ya da yerel sunucuyu) gerçek ağ üstünden denemek için, test takımına girmeyen iki araç:
+```sh
+cd kasaba-gecesi/sunucu
+BASE=https://kasaba-test.munupixi.com OYUNCU=7 ESYA=1 NODE_PATH="$(npm root -g)" npm run deneme   # Playwright ev sahibi + 7 bot, tam maç
+WS_URL=wss://kasaba-test.munupixi.com/ws node test/bot.js ODA 7                                    # yalnız botlar (elle kurulan odaya)
+```
+`BASE`/`WS_URL` verilmezse yerel sunucu (`PORT`, varsayılan 8787). Botlar: hain gece öldürür, eşya modunda gece eşyasını ve meydan paketini ~%50 dener, ilk tartışmada rol iddia eder, oylamada çekimser, maç sonunda hazır. `deneme` fazları, sabah haberlerini, eşya/paket sohbet satırlarını, kasa sonucunu, gazeteyi ve sayfa hatalarını yazar; ekran görüntüleri `OUT` klasörüne.
+
 ### Geçmiş sayfaları: hikâye, kasaba, giriş sayfası
 
 Kayıt açıkken kayıtlı oyuncu geçmişini tarayıcıda görür (statik sayfalar `kasaba-gecesi/sayfa/`, sunucu `GET /oyun/<uuid>` ve `/kasaba/<uuid>` ile sunar; aynı origin olduğundan oyun sayfasının anonim Supabase oturumu paylaşılır, ayrıca giriş yok):

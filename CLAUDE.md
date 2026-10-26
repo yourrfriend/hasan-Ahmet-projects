@@ -29,7 +29,7 @@ Her iş `main`'den kendi dalında; bitince `main` o dala fast-forward edilir (`g
   ```
   Bağlantı yalnız `docker exec` ile (portsuz). İmajın kendi `auth.uid()`'i `request.jwt.claims` okumaz: değiştirmezsen RLS senaryoları ilgisiz yere düşer.
 - Eşya modu ölçümü: `DAGILIM_ESYA=1 npm run denge` (eşya başına kullanım ve paket kapma oranı da yazar).
-- kasaba-test'te gerçek deneme: Playwright ev sahibi + `bot.js ODA SAYI` (`WS_URL` ile kurulum seçilir; hain botlar gece öldürür, oylamada çekimser, rol iddiası yapar, eşya modunda gece eşyasını ve paketi ~%50 dener, bitince "hazır" basar). `bot.js` depoda değil, oturum scratchpad'inde; yeniden yazarken bu davranışların hepsini koru (gazete `iddia` kartı buna bağlı). Denge botları (`test/denge.js`) ayrıdır, eşyayı %30 kullanır.
+- Gerçek deneme (test değil, elle): `cd kasaba-gecesi/sunucu && BASE=https://kasaba-test.munupixi.com OYUNCU=7 ESYA=1 NODE_PATH="$(npm root -g)" npm run deneme` — Playwright ev sahibi (844×390) + `test/bot.js` botları tam maç oynar; fazlar, haberler, paket/kum satırları, kasa, gazete ve sayfa hataları yazılır, ekran görüntüleri `OUT`'a. `BASE` yoksa yerel sunucu. Botlar tek başına: `WS_URL=wss://… node test/bot.js ODA [SAYI]`. Bot davranışı dosya başında; değiştirirsen gazete `iddia` kartını ve eşya/paket akışını bozmadığını `deneme` ile gör. Denge botları (`test/denge.js`) ayrıdır, eşyayı %30 kullanır.
 
 ## Sabit kararlar (kullanıcı)
 - Her hain gecede kendi başına öldürür; hain sayısı 4–8 kişide 1, 9–12'de 2; Bombacı ve Seri Katil Polis tarafından tutulamaz. Provokatör'ün +2'si yalnız gerçek bir oyun üstüne eklenir (herkes çekimserse kimse asılmaz). 4–6 kişide Masum yok, 7+'da 1; tek hain %50 sürümlü; rol tekrarı %80 eğilimle azaltılır (kesin yasak değil).

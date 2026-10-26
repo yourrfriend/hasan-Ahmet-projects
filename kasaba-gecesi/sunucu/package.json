@@ -12,7 +12,8 @@
     "start": "node server.js",
     "test": "node --test test/*.test.js",
     "e2e": "node test/e2e.js",
-    "denge": "node test/denge.js"
+    "denge": "node test/denge.js",
+    "deneme": "node test/deneme.js"
   },
   "dependencies": {
     "ws": "^8.18.0"
