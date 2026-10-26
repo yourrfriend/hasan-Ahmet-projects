@@ -88,11 +88,11 @@ grep -qxF "$IMPORT" "$ANA" 2>/dev/null || hata "$ANA içinde '$IMPORT' yok; önc
 # Eski parça .onceki'de bekler (import yalnız *.caddy'yi alır); doğrulama düşerse eski parça geri konur, yeni ayar hiç yürürlüğe girmez
 PARCA_YOL="$CADDY_KOK/games/supabase.caddy"
 if [ -f "$PARCA_YOL" ]; then cp -p "$PARCA_YOL" "$PARCA_YOL.onceki"; fi
+# yazım/doğrulama yarıda kesilirse (disk dolu, sinyal) eski parça geri gelir; yeni parça yalnız doğrulama geçince kalır
+geri_al(){ if [ -f "$PARCA_YOL.onceki" ]; then mv -f "$PARCA_YOL.onceki" "$PARCA_YOL"; else rm -f "$PARCA_YOL"; fi; }
+trap geri_al EXIT
 printf '%s' "$PARCA" > "$PARCA_YOL"
-if ! caddy validate --config "$ANA" --adapter caddyfile >/dev/null 2>&1; then
-  if [ -f "$PARCA_YOL.onceki" ]; then mv "$PARCA_YOL.onceki" "$PARCA_YOL"; else rm -f "$PARCA_YOL"; fi
-  hata "Caddy ayarı geçersiz; eski parça korundu."
-fi
-rm -f "$PARCA_YOL.onceki"
+caddy validate --config "$ANA" --adapter caddyfile >/dev/null 2>&1 || hata "Caddy ayarı geçersiz; eski parça korundu."
+trap - EXIT; rm -f "$PARCA_YOL.onceki"
 systemctl reload caddy 2>/dev/null || systemctl restart caddy
 bilgi "Caddy: $ALAN → 127.0.0.1:$PORT (kip $KIP)"

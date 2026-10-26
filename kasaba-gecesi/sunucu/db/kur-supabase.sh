@@ -107,7 +107,10 @@ KOTU="$(docker compose ps --format '{{.Name}} {{.Status}}' | grep -E 'unhealthy|
 [ -z "$KOTU" ] || { echo "$KOTU" >&2; hata "Sağlıksız konteyner var."; }
 # ---------- port denetimi: Supabase portları yalnız 127.0.0.1'de dinlemeli (override bozulursa dışarı açılır) ----------
 ACIK="$(ss -tln | awk '{print $4}' | grep -E '^(0\.0\.0\.0|\[::\]|\*):(8000|5432|6543)$' || true)"
-[ -z "$ACIK" ] || hata "Supabase portu dışarı açık: $(echo "$ACIK" | tr '\n' ' ') — docker-compose.kasaba.yml 127.0.0.1 bağlaması bozulmuş"
+if [ -n "$ACIK" ]; then
+  sh run.sh stop >/dev/null 2>&1 || docker compose stop >/dev/null 2>&1 || true   # açık yığını çalışır bırakma
+  hata "Supabase portu dışarı açık: $(echo "$ACIK" | tr '\n' ' ') — yığın durduruldu; docker-compose.kasaba.yml 127.0.0.1 bağlamasını düzeltip yeniden çalıştır"
+fi
 
 
 # ---------- yedek zamanlayıcısı (yedek.sh varsa) ----------

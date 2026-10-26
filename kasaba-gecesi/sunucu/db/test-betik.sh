@@ -9,10 +9,11 @@ chmod +x "$FB"/*
 # ---- 1) caddy.sh: geçersiz ayarda eski parça korunur ----
 C="$T/caddy"; mkdir -p "$C/games"; echo "import $C/games/*.caddy" > "$C/Caddyfile"; printf 'ESKI PARCA\n' > "$C/games/supabase.caddy"
 mkdir -p "$T/ayar"; printf 'KIP=tunel\nTUNEL_PORT=8080\n' > "$T/ayar/.sunucu.env"
-if KG_CADDY_KOK="$C" KG_AYAR_KOK="$T/ayar" bash "$DB/caddy.sh" --alan x.test >/dev/null 2>&1 && grep -q 'x.test' "$C/games/supabase.caddy"; then ok "caddy: geçerli yazım"; else fail "caddy: geçerli yazım"; fi
+for s in caddy.sh yedek.sh kur-supabase.sh uygula.sh; do bash -n "$DB/$s" || fail "sözdizimi: $s"; done
+if KG_CADDY_KOK="$C" KG_AYAR_KOK="$T/ayar" bash "$DB/caddy.sh" --alan x.test >/dev/null 2>&1 && grep -q 'x.test' "$C/games/supabase.caddy" && [ "$(ls "$C/games")" = "supabase.caddy" ]; then ok "caddy: geçerli yazım, artık dosya yok"; else fail "caddy: geçerli yazım ($(ls "$C/games" | tr '\n' ' '))"; fi
 printf 'ESKI PARCA\n' > "$C/games/supabase.caddy"
 CADDY_BOZUK=1 KG_CADDY_KOK="$C" KG_AYAR_KOK="$T/ayar" bash "$DB/caddy.sh" --alan x.test >/dev/null 2>&1 && fail "caddy: bozuk ayar hata vermeli"
-if [ "$(cat "$C/games/supabase.caddy")" = "ESKI PARCA" ] && [ ! -e "$C/games/supabase.caddy.yeni" ]; then ok "caddy: bozuk ayarda eski parça korunur, .yeni kalmaz"; else fail "caddy: bozuk ayarda eski parça korunur ($(ls "$C/games"))"; fi
+if [ "$(cat "$C/games/supabase.caddy")" = "ESKI PARCA" ] && [ "$(ls "$C/games")" = "supabase.caddy" ]; then ok "caddy: bozuk ayarda eski parça korunur, .onceki kalmaz"; else fail "caddy: bozuk ayarda eski parça korunur ($(ls "$C/games" | tr '\n' ' '))"; fi
 # ---- 2) yedek.sh: pg_dump düşerse .tmp kalmaz ----
 printf '#!/bin/sh\nexit 1\n' > "$FB/docker"; chmod +x "$FB/docker"; Y="$T/yedek"
 bash "$DB/yedek.sh" "$Y" 14 >/dev/null 2>&1 && fail "yedek: pg_dump düşünce hata vermeli"
@@ -29,8 +30,11 @@ eval "$(sed -n '/^APT_GUNCEL=0/,/^done/p' "$DB/kur-supabase.sh" | sed 's/for p i
 if [ "$(grep -c '^update' "$T/apt.log")" = 1 ] && [ "$(grep -c '^install' "$T/apt.log")" = 2 ]; then ok "apt-get: eksik pakette update bir kez"; else fail "apt-get: $(cat "$T/apt.log" | tr '\n' ';')"; fi
 # ---- 5) port denetimi: 0.0.0.0'da dinleyen port varsa HATA ----
 printf '#!/bin/sh\nprintf "LISTEN 0 4096 0.0.0.0:8000 0.0.0.0:*\\nLISTEN 0 4096 127.0.0.1:5432 0.0.0.0:*\\n"\n' > "$FB/ss"; chmod +x "$FB/ss"
+printf '#!/bin/sh\necho "docker $*" >> "%s/docker.log"\nexit 0\n' "$T" > "$FB/docker"; chmod +x "$FB/docker"; : > "$T/docker.log"
 hata(){ echo "HATA:$*"; return 1; }
-if eval "$(grep -A3 '^# ---------- port denetimi' "$DB/kur-supabase.sh" | grep -v '^#')" 2>&1 | grep -q 'HATA'; then ok "port: 0.0.0.0 görülünce HATA"; else fail "port: denetim yok ya da sessiz"; fi
+PORTBLOK="$(sed -n '/^# ---------- port denetimi/,/^$/p' "$DB/kur-supabase.sh" | grep -v '^#')"
+if eval "$PORTBLOK" 2>&1 | grep -q 'HATA'; then ok "port: 0.0.0.0 görülünce HATA"; else fail "port: denetim yok ya da sessiz"; fi
+if grep -q 'compose stop' "$T/docker.log"; then ok "port: açık yığın durduruldu"; else fail "port: yığın durdurulmadı ($(cat "$T/docker.log" | tr '\n' ';'))"; fi
 # ---- 6) uygula.sh: PostgREST şema yenileme ----
 grep -q "notify pgrst, 'reload schema'" "$DB/uygula.sh" && ok "uygula: pgrst reload" || fail "uygula: pgrst reload yok"
 # ---- 7) kurulum günlüğü maskeleme ----
