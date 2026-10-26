@@ -245,6 +245,7 @@ do $$ declare r jsonb; u uuid := '33333333-3333-3333-3333-333333333333'; n int :
     if coalesce((r->>'tavan')::boolean, false) then n := n + 1; end if;
   end loop;
   if n = 0 then raise exception 'BAŞARISIZ 15: günlük kasa tavanı işlemedi'; end if;
+  if position('for update' in pg_get_functiondef('public.mac_sonu(uuid, uuid, jsonb, text[], text, int)'::regprocedure)) = 0 then raise exception 'BAŞARISIZ 15: göç 009 — mac_sonu cüzdan kilidi (for update) yok'; end if;
   if (select adet from public.esyalar where uye = u and key = 'fener') > 20 then raise exception 'BAŞARISIZ 15: tavan sonrası ödül verildi'; end if;
   raise notice 'GEÇTİ 15: mac_sonu idempotent, dönüşüm, harcama, tavan';
 end $$;
