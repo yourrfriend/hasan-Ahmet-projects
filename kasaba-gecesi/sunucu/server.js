@@ -68,7 +68,7 @@ function createServer(opts={}){
   // E-posta (Plan 6): GoTrue "Send Email" kancası → tek gönderim fonksiyonu. Sır yoksa uç kapalı (404). webhook-id ile 10 dk tekilleştirme (GoTrue yeniden dener).
     // kota: kanca günlük tavanı (KANCA_GUNLUK); kancaGun: son 24 saatin gönderim zamanları
 const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata:0,atlanan:0,sinir:0,kota:0};const kancaGun=[];const kancaGorulen=new Map();const kancaAlici=new Map();const KANCA_ALICI_SAAT=opts.kancaAliciSaat||5;
-  function govdeOku(req,sinir){return new Promise((res,rej)=>{let b='';let asim=false;req.on('data',d=>{if(asim)return;b+=d;if(b.length>sinir){asim=true;rej(Object.assign(new Error('büyük'),{kod:413}))}});req.on('end',()=>{if(!asim)res(b)});req.on('error',rej)})}
+  function govdeOku(req,sinir){return new Promise((res,rej)=>{let b='';let asim=false;if(req.setEncoding)req.setEncoding('utf8');req.on('data',d=>{if(asim)return;b+=d;if(b.length>sinir){asim=true;rej(Object.assign(new Error('büyük'),{kod:413}))}});req.on('end',()=>{if(!asim)res(b)});req.on('error',rej)})}
   async function kancaUcu(req,res){
     const json=(d,b)=>{res.writeHead(d,{'Content-Type':'application/json'});res.end(JSON.stringify(b))};
     if(!ayar.kancaSirri){res.writeHead(404);return res.end('yok')}
@@ -99,10 +99,11 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
   // odanın biriken olaylarını kayıt yuvasına ver (R.log boşalır; R.gameLog oyunda kalır)
   function bosalt(room){const R=room.game;if(R.log.length)kayit.kuyrukla(room,R.log.splice(0))}
   // Bu Akşamın Skoru: biten maç bir kez işlenir (gameId); katılımcılar oynadı, P.winner.kazananlar kazandı. İptal işlenmez.
+  const HAZIR_OLAY_TAVAN=10;const oyuncuMu=(R,uid)=>(R.P.players||[]).some(p=>p.id===uid); // izleyici/lobi üyesi hazır-gördüm gönderemez
   function skorIsle(room){const P=room.game.P;if(P.phase!=='end'||!P.gameId||room.skorIslenen.has(P.gameId))return;room.skorIslenen.add(P.gameId);
     const kaz=new Set((P.winner&&P.winner.kazananlar)||[]);
-    for(const p of P.players){const s=room.skor.get(p.id)||{ad:p.name,oynadi:0,kazandi:0};s.ad=p.name;s.oynadi++;if(kaz.has(p.id))s.kazandi++;room.skor.set(p.id,s)}}
-  const skorListesi=room=>[...room.skor].map(([id,s])=>({id,ad:s.ad,oynadi:s.oynadi,kazandi:s.kazandi})).sort((a,b)=>b.kazandi-a.kazandi||a.ad.localeCompare(b.ad,'tr'));
+    for(const p of P.players){const s=room.skor.get(p.id)||{ad:p.name,oynadi:0,kazandi:0};s.ad=(room.members.get(p.id)||{}).name||p.name;s.oynadi++;if(kaz.has(p.id))s.kazandi++;room.skor.set(p.id,s)}room.skorCache=null}
+  const skorListesi=room=>room.skorCache||(room.skorCache=[...room.skor].map(([id,s])=>({id,ad:s.ad,oynadi:s.oynadi,kazandi:s.kazandi})).sort((a,b)=>b.kazandi-a.kazandi||a.ad.localeCompare(b.ad,'tr'))); // skorIsle/applyLook değişince null'lanır
 
   // ---------- statik dosya ----------
   // Önbellek: html ve sürümsüz betikler no-cache + ETag (Cloudflare kenarı eski kopyayı tutmasın; tarayıcı 304 alır);
@@ -116,10 +117,13 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
   }
   // Kod istekleri ve anonim kimlik (Plan 7): mail üreten tek herkese açık giriş burası. Turnstile + tavanlar; GoTrue'ya yalnız yerel adresten.
   // kodTavan: testler için pencere/sınır geçersiz kılma
+  const ipBirlestirme=new Map(); // birleştirme IP tavanı (dakikada 5)
   const tavan=Kod.tavanlar({saat:ayar.kodSaatlik,gun:ayar.kodGunluk,...(opts.kodTavan||{})});const kodSayac={gonderildi:0,turnstile_red:0};
   const icFetch=opts.icFetch||((u,o)=>fetch(u,o)),turnstileFetch=opts.turnstileFetch||((u,o)=>fetch(u,o));
-  const tavanTemizle=setInterval(()=>tavan.temizle(),600000);if(tavanTemizle.unref)tavanTemizle.unref();
-  if(ayar.url&&ayar.serviceKey&&ayar.kancaSirri&&!ayar.icUrl)log('UYARI: SUPABASE_IC_URL yok; /eposta/kod ve /hesap/anonim 503 döner');
+  const tavanTemizle=setInterval(()=>{tavan.temizle();const simdi=Date.now();for(const [k,v] of ipBirlestirme){const son=v.filter(t=>simdi-t<60000);if(son.length)ipBirlestirme.set(k,son);else ipBirlestirme.delete(k)}},600000);if(tavanTemizle.unref)tavanTemizle.unref(); // ipBirlestirme da süpürülür (bellek)
+  const uyarilar=[];const uyar=m=>{uyarilar.push(m);log('UYARI: '+m)}; // açılış uyarıları (/saglik'e girmez; testler okur)
+  if(ayar.url&&ayar.serviceKey&&ayar.kancaSirri&&!ayar.icUrl)uyar('SUPABASE_IC_URL yok; /eposta/kod ve /hesap/anonim 503 döner');
+  if(ayar.turnstileSecret&&!(Array.isArray(ayar.turnstileHostnames)&&ayar.turnstileHostnames.filter(Boolean).length))uyar('Turnstile hostname listesi boş: hostname denetimi kapalı (TURNSTILE_HOSTNAMES ya da ALAN ver)');
   const icKok=()=>String(ayar.icUrl||'').replace(/\/+$/,'');
   // ip: istemci IP'si X-Forwarded-For ile GoTrue'ya gider (ağ geçidi ekler, GoTrue ilk değeri alır) — IP başına sınırları sunucumuz tek anahtara düşürmesin
   async function icIstek(yontem,yol,govde,ekBaslik,ip){const r=await icFetch(icKok()+yol,{method:yontem,headers:{apikey:ayar.anonKey||'','Content-Type':'application/json',...(ip?{'X-Forwarded-For':ip}:{}),...(ekBaslik||{})},body:govde===undefined?undefined:JSON.stringify(govde),signal:AbortSignal.timeout(10000)});let j=null;try{j=await r.json()}catch(e){}return {durum:r.status,govde:j}}
@@ -143,10 +147,11 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
       if(kim.eposta)return json(400,{error:'zaten_bagli'});
     }
     const k2=tavan.kontrol({ip,adres:email});if(!k2.ok)return json(k2.neden==='kota'?503:429,{error:k2.neden==='kota'?'kota':'limit',sureSn:k2.sureSn});
-    tavan.isaretle({ip,adres:email});
+    tavan.isaretle({ip,adres:email}); // önce işaret (eşzamanlı istekler tavanı aşmasın); GoTrue'ya ulaşılamazsa geri alınır
     let sonuc;
-    if(tur==='bagla'){try{sonuc=await icIstek('PUT','/auth/v1/user',{email},{Authorization:'Bearer '+g.token},ip)}catch(e){return json(503,{error:'ic'})}}
-    else{try{sonuc=await icIstek('POST','/auth/v1/otp',{email,create_user:false},null,ip)}catch(e){return json(503,{error:'ic'})}}
+    if(tur==='bagla'){try{sonuc=await icIstek('PUT','/auth/v1/user',{email},{Authorization:'Bearer '+g.token},ip)}catch(e){tavan.geriAl({ip,adres:email});return json(503,{error:'ic'})}}
+    else{try{sonuc=await icIstek('POST','/auth/v1/otp',{email,create_user:false},null,ip)}catch(e){tavan.geriAl({ip,adres:email});return json(503,{error:'ic'})}}
+    if(sonuc.durum>=500)tavan.geriAl({ip,adres:email}); // IC 5xx: hak yanmaz, yeniden denenebilsin
     log('kod',tur,Hesap.maskele(email),sonuc.durum);
     if(sonuc.durum>=200&&sonuc.durum<300){kodSayac.gonderildi++;return json(200,{ok:true})}
     const b=sonuc.govde||{};return json(sonuc.durum>=400&&sonuc.durum<600?sonuc.durum:502,{error:'gotrue',error_code:b.error_code||b.code||null,msg:b.msg||b.message||null});
@@ -160,13 +165,14 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
     return json(sonuc.durum,sonuc.govde||{});
   }
   // Hesap birleştirme (Plan 6): ikinci cihazda e-postayla girince o cihazın anonim geçmişi hesaba taşınır. Yalnız kayıt açıkken; IP başına dakikada 5.
-  const hesapFetch=opts.hesapFetch||((u,o)=>fetch(u,o));const birlestirmeSayac={ok:0,hata:0};const ipBirlestirme=new Map();
+  const hesapFetch=opts.hesapFetch||((u,o)=>fetch(u,o));const birlestirmeSayac={ok:0,hata:0};
   async function birlestirUcu(req,res){
     const json=(d,b)=>{res.writeHead(d,{'Content-Type':'application/json'});res.end(JSON.stringify(b))};
     if(!(ayar.url&&ayar.serviceKey)){res.writeHead(404);return res.end('yok')}
     const ip=ipOf(req),simdi=Date.now();const son=(ipBirlestirme.get(ip)||[]).filter(t=>simdi-t<60000);
     if(son.length>=5){birlestirmeSayac.hata++;return json(429,{error:'limit'})}son.push(simdi);ipBirlestirme.set(ip,son);
     let govde;try{govde=JSON.parse(await govdeOku(req,8*1024))}catch(e){birlestirmeSayac.hata++;return json(400,{error:'gecersiz_govde'})}
+    for(const t of [govde&&govde.eski,govde&&govde.yeni]){if(typeof t==='string'&&!Kimlik.dogrula(t,dogrulama)&&ayar.url&&opts.jwksAlma!==false&&kidBilinmiyor(t)&&Date.now()-jwksSonCekim>=jwksYenilemeMs){await jwksGetir();break}} // anahtar döndüyse bir kez yeniden çek (join ile aynı kural)
     const r=await Hesap.birlestir(govde,{dogrula:t=>Kimlik.dogrula(t,dogrulama),url:ayar.url,serviceKey:ayar.serviceKey,fetch:hesapFetch});
     if(r.durum===200)birlestirmeSayac.ok++;else birlestirmeSayac.hata++;
     log('birlestir',r.durum,r.govde.error||r.govde.uyari||'ok');return json(r.durum,r.govde);
@@ -212,7 +218,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
 
   // ---------- oda yardımcıları ----------
   function newRoom(code,hostId,ip){
-    const room={code,hostId,ip,game:G.createGame(),members:new Map(),lastActive:Date.now(),hostGoneSince:null,emptySince:null,flushT:null,lastPriv:new Map(),hazir:new Set(),skor:new Map(),skorIslenen:new Set(),gorduler:new Set()}; // hazir: rövanşa hazır üyeler (yalnız oyun sonunda); skor: oda oturumu (pubId → {ad,oynadi,kazandi})
+    const room={code,hostId,ip,game:G.createGame(),members:new Map(),lastActive:Date.now(),hostGoneSince:null,emptySince:null,flushT:null,lastPriv:new Map(),hazir:new Set(),hazirSayac:new Map(),skor:new Map(),skorIslenen:new Set(),gorduler:new Set()}; // hazir: rövanşa hazır üyeler (yalnız oyun sonunda); skor: oda oturumu (pubId → {ad,oynadi,kazandi})
     rooms.set(code,room);log('oda açıldı',code);return room;
   }
   const online=m=>m.socks.size>0;
@@ -249,7 +255,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
   function flush(room){
     clearTimeout(room.flushT);room.flushT=null;
     if(!rooms.has(room.code))return;
-    skorIsle(room);bosalt(room);prune(room);
+    skorIsle(room);try{bosalt(room)}catch(e){log('bosalt hatası',e.message)}prune(room); // kayıt yazıcısı fırlatsa da yayın sürer
     const st=stateMsg(room);
     for(const [uid,m] of room.members){for(const ws of m.socks){sendRaw(ws,st);sendChat(ws,room)}sendPriv(room,uid)}
   }
@@ -322,7 +328,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
     schedule(room);
   }
   function applyLook(room,uid,mem,m){
-    const n=cleanName(m.name);if(n){mem.name=n;const sk=room.skor.get(uid);if(sk)sk.ad=n} // skor tablosu son adı gösterir
+    const n=cleanName(m.name);if(n){mem.name=n;const sk=room.skor.get(uid);if(sk){sk.ad=n;room.skorCache=null}} // skor tablosu son adı gösterir
     if(G.COLORS.includes(m.color))mem.color=m.color;
     if(G.HATS.includes(m.hat))mem.hat=m.hat;
     if(mem.uye&&mem.name)kayit.profil(mem.uye,{ad:mem.name,renk:mem.color,sapka:mem.hat}); // kayıtlı oyuncu: profil (arka planda, oyunu beklemez)
@@ -339,17 +345,17 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
         // lobiden: bağlı herkes. Oyun sonundan rövanş (rovans:true): yalnız hazır ∧ bağlı üyeler; başlatan ev sahibi hazır sayılır
         if(!isHost(ws))break;
         const rovans=!!m.rovans&&R.P.phase==='end';if(!(R.P.phase==='lobby'||rovans))break;
-        skorIsle(room); // flush beklenmeden başlatılırsa biten maçın skoru kaçmasın
+        flush(room); // biten maçın skoru/olayları başlatmadan önce işlensin (skorIsle tek yerde: flush)
         if(m.settings)R.settings=G.cleanSettings(m.settings);
         const liste=rovans?lobbyOf(room).filter(p=>p.id===uid||room.hazir.has(p.id)):lobbyOf(room);
         if(rovans&&(liste.length<4||liste.length>12)){send(ws,{t:'err',m:'Rövanş için 4–12 hazır ve bağlı oyuncu gerekir (şu an '+liste.length+').',code:'soft'});break}
         const onceki=R.P.gameId;if(rovans)G.olay(R,'rovans_basladi',{onceki,oyuncular:liste.map(p=>p.id)});
-        if(G.startGame(R,liste,rovans?{rovans:true,onceki}:null)){room.hazir.clear();room.gorduler.clear();room.lastPriv.clear();log(rovans?'rövanş başladı':'oyun başladı',room.code,R.P.players.length+' kişi');flush(room)}
+        if(G.startGame(R,liste,rovans?{rovans:true,onceki}:null)){room.hazir.clear();room.hazirSayac.clear();room.gorduler.clear();room.lastPriv.clear();log(rovans?'rövanş başladı':'oyun başladı',room.code,R.P.players.length+' kişi');flush(room)}
         else send(ws,{t:'err',m:'Başlamak için 4–12 oyuncu gerekir.',code:'soft'});
         break}
-      case 'cancel':if(isHost(ws)&&R.P.phase!=='lobby'){skorIsle(room);G.endToLobby(R);room.hazir.clear();flush(room)}break;
-      case 'hazir':if(R.P.phase==='end'&&room.members.has(uid)){const v=!!m.v;if(v!==room.hazir.has(uid)){if(v)room.hazir.add(uid);else room.hazir.delete(uid);G.olay(R,'hazir',{kim:uid,v});schedule(room)}}break; // değişmediyse yayın yok
-      case 'gordum':if(R.P.phase==='end'&&room.members.has(uid)&&!room.gorduler.has(uid)){room.gorduler.add(uid);G.olay(R,'son_ekran_goruldu',{kim:uid});bosalt(room)}break; // ölçüm: son ekran görüldü (kişi başı bir kez; yayın gerekmez)
+      case 'cancel':if(isHost(ws)&&R.P.phase!=='lobby'){flush(room);G.endToLobby(R);room.hazir.clear();flush(room)}break;
+      case 'hazir':if(R.P.phase==='end'&&oyuncuMu(R,uid)){const v=!!m.v;if(v!==room.hazir.has(uid)){if(v)room.hazir.add(uid);else room.hazir.delete(uid);const n=room.hazirSayac.get(uid)||0;if(n<HAZIR_OLAY_TAVAN){room.hazirSayac.set(uid,n+1);G.olay(R,'hazir',{kim:uid,v})}schedule(room)}}break; // değişmediyse yayın yok; olay üye başına maçta en çok 10 (aç/kapa spam'i günlüğe dolmasın)
+      case 'gordum':if(R.P.phase==='end'&&oyuncuMu(R,uid)&&!room.gorduler.has(uid)){room.gorduler.add(uid);G.olay(R,'son_ekran_goruldu',{kim:uid});bosalt(room)}break; // ölçüm: son ekran görüldü (kişi başı bir kez; yayın gerekmez)
       case 'close':if(isHost(ws))deleteRoom(room,'Ev sahibi odayı kapattı.');break;
       case 'act':G.act(R,uid,m);break; // gece hamlesi gizli: kimseye yayın yok
       case 'vote':if(G.vote(R,uid,m.v,m.d,m.g))schedule(room);break;
@@ -399,8 +405,8 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
     }
   },opts.tickMs||500);
 
-  function close(cb){clearInterval(pingIv);clearInterval(tickIv);clearTimeout(jwksZamanlayici);for(const r of [...rooms.values()]){clearTimeout(r.flushT);bosalt(r)}for(const ws of wss.clients)ws.terminate();wss.close();Promise.resolve(kayit.kapat()).catch(()=>{}).then(()=>server.close(cb))} // kayıt kuyruğundaki süren iş bitsin (en çok 3 sn)
-  return {server,wss,rooms,close};
+  function close(cb){clearInterval(pingIv);clearInterval(tickIv);clearTimeout(jwksZamanlayici);for(const r of [...rooms.values()]){clearTimeout(r.flushT);try{bosalt(r)}catch(e){log('bosalt hatası',e.message)}}for(const ws of wss.clients)ws.terminate();wss.close();Promise.resolve(kayit.kapat()).catch(()=>{}).then(()=>server.close(cb))} // kayıt kuyruğundaki süren iş bitsin (en çok 3 sn)
+  return {server,wss,rooms,close,govdeOku,uyarilar};
 }
 
 module.exports={createServer};

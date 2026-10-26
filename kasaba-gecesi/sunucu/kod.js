@@ -24,9 +24,11 @@ function tavanlar(a={}){
     return {ok:true};
   }
   function isaretle({ip,adres}){const t=simdi();const ad=String(adres||'').trim().toLowerCase();sayac.istek++;for(const k of ['ip:'+ip,'adres:'+ad,'kurulum'])kirp(liste(k),GUN,t).push(t)}
+  // GoTrue'ya ulaşılamadıysa (ağ/5xx) işaret geri alınır: isaretle'nin yazdığı son damga düşer; sayac.istek azalır
+  function geriAl({ip,adres}){const ad=String(adres||'').trim().toLowerCase();let geri=false;for(const k of ['ip:'+ip,'adres:'+ad,'kurulum']){const l=M.get(k);if(l&&l.length){l.pop();geri=true}}if(geri&&sayac.istek>0)sayac.istek--}
   function anonimKontrol(ip){const t=simdi();const s=asim('anon:'+ip,SAAT,S.anonSaat,t);if(s){sayac.anon_sinir++;return {ok:false,sureSn:s}}sayac.anon++;kirp(liste('anon:'+ip),SAAT,t).push(t);return {ok:true}}
   function temizle(){const t=simdi();for(const [k,l] of M){kirp(l,GUN,t);if(!l.length)M.delete(k)}}
-  return {kontrol,isaretle,anonimKontrol,temizle,boyut:()=>M.size,sayac};
+  return {kontrol,isaretle,geriAl,anonimKontrol,temizle,boyut:()=>M.size,sayac};
 }
 const SITEVERIFY='https://challenges.cloudflare.com/turnstile/v0/siteverify';
 async function turnstileDogrula({secret,response,remoteip,action,hostnames,fetch:f,zamanAsimiMs=10000}){

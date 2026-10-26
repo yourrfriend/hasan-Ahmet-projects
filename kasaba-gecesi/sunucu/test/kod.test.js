@@ -50,3 +50,12 @@ test('turnstileDogrula: form kodlu istek, success+action+hostname; hata nedenler
   assert.strictEqual((await K.turnstileDogrula({secret:'',response:'t',action:'a',hostnames:['h'],fetch:sahte({})})).neden,'ayarsiz');
   assert.strictEqual((await K.turnstileDogrula({secret:'s',response:'t',action:'a',hostnames:['h'],fetch:async()=>{throw new Error('ECONN')}})).neden,'ag');
 });
+
+test('tavanlar.geriAl: işaretlenen son istek geri alınır (GoTrue ulaşılamazsa hak yanmasın)',()=>{
+  let t=1000;const T=K.tavanlar({ipOn:1,adresSaat:1,saat:1,simdi:()=>t});
+  assert.ok(T.kontrol({ip:'1',adres:'a@b'}).ok);T.isaretle({ip:'1',adres:'a@b'});
+  assert.strictEqual(T.kontrol({ip:'1',adres:'a@b'}).ok,false,'işaret sonrası dolu');
+  T.geriAl({ip:'1',adres:'a@b'});assert.ok(T.kontrol({ip:'1',adres:'a@b'}).ok,'geri alınca boş');assert.strictEqual(T.sayac.istek,0);
+  T.geriAl({ip:'1',adres:'a@b'}); // boşken zararsız
+  assert.ok(T.kontrol({ip:'1',adres:'a@b'}).ok);
+});

@@ -699,3 +699,93 @@ test('rol geçmişi tohumu: boş geçmiş de yazılır, aynı oyuncu yeniden ba�
     const a2=client('bg1','A',{room,token:tok},b2);await a2.until(c=>c.me);acik.push(a2);await bekle(100);assert.strictEqual(cagri,1,'ikinci bağlanışta sorgu yok');
   }finally{for(const c of acik)await c.close();await new Promise(r=>s2.close(r))}
 });
+
+// ---------- Ertelenen küçükler 1 / Task 5: sunucu yolları ----------
+async function bitmisOda(sahteKayit){ // 4 oyunculu oda; oyun başlar; sunucuda faz 'end' yapılır (skor/hazir yolları için yeter)
+  const s2=createServer({quiet:true,tickMs:50,kayit:sahteKayit||{kuyrukla(){},profil(){},kapat(){},sayac:{}}});await new Promise(r=>s2.server.listen(0,'127.0.0.1',r));
+  const b2='127.0.0.1:'+s2.server.address().port;const cs=[];
+  const kapat=async()=>{for(const c of cs)await c.close().catch(()=>{});await new Promise(r=>s2.close(r))};
+  try{
+    const host=client('bo0','Ev',{host:true},b2);await host.until(c=>c.P&&c.P.room);const room=host.P.room;cs.push(host);
+    for(const u of ['bo1','bo2','bo3'])cs.push(client(u,'O'+u,{room},b2));await host.until(c=>c.P.lobby.length===4);
+    host.send({t:'start'});await host.until(c=>c.P.phase==='night');
+    const R=s2.rooms.get(room).game;R.P.phase='end';R.P.winner={team:'inn',kazananlar:R.P.players.map(p=>p.id)};
+    return {s2,b2,room,host,cs,R,kapat};
+  }catch(e){await kapat();throw e}
+}
+test('hazir/gordum: izleyici (oyuncu olmayan üye) gönderirse kabul edilmez, bağlantı kalır',async()=>{
+  const o=await bitmisOda();
+  try{
+    const iz=client('bo9','Izleyici',{room:o.room},o.b2);await iz.until(c=>c.P&&c.P.phase==='end');
+    iz.send({t:'hazir',v:true});iz.send({t:'gordum'});await bekle(150);
+    assert.deepStrictEqual(o.host.P.hazir,[],'izleyici hazır listesine giremez');assert.ok(!o.s2.rooms.get(o.room).gorduler.has(iz.me),'izleyici gördüm sayılmaz');
+    o.cs[1].send({t:'hazir',v:true});await o.host.until(c=>c.P.hazir.includes(o.cs[1].me));
+    iz.send({t:'msg',x:'hâlâ buradayım'});await bekle(100);assert.deepStrictEqual(iz.errs,[]);await iz.close();
+  }finally{await o.kapat()}
+});
+test('hazir olayı üye başına maçta en çok 10 kez yazılır; durum yine değişir',async()=>{
+  const alinan=[];const o=await bitmisOda({kuyrukla:(r,ol)=>{alinan.push(...ol)},profil(){},kapat(){},sayac:{}});
+  try{
+    const c=o.cs[1];for(let i=0;i<13;i++){c.send({t:'hazir',v:i%2===0});await o.host.until(h=>h.P.hazir.includes(c.me)===(i%2===0))}
+    await bekle(200);const n=alinan.filter(e=>e.tur==='hazir'&&e.veri.kim===c.me).length+o.R.log.filter(e=>e.tur==='hazir'&&e.veri.kim===c.me).length;
+    assert.ok(n<=10,'hazir olayı tavanı: '+n);assert.ok(o.host.P.hazir.includes(c.me),'13. (açık) durum geçerli');
+  }finally{await o.kapat()}
+});
+test('skor: oyun bitince bir kez işlenir (flush/start/cancel ile ikinci kez değil); ad üyenin son adı',async()=>{
+  const o=await bitmisOda();
+  try{
+    o.cs[1].send({t:'look',name:'YeniAd',color:G.COLORS[1],hat:'none'});await bekle(80);
+    o.host.send({t:'msg',x:'bitti'});await o.host.until(c=>c.P.skor&&c.P.skor.length===4); // flush → skorIsle
+    const s1=o.host.P.skor.find(x=>x.id===o.cs[1].me);assert.strictEqual(s1.ad,'YeniAd','skor adı üyenin güncel adı');assert.strictEqual(s1.oynadi,1);
+    o.host.send({t:'cancel'});await o.host.until(c=>c.P.phase==='lobby');
+    assert.strictEqual(o.host.P.skor.find(x=>x.id===o.cs[1].me).oynadi,1,'cancel ikinci kez saymaz');
+    o.cs[1].send({t:'look',name:'Ucuncu',color:G.COLORS[1],hat:'none'});await o.host.until(c=>c.P.skor.find(x=>x.id===o.cs[1].me).ad==='Ucuncu');
+  }finally{await o.kapat()}
+});
+test('flush: kayit.kuyrukla fırlatsa da yayın sürer',async()=>{
+  let patlat=false;const o=await bitmisOda({kuyrukla(){if(patlat)throw new Error('patladı')},profil(){},kapat(){},sayac:{}});
+  try{patlat=true;o.cs[1].send({t:'look',name:'Patlak',color:G.COLORS[1],hat:'none'});await o.host.until(c=>(c.P.lobby||[]).some(x=>x.name==='Patlak'));assert.deepStrictEqual(o.host.errs,[])}
+  finally{await o.kapat()}
+});
+test('govdeOku: çok baytlı karakter parça sınırında bölünse de doğru okunur',async()=>{
+  const s2=createServer({quiet:true,tickMs:50});
+  const {Readable}=require('stream');const req=new Readable({read(){}}); // gerçek akış: setEncoding çok baytlı sınırı birleştirir
+  const p=s2.govdeOku(req,100);const buf=Buffer.from('{"a":"ağaç"}','utf8');const i=buf.indexOf(Buffer.from('ğ'))+1; // 'ğ' iki bayt: ilk baytta kes
+  req.push(buf.subarray(0,i));req.push(buf.subarray(i));req.push(null);
+  assert.deepStrictEqual(JSON.parse(await p),{a:'ağaç'});
+  await new Promise(r=>s2.close(r));
+});
+test('/hesap/birlestir: bilinmeyen kid → JWKS bir kez yeniden çekilir ve doğrulanır',async()=>{
+  const ec=crypto.generateKeyPairSync('ec',{namedCurve:'P-256'}),ec2=crypto.generateKeyPairSync('ec',{namedCurve:'P-256'});
+  const jwk=(k,kid)=>({...k.publicKey.export({format:'jwk'}),kid,alg:'ES256',use:'sig'});const ESKI='55555555-6666-4777-8888-999999999991',YENI='55555555-6666-4777-8888-999999999992';
+  const b64=o=>Buffer.from(JSON.stringify(o)).toString('base64url');
+  const tok=(kid,priv,sub,ek)=>{const d=b64({alg:'ES256',typ:'JWT',kid})+'.'+b64({sub,exp:Math.floor(Date.now()/1000)+60,...ek});return d+'.'+crypto.sign('sha256',Buffer.from(d),{key:priv,dsaEncoding:'ieee-p1363'}).toString('base64url')};
+  let kaynak=[()=>({keys:[jwk(ec,'k1')]}),()=>({keys:[jwk(ec,'k1'),jwk(ec2,'k2')]})];let cagri=0;
+  const hesapFetch=async(u,o)=>({ok:true,status:u.includes('/rpc/')?204:200,json:async()=>({}),text:async()=>''});
+  const s2=createServer({quiet:true,tickMs:50,hesapFetch,ayar:{url:'https://x',anonKey:'a',serviceKey:'s',kurulum:'t'},jwksGetirici:async()=>{cagri++;return kaynak.shift()()},jwksDenemeMs:[60,60,60],jwksYenilemeMs:0});
+  await new Promise(r=>s2.server.listen(0,'127.0.0.1',r));const b2='127.0.0.1:'+s2.server.address().port;
+  try{
+    await new Promise(r=>setTimeout(r,150));assert.strictEqual(cagri,1);
+    const r=await postJ(b2,'/hesap/birlestir',JSON.stringify({eski:tok('k2',ec2.privateKey,ESKI,{is_anonymous:true}),yeni:tok('k2',ec2.privateKey,YENI,{is_anonymous:false,email:'a@b.c'})}));
+    assert.strictEqual(r.s,200,r.b);assert.strictEqual(cagri,2,'bilinmeyen kid → bir kez yeniden çekildi');
+  }finally{await new Promise(r=>s2.close(r))}
+});
+test('/eposta/kod bağla: GoTrue 503 ise IP/adres hakkı yanmaz; sonraki istek geçer',async()=>{
+  const rest=await taklitRest();let tsCevap=()=>({success:true,action:'kod_bagla',hostname:'x.test'});
+  const turnstileFetch=async(u,o)=>({ok:true,status:200,json:async()=>tsCevap()});
+  const eposta={kodMaili:require('../eposta.js').kodMaili,sendTransactionalEmail:async()=>({ok:true,id:'e'})};const SIR='v1,whsec_'+Buffer.from('kanca').toString('base64');
+  const srv=createServer({quiet:true,jwksAlma:false,turnstileFetch,eposta,kayit:{kuyrukla(){},profil(){},kapat(){},sayac:{}},kodTavan:{ipOn:1,ipSaat:1},ayar:{url:'http://127.0.0.1:1',anonKey:'anon',serviceKey:'srv',jwtSecret:'x',kurulum:'t',kancaSirri:SIR,turnstileSite:'site',turnstileSecret:'sir',turnstileHostnames:['x.test'],icUrl:rest.url,kodGunluk:50,kodSaatlik:50}});
+  await new Promise(r=>srv.server.listen(0,'127.0.0.1',r));const base='127.0.0.1:'+srv.server.address().port;
+  const ANON='aaaaaaaa-0000-4000-8000-00000000000b';const tok=Kimlik.imzala({sub:ANON,exp:Math.floor(Date.now()/1000)+3600,is_anonymous:true},'x');
+  try{
+    rest.hataAyarla(req=>req.yol.startsWith('/auth/v1/user')?503:null);
+    const a=await postJ(base,'/eposta/kod',JSON.stringify({tur:'bagla',email:'a@b.c',turnstile:'t',token:tok}));assert.strictEqual(a.s,503,a.b);
+    rest.hataAyarla(()=>null);
+    const b=await postJ(base,'/eposta/kod',JSON.stringify({tur:'bagla',email:'a@b.c',turnstile:'t',token:tok}));assert.strictEqual(b.s,200,'IC hatası hak yakmaz: '+b.b);
+    const c=await postJ(base,'/eposta/kod',JSON.stringify({tur:'bagla',email:'a@b.c',turnstile:'t',token:tok}));assert.strictEqual(c.s,429,'başarılı istek hak yakar');
+  }finally{await new Promise(r=>srv.close(r));await rest.kapat()}
+});
+test('Turnstile hostname listesi boşsa açılışta uyarı',async()=>{
+  const s2=createServer({quiet:true,jwksAlma:false,ayar:{url:'http://127.0.0.1:1',anonKey:'anon',serviceKey:'srv',jwtSecret:'x',kurulum:'t',turnstileSite:'site',turnstileSecret:'sir',turnstileHostnames:[],icUrl:'http://ic.test'}});
+  try{assert.ok((s2.uyarilar||[]).some(u=>/hostname/i.test(u)),JSON.stringify(s2.uyarilar))}finally{await new Promise(r=>s2.close(r))}
+});
