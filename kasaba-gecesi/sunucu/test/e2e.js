@@ -267,7 +267,7 @@ const step=t=>console.log('•',t);
     // rol rehberi gece de açılır, sahneyi kaplamaz, kendi rolünü işaretlemez, 19 rolü ve dağılımı listeler
     { const rp=pages.Ali;await rp.click('button.rehber-dugme');await rp.waitForSelector('.rehber');
       const r=await rp.evaluate(()=>{const e=document.querySelector('.rehber');const t=e.textContent;return{w:e.getBoundingClientRect().width/innerWidth,roller:Object.values(ROLES).filter(x=>t.includes(x.n)).length,dagilim:/Dağılım/.test(t),ben:!!e.querySelector('.ben'),gizli:t.includes('Hain arkadaşların')||t.includes((priv.notes||[]).join(''))&&(priv.notes||[]).length>0}});
-      assert.ok(await rp.evaluate(()=>/Eşyalar/.test(document.querySelector('.rehber').textContent)&&/İksir/.test(document.querySelector('.rehber').textContent)&&/Kum saati/.test(document.querySelector('.rehber').textContent)&&/paket/.test(document.querySelector('.rehber').textContent)),'rehberde Eşyalar bölümü (v2)');
+      assert.ok(await rp.evaluate(()=>/Eşyalar/.test(document.querySelector('.rehber').textContent)&&/İksir/.test(document.querySelector('.rehber').textContent)&&/Kum saati/.test(document.querySelector('.rehber').textContent)&&/paket/.test(document.querySelector('.rehber').textContent)&&/Nasıl: /.test(document.querySelector('.rehber').textContent)),'rehberde Eşyalar bölümü (v2, nasıl kullanılır)');
       assert.ok(r.w<0.6,'çekmece sahnenin yarısından azını kaplar');assert.strictEqual(r.roller,Object.keys(await rp.evaluate(()=>ROLES)).length,'tüm roller listelenir');assert.ok(r.dagilim);assert.strictEqual(r.ben,false);assert.strictEqual(r.gizli,false);
       await rp.evaluate(()=>{document.querySelector('.rehber').scrollTop=180});await rp.waitForTimeout(3200);assert.ok(await rp.evaluate(()=>document.querySelector('.rehber').scrollTop)>100,'rehber kaydırması render ile sıfırlanmamalı');
       await rp.click('.rehber .kapat');assert.strictEqual(await rp.$('.rehber'),null);
@@ -475,6 +475,9 @@ const step=t=>console.log('•',t);
       { const k=await pe.evaluate(()=>{const r=e=>e.getBoundingClientRect();const cs=[...document.querySelectorAll('.ov.esya-cip')].map(r);return ['.notesbtn','.ov.mine'].map(s=>{const o=r(document.querySelector(s));return cs.some(c=>!(c.right<=o.left||o.right<=c.left||c.bottom<=o.top||o.bottom<=c.top))})});
         assert.deepStrictEqual(k,[false,false],'eşya çipleri Notlar ve rol kartıyla çakışmaz')}
       assert.strictEqual(await pe.$('button.esya-kullan[data-key="iksir"]'),null,'pasif eşyada düğme yok');
+      // çipe dokununca bilgi kutusu: ne yapar + nasıl kullanılır (katalogdan)
+      await pe.click('button.esya-cip[data-key="kilit"]');await pe.waitForSelector('.ov.esya-bilgi',{timeout:3000});const bilgi=await pe.textContent('.ov.esya-bilgi');
+      assert.match(bilgi,/Kilit/);assert.match(bilgi,/EFSANEVİ/i);assert.ok(bilgi.includes(G.ESYA.kilit.desc)&&bilgi.includes(G.ESYA.kilit.nasil),'katalog metinleri');await pe.click('.ov.esya-bilgi button:has-text("Kapat")');await pe.waitForFunction(()=>!document.querySelector('.ov.esya-bilgi'));
       await pe.click('button.esya-kullan[data-key="kilit"]');await pe.waitForFunction(()=>sel.mode==='esya:kilit');
       await pe.evaluate(id=>scene.houses[id].g.onclick(),botId);await pe.waitForFunction(()=>local.act&&local.act.esya==='kilit'&&!!local.act.esyaHedef);
       assert.match(await pe.textContent('button.esya-kullan[data-key="kilit"]'),/Bot/);
@@ -484,7 +487,7 @@ const step=t=>console.log('•',t);
       assert.ok(await pe.evaluate(()=>(P.morning.news||[]).some(n=>/kapısı kilitlendi/.test(n))),'sabah anonim kilit haberi');
       // kum saati: tartışmada düğme → sunucu süreyi uzatır, sohbette anonim satır
       R.g.esya[benId]=[{key:'kum',kaynak:'bedava',kullanildi:false}];pe.evaluate(()=>send({t:'look',name:'Ev'}));
-      await pe.waitForSelector('button.kum-kullan',{timeout:5000});const ends0=R.P.ends;await pe.click('button.kum-kullan');
+      await pe.waitForSelector('button.esya-cip.kum-hazir',{timeout:5000});await pe.click('button.esya-cip.kum-hazir');await pe.waitForSelector('button.kum-kullan',{timeout:3000});const ends0=R.P.ends;await pe.click('button.kum-kullan');
       await pe.waitForFunction(()=>(P.chat||[]).some(m=>m.sys&&/kum saatini çevirdi/.test(m.t)),null,{timeout:5000});assert.strictEqual(R.P.ends,ends0+30000);
       // meydan paketi (telefon ölçüsü): sahnede görünür, sohbet/düğmelerle çakışmaz, dokununca ikinci eşya, kapanış satırı
       await pe.setViewportSize({width:844,height:390});R.g.paket={zaman:0,keys:['fis'],alanlar:[],acik:false,ends:null};

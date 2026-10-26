@@ -173,7 +173,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 .skip{right:56px;top:54px;border:0;border-radius:12px;background:var(--paper);color:var(--ink);font-weight:900;font-family:var(--display);font-size:clamp(13px,1.8vw,18px);padding:7px 20px;box-shadow:0 4px 0 #c9bba0,0 6px 12px rgba(0,0,0,.25);min-height:0}
 .skip.on{background:var(--orange);color:#fff;box-shadow:0 4px 0 #a86a1c}
 .fis{right:56px;top:100px;border:0;border-radius:12px;background:var(--paper);color:var(--ink);font-weight:800;font-size:clamp(11px,1.5vw,15px);padding:6px 14px}.fis.on{background:#ffd23f}
-.esya-cip{right:10px;bottom:118px;background:rgba(255,255,255,.88);border-radius:10px;padding:4px 10px;font-size:clamp(10px,1.3vw,13px);font-weight:700}.esya-cip.bitti{opacity:.55}button.esya-cip{border:0;cursor:pointer;font:inherit;font-weight:800}button.esya-cip.kum-kullan{background:#ffe6a8}.ozet .esya{font-size:12px;margin-left:6px;opacity:.85}.paket{cursor:pointer}.paket .halka{transition:stroke-dashoffset .25s linear}
+.esya-cip{right:10px;bottom:118px;background:rgba(255,255,255,.88);border-radius:10px;padding:4px 10px;font-size:clamp(10px,1.3vw,13px);font-weight:700}.esya-cip.bitti{opacity:.55}button.esya-cip{border:0;cursor:pointer;font:inherit;font-weight:800;text-align:left}button.esya-cip.kum-hazir{background:#ffe6a8}.esya-bilgi .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.ozet .esya{font-size:12px;margin-left:6px;opacity:.85}.paket{cursor:pointer}.paket .halka{transition:stroke-dashoffset .25s linear}
 .act .esya-kullan.on{background:#ffd23f;color:#3a2f1c}.lobi-esya{left:50%;transform:translateX(-50%);top:54px}
 .endcard .lobi-esya{justify-self:center;font-weight:700;color:#3a2f1c}.endcard .kasa{display:grid;gap:3px;justify-items:center;background:#fff7e0;border-radius:12px;padding:8px 12px;color:#3a2f1c}.endcard .kasa .odul{font-weight:800}
 .efekt-parca{opacity:0;animation:efektYuksel 2.4s ease-out forwards}@keyframes efektYuksel{0%{opacity:0;transform:translateY(0)}20%{opacity:1}100%{opacity:0;transform:translateY(-60px)}}
@@ -237,7 +237,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 <div id="app"><div class="panel"><p class="muted">Yükleniyor…</p></div></div>
 <script>
 // Script daha başlamadan çökerse "Yükleniyor…" yerine hatayı göster (sürüm damgasıyla).
-window.KG_VER='2026-11-02a';
+window.KG_VER='2026-11-02b';
 window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ff6b6b"><p><b>Sayfa açılamadı.</b> Sürüm '+KG_VER+'</p><p class="small" style="word-break:break-all">'+String(e.message||e.error||e)+(e.filename?' @'+e.lineno:'')+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}});
 setTimeout(function(){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ffb347"><p><b>Sayfa yüklenemedi.</b> Sürüm '+KG_VER+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}},8000);
 </script>
@@ -1122,8 +1122,14 @@ function renderGameUI(stage){
     if(ui.roleCard&&!(anim.seq==='evening'&&P.day===1&&a<5)){const c=el('div','ov box center');c.style.borderColor='var(--'+priv.role.team+')';c.append(el('div','small',TEAMN[priv.role.team].toUpperCase()));const ic=el('div',null,priv.role.ico);ic.style.fontSize='44px';c.append(ic,el('div','t',priv.role.label),el('div',null,priv.role.desc));
       if(priv.mates&&priv.mates.length)c.append(el('div','small','Hain arkadaşların: '+priv.mates.map(nameOf).join(', ')));const ok=el('button','ok','Anladım');ok.onclick=()=>{ui.roleCard=false;render()};c.append(ok);stage.append(c)}
     (priv.esya||[]).forEach((e,i)=>{if(!sahipMi(ESYA,e.key))return;const E=ESYA[e.key];const kumAktif=e.key==='kum'&&!e.kullanildi&&alive&&P.phase==='talk';
-      const c=el(kumAktif?'button':'div','ov esya-cip'+(e.kullanildi?' bitti':'')+(kumAktif?' kum-kullan':''),E.ico+' '+E.n+(e.kullanildi?' (kullanıldı)':kumAktif?': çevir (+30 sn)':e.pasif?' · kendiliğinden':''));c.style.bottom=(118+i*34)+'px';
-      if(kumAktif)c.onclick=()=>send({t:'esya',k:'kum',d:P.day,g:P.gameId});stage.append(c)});
+      const c=el('button','ov esya-cip'+(e.kullanildi?' bitti':'')+(kumAktif?' kum-hazir':''),E.ico+' '+E.n+(e.kullanildi?' (kullanıldı)':kumAktif?': çevir (+30 sn)':e.pasif?' · kendiliğinden':'')+' ⓘ');c.style.bottom=(118+i*34)+'px';c.dataset.key=e.key;
+      c.onclick=()=>{ui.esyaBilgi=ui.esyaBilgi===e.key?null:e.key;render()};stage.append(c)});
+    // eşya bilgi kutusu: ne yapar, nasıl kullanılır (katalog metni); kum saati burada çevrilir
+    if(ui.esyaBilgi&&sahipMi(ESYA,ui.esyaBilgi)){const E=ESYA[ui.esyaBilgi];const e=(priv.esya||[]).find(x=>x.key===ui.esyaBilgi);const KAT={siradan:'sıradan',nadir:'nadir',efsanevi:'efsanevi'};
+      const b=el('div','ov box center esya-bilgi');b.append(el('div','small',(KAT[E.nadir]||'').toLocaleUpperCase('tr')+' EŞYA'),el('div','t',E.ico+' '+E.n),el('div',null,E.desc),el('div','small','Nasıl: '+E.nasil));
+      if(e&&e.kullanildi)b.append(el('div','small muted','Bu maçta kullanıldı.'));
+      const row=el('div','row');if(e&&!e.kullanildi&&ui.esyaBilgi==='kum'&&alive&&P.phase==='talk'){const kb=el('button','ok kum-kullan','⏳ Çevir (+30 sn)');kb.onclick=()=>{send({t:'esya',k:'kum',d:P.day,g:P.gameId});ui.esyaBilgi=null;render()};row.append(kb)}
+      const kp=el('button','ok','Kapat');kp.onclick=()=>{ui.esyaBilgi=null;render()};row.append(kp);b.append(row);stage.append(b)}
     const m=el('button','ov mine');m.append(el('span','ic',alive?priv.role.ico:'💀'));const t=el('div');const tt=el('span','team',alive?TEAMN[priv.role.team]:'ÖLDÜN');tt.style.color=alive?'var(--'+priv.role.team+')':'#7a6a55';t.append(tt,el('b',null,priv.role.label));m.append(t);m.onclick=()=>{ui.roleCard=true;render()};stage.append(m);
     const nb=el('button','ov notesbtn','📒 Notlar'+((priv.notes||[]).length?' ('+priv.notes.length+')':'')+(ui.notes?' ▴':' ▾'));nb.onclick=()=>{ui.notes=!ui.notes;ui.menu=false;render()};stage.append(nb);
     if(ui.notes){const n=el('div','ov notes');n.append(el('div','h','📒 NOTLARIN (sadece sen)'));(priv.notes||[]).slice(-30).forEach(x=>n.append(el('div','n',x)));if(!priv.notes||!priv.notes.length)n.append(el('div','n','Henüz not yok.'));stage.append(n)}
@@ -1192,7 +1198,7 @@ function rehberCekmece(stage){
     if(team==='imp')c.append(el('p','small muted','Polis, Gözcü, İzci, Dedektif, Tuzakçı, İspiyoncu ve Provokatör hain sürümüyle de gelebilir: gece ya yeteneğini kullanır ya öldürür.'));
   }
   c.append(el('h3',null,'Eşyalar'));c.append(el('p','small muted','Ev sahibi eşya modunu açarsa herkes maç başında bir eşya alır: rolden bağımsız, tek kullanımlık, şans belirler (kasandan getirdiğin varsa onu alırsın). Üç katman: sıradan eşyalar bedava havuzdan çıkar, nadir ve efsanevi yalnız kasadan. Tartışmada meydana paket düşer; ilk dokunan alır, en çok 2 eşya taşırsın. Kullanıldığı duyurulur, kullananın adı gizli kalır; maç sonunda kim ne kullandı açıklanır (oy fişi hariç).'));
-  const KAT={siradan:'sıradan',nadir:'nadir',efsanevi:'efsanevi'};for(const e of Object.values(ESYA))c.append(el('p','small',e.ico+' '+e.n+' ('+KAT[e.nadir]+'): '+e.desc));
+  const KAT={siradan:'sıradan',nadir:'nadir',efsanevi:'efsanevi'};for(const e of Object.values(ESYA)){const q=el('p','small',e.ico+' '+e.n+' ('+KAT[e.nadir]+'): '+e.desc+' ');q.append(el('span','muted','Nasıl: '+e.nasil));c.append(q)}
   const n=(P.players&&P.players.length)||(P.lobby&&P.lobby.length)||0;
   c.append(el('h3',null,'Dağılım'));
   if(n>=4){const sat=['Hain: '+DAGILIM.hain(n),'Deli: '+(DAGILIM.deli(n)?'var':'yok'),'Saldırgan tarafsız: '+DAGILIM.saldirgan(n),'Pasif tarafsız: '+DAGILIM.pasif(n),'Doktor her oyunda; Polis 5+ kişide'];c.append(el('p','small',n+' oyuncu için — '+sat.join(' · ')))}

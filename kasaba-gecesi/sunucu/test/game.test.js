@@ -678,7 +678,7 @@ test('inceleme: A→B→A iddia sırası son iddiayla biter; yanlış iddialar d
 // ---------- İlerleme (Task 1): katalog, kasa ödülü, rozetler ----------
 test('katalog: eşyalar, kozmetikler, nadirlik, kasa ağırlıkları, rozetler tanımlı',()=>{
   assert.deepStrictEqual(Object.keys(G.ESYA).sort(),['duman','fener','fis','iksir','kilit','kum','maske','pusula','vasiyet','zar']);
-  for(const e of Object.values(G.ESYA)){assert.ok(e.n&&e.ico&&e.desc&&['night','talk','vote','pasif','none'].includes(e.faz)&&G.NADIRLIK[e.nadir],JSON.stringify(e))}
+  for(const e of Object.values(G.ESYA)){assert.ok(typeof e.nasil==='string'&&e.nasil.length>20,'nasıl kullanılır metni: '+e.n);assert.ok(e.n&&e.ico&&e.desc&&['night','talk','vote','pasif','none'].includes(e.faz)&&G.NADIRLIK[e.nadir],JSON.stringify(e))}
   assert.deepStrictEqual(Object.keys(G.ESYA).filter(k=>G.ESYA[k].hedef).sort(),['kilit','pusula']);
   assert.deepStrictEqual(Object.keys(G.ESYA).filter(k=>G.ESYA[k].pasif).sort(),['iksir','vasiyet']);
   assert.deepStrictEqual(G.ESYA_KATMAN('siradan').sort(),['fis','kum','pusula','zar']);assert.deepStrictEqual(G.ESYA_KATMAN('nadir').sort(),['duman','fener','iksir','maske','vasiyet']);

@@ -45,16 +45,16 @@ const HATS=['none','beanie','cap','ears','bow','glasses','hood'];
 const DEFAULT_SETTINGS={night:30,talk:120,vote:45};
 // ---------- İlerleme ve eşya modu (tasarım docs/superpowers/specs/2026-10-26-kasaba-gecesi-ilerleme-esya-design.md) ----------
 const ESYA={ // faz: night (düğme) · talk · vote · pasif (kendiliğinden) · none (elde tutulmaz); hedef: ev seçilir; nadir: katman
-  fis:{n:'Oy fişi',ico:'🗳️',faz:'vote',nadir:'siradan',desc:'Bir oylamada oyun 2 sayılır (tek başına kimseyi astıramaz).'},
-  kum:{n:'Kum saati',ico:'⏳',faz:'talk',nadir:'siradan',desc:'Tartışma 30 saniye uzar (günde bir kez işler).'},
-  pusula:{n:'Pusula',ico:'🧭',faz:'night',nadir:'siradan',hedef:true,desc:'Bir gece seçtiğin kişinin evinden çıkıp çıkmadığını öğrenirsin.'},
-  zar:{n:'Zar',ico:'🎲',faz:'none',nadir:'siradan',desc:'Maç başında rastgele nadir bir eşyaya dönüşür.'},
-  iksir:{n:'İksir',ico:'🧪',faz:'pasif',nadir:'nadir',pasif:true,desc:'Saldırıya uğrarsan kendiliğinden içilir ve seni kurtarır (yıldırım ve hayalet hariç).'},
-  fener:{n:'Fener',ico:'🏮',faz:'night',nadir:'nadir',desc:'Bir gece evine gelenlerin adlarını öğrenirsin.'},
-  duman:{n:'Duman',ico:'💨',faz:'night',nadir:'nadir',desc:'Bir gece ziyaretin görünmez olur: Gözcü, İzci, fener ve pusula seni görmez.'},
-  maske:{n:'Maske',ico:'🎭',faz:'night',nadir:'nadir',desc:'Bir gece Dedektif ve İspiyoncu seni Masum görür.'},
-  vasiyet:{n:'Vasiyet',ico:'📜',faz:'pasif',nadir:'nadir',pasif:true,desc:'Ölürsen o gece öğrendiklerin sabah herkese okunur.'},
-  kilit:{n:'Kilit',ico:'🔒',faz:'night',nadir:'efsanevi',hedef:true,desc:'Bir gece seçtiğin kişinin kapısını kilitlersin: o gece hamle yapamaz.'}
+  fis:{n:'Oy fişi',ico:'🗳️',faz:'vote',nadir:'siradan',nasil:'Oylamada "Oy fişi: kullan" düğmesine bas, sonra birine oy ver; çekimser kalırsan harcanmaz.',desc:'Bir oylamada oyun 2 sayılır (tek başına kimseyi astıramaz).'},
+  kum:{n:'Kum saati',ico:'⏳',faz:'talk',nadir:'siradan',nasil:'Tartışmada sağdaki ⏳ çipine dokun ve "Çevir"e bas; o gün ilk çeviren işler.',desc:'Tartışma 30 saniye uzar (günde bir kez işler).'},
+  pusula:{n:'Pusula',ico:'🧭',faz:'night',nadir:'siradan',hedef:true,nasil:'Gece "Pusula: ev seç"e bas, bir eve dokun; sabah notlarında sonucu görürsün. Karakterin evden çıkmaz.',desc:'Bir gece seçtiğin kişinin evinden çıkıp çıkmadığını öğrenirsin.'},
+  zar:{n:'Zar',ico:'🎲',faz:'none',nadir:'siradan',nasil:'Kendiliğinden: maç başlarken (paketten kapınca hemen) nadir bir eşyaya dönüşür; notlarında ne çıktığını görürsün.',desc:'Maç başında rastgele nadir bir eşyaya dönüşür.'},
+  iksir:{n:'İksir',ico:'🧪',faz:'pasif',nadir:'nadir',pasif:true,nasil:'Kendiliğinden: gece saldırıya uğrarsan içilir. Doktor önce kurtardıysa harcanmaz.',desc:'Saldırıya uğrarsan kendiliğinden içilir ve seni kurtarır (yıldırım ve hayalet hariç).'},
+  fener:{n:'Fener',ico:'🏮',faz:'night',nadir:'nadir',nasil:'Gece "Fener: bu gece kullan"a bas; sabah notlarında kapına gelenlerin adları yazar.',desc:'Bir gece evine gelenlerin adlarını öğrenirsin.'},
+  duman:{n:'Duman',ico:'💨',faz:'night',nadir:'nadir',nasil:'Gece "Duman: bu gece kullan"a bas; o gece gittiğin ev Gözcü, İzci, fener ve pusulaya görünmez.',desc:'Bir gece ziyaretin görünmez olur: Gözcü, İzci, fener ve pusula seni görmez.'},
+  maske:{n:'Maske',ico:'🎭',faz:'night',nadir:'nadir',nasil:'Gece "Maske: bu gece kullan"a bas; o gece Dedektif ve İspiyoncu seni Masum görür.',desc:'Bir gece Dedektif ve İspiyoncu seni Masum görür.'},
+  vasiyet:{n:'Vasiyet',ico:'📜',faz:'pasif',nadir:'nadir',pasif:true,nasil:'Kendiliğinden: öldüğün gün o gecenin notların sabah herkese okunur (asılırsan oylama özetinde).',desc:'Ölürsen o gece öğrendiklerin sabah herkese okunur.'},
+  kilit:{n:'Kilit',ico:'🔒',faz:'night',nadir:'efsanevi',hedef:true,nasil:'Gece "Kilit: ev seç"e bas, bir eve dokun; o kişi o gece hamle yapamaz. Seri Katil ve Bombacı durdurulamaz (sana bildirilmez).',desc:'Bir gece seçtiğin kişinin kapısını kilitlersin: o gece hamle yapamaz.'}
 };
 const ESYA_YUVA=2; // oyuncu başına en çok iki eşya (lobi + paket)
 const ESYA_KATMAN=nadir=>Object.keys(ESYA).filter(k=>ESYA[k].nadir===nadir); // zar sıradan katmanda (kasa onu atlar)
