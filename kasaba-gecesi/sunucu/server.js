@@ -397,7 +397,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
       const odul=G.kasaOdulu();if(odul.tur==='kozmetik')odul.donusum=G.NADIRLIK[odul.nadir].donusum;
       const k=(kul[p.id]||[]).find(e=>e.kaynak==='envanter'&&e.kullanildi);const harcanan=k?k.key:null; // v2: dizi (envanterden en çok bir eşya gelir)
       const dokum=G.yildizDokumu(R,p.id);
-      const gonder=()=>kayit.macSonu(uye,P.oyunId,{odul,rozetler:G.rozetlerFor(R,p.id),harcanan,bonus:G.yildizToplam(dokum)});
+      const gonder=()=>kayit.macSonu(uye,P.oyunId,{odul,rozetler:G.rozetlerFor(R,p.id),harcanan,bonus:G.yildizToplam(dokum),gunluk:G.YILDIZ_KAYNAK.gunun_ilki.adet});
       // RPC idempotent: geçici hata (null) bir kez yeniden denenir; yine olmazsa ayırma kalkar, eşya düşülmez
       gonder().then(r=>r||new Promise(res=>setTimeout(res,ilerlemeDenemeMs)).then(gonder)).then(r=>{
         // ayırma, düşüm sonucu bellekteki bütün kopyalara işlendikten sonra kalkar (aradaki rövanş aynı eşyayı yeniden alamaz)

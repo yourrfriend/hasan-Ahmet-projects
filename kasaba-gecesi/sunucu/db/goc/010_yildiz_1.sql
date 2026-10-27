@@ -1,11 +1,14 @@
--- Yıldız ekonomisi 1 (2026-10-27): günün ilk maçı (+5, Europe/Istanbul takvim günü) ve bir kerelik e-posta bağlama ödülü (+25 ⭐, bayrak:mektup).
--- Tasarım: docs/superpowers/specs/2026-10-27-kasaba-gecesi-yildiz-1-design.md. Geriye uyumlu: mac_sonu imzası aynı, yalnız dönüşe 'gunun_ilki';
+-- Yıldız ekonomisi 1 (2026-10-27): günün ilk maçı (miktar sunucudan p_gunluk, Europe/Istanbul takvim günü) ve bir kerelik e-posta bağlama ödülü (+25 ⭐, bayrak:mektup).
+-- Tasarım: docs/superpowers/specs/2026-10-27-kasaba-gecesi-yildiz-1-design.md. Geriye uyumlu: mac_sonu'ya varsayılanı 0 olan p_gunluk eklendi (eski çağrı aynen çalışır), dönüşe 'gunun_ilki';
 -- envanter_oku dönüşüne 'bagli', 'bagla_odulu'. Miktarlar game.js YILDIZ_KAYNAK ile aynı (game.test.js denetler).
 
-create or replace function public.mac_sonu(p_uye uuid, p_oyun uuid, p_odul jsonb, p_rozetler text[], p_harcanan text, p_bonus int)
+-- Günün ilki miktarı sunucudan (p_gunluk; game.js YILDIZ_KAYNAK.gunun_ilki). Varsayılan 0: henüz yenilenmemiş kurulumun eski 6 parametreli çağrısı
+-- (canlı ve test aynı Supabase'i kullanır) yeni ödülü almaz; fiyatlar ve ödüller aynı sürümle birlikte değişir.
+drop function if exists public.mac_sonu(uuid, uuid, jsonb, text[], text, int);
+create or replace function public.mac_sonu(p_uye uuid, p_oyun uuid, p_odul jsonb, p_rozetler text[], p_harcanan text, p_bonus int, p_gunluk int default 0)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare v_n int; v_tavan boolean; v_donustu boolean := false; v_tur text; v_say int; v_yeni text[]; v_yildiz int; v_roz text[];
-  v_ilk int := 0; gunun_ilki_miktar constant int := 5;
+  v_ilk int := 0;
 begin
   -- Göç 009: aynı üyenin eşzamanlı iki çağrısı aynı kilidi bekler; tavan sayımı ve kasa eklemesi kilit altında (20'yi aşamaz)
   insert into public.cuzdan (uye, yildiz) values (p_uye, 0) on conflict (uye) do nothing;
@@ -14,7 +17,7 @@ begin
   -- göç 010: bugünün (Europe/Istanbul) ilk gerçek kasası mı — kilit altında, kasa eklenmeden önce; tavan kasaları sayılmaz
   if not v_tavan and not exists (select 1 from public.kasalar where uye = p_uye
        and (zaman at time zone 'Europe/Istanbul')::date = (now() at time zone 'Europe/Istanbul')::date
-       and not coalesce((odul ->> 'tavan')::boolean, false)) then v_ilk := gunun_ilki_miktar; end if;
+       and not coalesce((odul ->> 'tavan')::boolean, false)) then v_ilk := greatest(coalesce(p_gunluk, 0), 0); end if;
   insert into public.kasalar (uye, oyun_id, odul) values (p_uye, p_oyun, case when v_tavan then '{"tavan":true}'::jsonb else p_odul end)
     on conflict (uye, oyun_id) do nothing;
   get diagnostics v_n = row_count;
@@ -55,8 +58,8 @@ begin
 end;
 $$;
 
-revoke all on function public.mac_sonu(uuid, uuid, jsonb, text[], text, int) from public, anon, authenticated;
-grant execute on function public.mac_sonu(uuid, uuid, jsonb, text[], text, int) to service_role;
+revoke all on function public.mac_sonu(uuid, uuid, jsonb, text[], text, int, int) from public, anon, authenticated;
+grant execute on function public.mac_sonu(uuid, uuid, jsonb, text[], text, int, int) to service_role;
 
 -- Bağlama ödülü kaydı: e-posta özeti başına bir satır; hesap silinse de kalır (aynı adres ikinci kez alamaz). Yalnız RPC yazar/okur.
 create table if not exists public.bagla_odulleri (

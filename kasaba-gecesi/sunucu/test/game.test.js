@@ -1048,9 +1048,9 @@ test('fiyatlar ve özel kozmetik',()=>{
   assert.strictEqual(G.KOZMETIK.bayrak.mektup.ozel,'bagla');assert.strictEqual(G.KOZMETIK.bayrak.mektup.ico,'✉️');
   for(let i=0;i<3000;i++){const o=G.kasaOdulu();assert.notStrictEqual(o.key,'bayrak:mektup');if(o.tur==='yildiz')assert.ok(o.adet>=6&&o.adet<=10,String(o.adet))}
 });
-test('göç 010 miktarları game.js ile aynı (günün ilki, bağlama)',()=>{
+test('göç 010: bağlama miktarı game.js ile aynı; günün ilki parametreden',()=>{
   const sql=require('fs').readFileSync(require('path').join(__dirname,'../db/goc/010_yildiz_1.sql'),'utf8');
-  assert.strictEqual(Number((sql.match(/gunun_ilki_miktar constant int := (\d+)/)||[])[1]),G.YILDIZ_KAYNAK.gunun_ilki.adet);
+  assert.ok(!/gunun_ilki_miktar/.test(sql)&&/p_gunluk int default 0/.test(sql),'günün ilki miktarı sunucudan (p_gunluk), eski çağrıya 0');
   assert.strictEqual(Number((sql.match(/bagla_miktar constant int := (\d+)/)||[])[1]),G.YILDIZ_KAYNAK.bagla.adet);
   assert.strictEqual(Number((sql.match(/greatest\(0, yildiz - (\d+)\)/)||[])[1]),G.YILDIZ_KAYNAK.bagla.adet,'birleştirmede geri alınan ödül');
   assert.ok(sql.includes("p_key = 'bayrak:mektup'")&&sql.includes("'bayrak:mektup') on conflict"),'mektup anahtarı göçte');

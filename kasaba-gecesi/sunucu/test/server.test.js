@@ -1029,7 +1029,7 @@ test('yıldız: maç sonu dökümü yalnız oyuncunun kasasında; bonus döküm 
     assert.deepStrictEqual(ka.dokum,G.yildizDokumu(R,a.me));assert.deepStrictEqual(kb.dokum,G.yildizDokumu(R,b.me));
     assert.ok(kb.dokum.some(x=>x.key==='hain_oyu'&&x.adet===2),'B haine oy');assert.ok(!ka.dokum.some(x=>x.key==='hain_oyu'),'A, B\'nin dökümünü görmez');
     assert.strictEqual(I.cagri.mac.find(x=>x.u===SA).x.bonus,G.yildizToplam(ka.dokum));assert.strictEqual(I.cagri.mac.find(x=>x.u===SB).x.bonus,G.yildizToplam(kb.dokum));
-    assert.strictEqual(ka.gununIlki,5);
+    assert.strictEqual(ka.gununIlki,5);assert.strictEqual(I.cagri.mac.find(x=>x.u===SA).x.gunluk,G.YILDIZ_KAYNAK.gunun_ilki.adet,'günün ilki miktarı sunucudan');
     I.cagri.tavan=true;a.send({t:'cancel'});await a.until(c=>c.P.phase==='lobby');a.diger.length=0;a.send({t:'start'});await a.until(c=>c.P.phase==='night');
     const R2=I.srv.rooms.get(room).game;R2.gameLog.push({sira:99,gun:1,faz:'vote',tur:'gunduz_sonuc',veri:{}});R2.P.phase='end';R2.P.winner={team:'inn',kazananlar:[a.me]};a.send({t:'look',name:'A2'});
     const k2=(await a.until(c=>c.diger.find(m=>m.t==='kasa'))).diger.find(m=>m.t==='kasa').d;assert.deepStrictEqual(k2.dokum,[],'tavanda döküm yok');assert.strictEqual(k2.gununIlki,0);assert.strictEqual(k2.tavan,true);
