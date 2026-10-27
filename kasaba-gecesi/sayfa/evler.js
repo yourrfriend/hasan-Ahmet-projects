@@ -207,6 +207,17 @@ M['basamakli-tas']={kapi:{x:-6,y:-34,w:18,h:22,rx:2},pencere:{x:24,y:-30,w:12,h:
   ciz(b,SE){const d=yap(SE,b);d.r(-70,10,148,24,'#a8a08c');d.r(-54,-12,116,22,'#b8b09a');d.r(-38,-36,84,24,'#c8c0aa');d.r(-24,-66,56,30,'#d8d0b8');
     d.l('M-16 -60 h40 M-16 -44 h40','#6f8a4a',2.6);for(const x of [-60,-44,58,70])d.l(`M${x} 14 v16`,'rgba(0,0,0,.2)',1.6);d.p('M-6 34 L-6 10 L18 10 L18 34 Z','#9a927e',{'stroke-width':1.6});for(let y=12;y<34;y+=6)d.l(`M-6 ${y} h24`,'rgba(0,0,0,.25)',1.4);
     kapiCiz(d,'duz',-6,-34,18,22,'#4a3a2a');pencere(d,'kare',24,-30,12,10,'#b8b09a');d.p('M-20 -66 l10 -10 l10 10 l10 -10 l10 10 l10 -10 l6 10','none',{stroke:'#6f8a4a','stroke-width':2.4})}};
+M['yoruk-cadiri']={kapi:{x:-8,y:-6,w:24,h:38,rx:2},pencere:null,silu:'M-76 34 L-70 -8 L-40 -40 L4 -46 L48 -40 L80 -8 L84 34 Z',golge:{cx:4,rx:84},ust:-62,
+  ciz(b,SE){const d=yap(SE,b);for(const x of [-40,4,48])d.l(`M${x} -40 v-16`,'#6b4a2e',3);d.p('M-74 34 L-68 -6 L-40 -40 L4 -44 L48 -40 L78 -6 L84 34 Z','#2f2a28');
+    for(const x of [-56,-30,38,62])d.l(`M${x} -20 V34`,'#4a4440',1.6);d.l('M-70 -6 Q4 4 78 -6','#4a4440',2);d.l('M-40 -40 L-74 34 M48 -40 L84 34','#6b4a2e',1.4,{opacity:.6});
+    d.r(-10,-8,28,40,'#b8322a',{'stroke-width':2});for(let y=-2;y<30;y+=10){d.p(`M-6 ${y} l5 -4 l5 4 l5 -4 l5 4`,'none',{stroke:'#ffd23f','stroke-width':1.6});d.l(`M-8 ${y+5} h24`,'#f1e3c8',1.2)}
+    d.l('M-86 34 l10 -40 M94 34 l-10 -40','#6b4a2e',1.4);d.e(-40,30,10,4,'#c9a678',{'stroke-width':1.2})}};
+M.kervansaray={kapi:{x:-10,y:-2,w:24,h:34,rx:12},pencere:{x:-44,y:-30,w:12,h:14,rx:6},silu:'M-60 34 L-60 -50 L-30 -50 L-30 -80 L38 -80 L38 -50 L58 -50 L78 -62 L78 22 L58 34 Z',golge:{cx:8,rx:80},ust:-84,
+  ciz(b,SE){const d=yap(SE,b);d.r(-60,-50,118,84,'#d9c08e');d.p('M58 -50 L78 -62 L78 22 L58 34 Z','#bfa36e');for(let y=-40;y<34;y+=10)d.l(`M-60 ${y} H58`,'rgba(110,80,40,.35)',1.2);
+    d.r(-30,-80,68,114,'#e6cf9e');d.r(-30,-60,68,8,'#2f9a9a',{'stroke-width':1.6});for(let x=-26;x<36;x+=8)d.p(`M${x} -56 l4 -3 l4 3 l-4 3 Z`,'#f1e3c8',{'stroke-width':.8});
+    d.p('M-22 34 V-20 Q-22 -46 4 -46 Q30 -46 30 -20 V34 Z','#c9ad74');for(let i=0;i<5;i++)d.p(`M${-18+i*9} -24 q4 -8 8 0`,'none',{stroke:'#8a6a3a','stroke-width':1.6});
+    const yildiz=(cx,cy,r)=>d.p(`M${cx} ${cy-r} L${cx+r*0.3} ${cy-r*0.3} L${cx+r} ${cy} L${cx+r*0.3} ${cy+r*0.3} L${cx} ${cy+r} L${cx-r*0.3} ${cy+r*0.3} L${cx-r} ${cy} L${cx-r*0.3} ${cy-r*0.3} Z`,'#2f9a9a',{'stroke-width':1.2});
+    yildiz(-16,-70,6);yildiz(4,-70,6);yildiz(24,-70,6);kapiCiz(d,'kemer',-10,-2,24,34,'#5a3d26');pencere(d,'kemer',-44,-30,12,14,'#c9ad74');pencere(d,'kemer',42,-30,10,14,'#c9ad74')}};
 // ---------- parametrik evler ----------
 const P={
   'kirmizi-ev':{duvar:'#c8322a',yan:'#a12820',desen:'ahsap',cati:'ucgen',catiRenk:'#3a3f48',catiYan:'#2a2f38',cerceve:'#ffffff',kapiRenk:'#f1e3c8',ekler:['baca']},
