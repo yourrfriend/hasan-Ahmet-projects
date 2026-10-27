@@ -16,7 +16,7 @@ function taklitRest(){const T={kasabalar:[],kasaba_uyeleri:[],oyunlar:[],oyun_oy
     // Plan 6: RPC hesap_birlestir (204) ve GoTrue admin kullanıcı silme (200) — yalnız kaydedilir; hata() ile durum kodu verilebilir
     if(req.method==='POST'&&u.pathname==='/rest/v1/rpc/hesap_birlestir'){res.writeHead(204);return res.end()}
     // ilerleme RPC'leri (göç 008): varsayılan yanıtlar; testler rpcAyarla(ad, govde=>yanıt) ile değiştirir
-    {const m=u.pathname.match(/^\/rest\/v1\/rpc\/(mac_sonu|kozmetik_al|envanter_oku)$/);if(req.method==='POST'&&m)return yaz(rpc[m[1]](govde||{}))}
+    {const m=u.pathname.match(/^\/rest\/v1\/rpc\/(mac_sonu|kozmetik_al|envanter_oku|bagla_odulu)$/);if(req.method==='POST'&&m)return yaz(rpc[m[1]](govde||{}))}
     if(req.method==='DELETE'&&/^\/auth\/v1\/admin\/users\/[0-9a-f-]{36}$/.test(u.pathname)){return yaz({id:u.pathname.split('/').pop()})}
     if(!T[tablo]){res.writeHead(404);return res.end()}
     // rol geçmişi tohumu (kayit.sonRoller): oyun_oyunculari + oyunlar!inner gömülü, oyunlar.<sütun>=eq., rol_key=not.is.null, order=oyunlar(bitis).desc, limit

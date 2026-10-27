@@ -363,4 +363,19 @@ do $$ begin
 end $$;
 reset role;
 
+-- 22) ikisi de ödül almış iki hesap birleşince fazla ödül geri alınır; eski adres yine kullanılmış sayılır
+insert into auth.users (id, instance_id, aud, role, email, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, is_anonymous)
+values ('bbbbbbbb-1111-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'ikinci1@ornek.com', now(), '{}', '{}', now(), now(), false),
+       ('cccccccc-1111-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'ikinci2@ornek.com', now(), '{}', '{}', now(), now(), false);
+set local role service_role;
+do $$ declare r jsonb; x uuid := 'bbbbbbbb-1111-1111-1111-111111111111'; y uuid := 'cccccccc-1111-1111-1111-111111111111'; begin
+  perform public.bagla_odulu(x); perform public.bagla_odulu(y);
+  perform public.hesap_birlestir(x, y);
+  if (select yildiz from public.cuzdan where uye = y) <> 25 then raise exception 'BAŞARISIZ 22: iki ödül birleşti: %', (select yildiz from public.cuzdan where uye = y); end if;
+  r := public.bagla_odulu(x);
+  if not coalesce((r->>'tekrar')::boolean, false) then raise exception 'BAŞARISIZ 22: eski adres yeniden ödül aldı: %', r; end if;
+  raise notice 'GEÇTİ 22: çift ödül birleştirmede geri alınır';
+end $$;
+reset role;
+
 rollback;

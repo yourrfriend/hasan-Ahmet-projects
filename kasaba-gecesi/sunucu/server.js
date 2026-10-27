@@ -179,8 +179,22 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
     let g;try{g=JSON.parse(await govdeOku(req,1024))}catch(e){return json(400,{error:'gecersiz_govde'})}
     const [tur,anahtar]=String(g&&g.key||'').split(':');const has=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
     if(!has(G.KOZMETIK,tur)||!has(G.KOZMETIK[tur],anahtar))return json(400,{error:'katalog'});
+    if(G.KOZMETIK[tur][anahtar].ozel)return json(400,{error:'ozel'});
     const r=await kayit.kozmetikAl(kim.sub,tur+':'+anahtar,G.NADIRLIK[G.KOZMETIK[tur][anahtar].nadir].fiyat);
     if(!r)return json(503,{error:'ic'});if(r.hata)return json(409,{error:r.hata,yildiz:r.yildiz});return json(200,{ok:true,yildiz:r.yildiz});
+  }
+  // e-posta bağlama ödülü (yıldız ekonomisi 1): bir kez +25 ⭐ ve bayrak:mektup; karar veritabanında (uye ve adres başına bir kez). IP başına dakikada 10
+  const ipBagla=new Map();
+  async function baglaOduluUcu(req,res){
+    const json=(d,b)=>{res.writeHead(d,{'Content-Type':'application/json'});res.end(JSON.stringify(b))};
+    if(!(ayar.url&&ayar.serviceKey)||typeof kayit.baglaOdulu!=='function'){res.writeHead(404);return res.end('yok')}
+    const ip=ipOf(req),simdi=Date.now();const son=(ipBagla.get(ip)||[]).filter(t=>simdi-t<60000);if(son.length>=10)return json(429,{error:'limit'});son.push(simdi);ipBagla.set(ip,son);
+    const t=String(req.headers.authorization||'').replace(/^Bearer /,'');const kim=t?Kimlik.dogrula(t,dogrulama):null;if(!kim||kim.suresiDolmus)return json(401,{error:'token'});
+    const r=await kayit.baglaOdulu(kim.sub);
+    if(!r)return json(503,{error:'ic'});if(r.hata)return json(409,{error:r.hata});if(r.tekrar)return json(200,{tekrar:true});
+    for(const oda of rooms.values())for(const [uid,m] of oda.members){if(m.uye!==kim.sub)continue;for(const ws of m.socks)send(ws,{t:'baglaOdulu',d:{yildiz:r.yildiz,kozmetik:'bayrak:mektup'}});
+      if(typeof kayit.envanterOku==='function')kayit.envanterOku(m.uye).then(e=>{if(e&&rooms.get(oda.code)===oda)envanterAyarla(oda,uid,m,e)}).catch(()=>{})}
+    return json(200,{ok:true,yildiz:r.yildiz});
   }
   async function birlestirUcu(req,res){
     const json=(d,b)=>{res.writeHead(d,{'Content-Type':'application/json'});res.end(JSON.stringify(b))};
@@ -197,6 +211,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
     const url=(req.url||'/').split('?')[0],surumlu=/[?&]v=/.test(req.url||'');
     if(req.method==='POST'&&url==='/eposta/kanca'){kancaUcu(req,res).catch(e=>{log("kanca hata",e&&e.message);res.writeHead(500);res.end()});return}
     if(req.method==='POST'&&url==='/ben/al'){benAlUcu(req,res).catch(()=>{res.writeHead(500);res.end()});return}
+    if(req.method==='POST'&&url==='/hesap/bagla-odulu'){baglaOduluUcu(req,res).catch(()=>{res.writeHead(500);res.end()});return}
     if(req.method==='POST'&&url==='/hesap/birlestir'){birlestirUcu(req,res).catch(()=>{res.writeHead(500);res.end()});return}
     if(req.method==='POST'&&url==='/eposta/kod'){kodUcu(req,res).catch(e=>{log("kod hata",e&&e.message);res.writeHead(500);res.end()});return}
     if(req.method==='POST'&&url==='/hesap/anonim'){anonimUcu(req,res).catch(e=>{log("anonim hata",e&&e.message);res.writeHead(500);res.end()});return}
@@ -354,7 +369,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
     schedule(room);
   }
   function envanterAyarla(room,uid,mem,e){
-    mem.envanter={yildiz:+e.yildiz||0,esyalar:{...(e.esyalar||{})},kozmetikler:Array.isArray(e.kozmetikler)?e.kozmetikler.slice():[]};
+    mem.envanter={yildiz:+e.yildiz||0,esyalar:{...(e.esyalar||{})},kozmetikler:Array.isArray(e.kozmetikler)?e.kozmetikler.slice():[],bagli:!!e.bagli,baglaOdulu:!!e.bagla_odulu};
     for(const ws of mem.socks)send(ws,{t:'envanter',d:mem.envanter});
     if(mem.istenen)applyLook(room,uid,mem,{...mem.istenen});if(room.lobiEsya&&mem.esyaSecim)room.lobiEsya.delete(uid);schedule(room);
   }
@@ -377,18 +392,19 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
     const oyun=P.gameId;const birak=pid=>{room.ayirma=(room.ayirma||[]).filter(a=>!(a.pid===pid&&a.oyun===oyun))};
     // oylamasız maç (ilk gece biten): kasa yok, eşya harcanmaz → ayırmalar hemen kalkar
     if(!(R.gameLog||[]).some(e=>e.tur==='gunduz_sonuc')){room.ayirma=(room.ayirma||[]).filter(a=>a.oyun!==oyun);return}
-    const kaz=new Set((P.winner&&P.winner.kazananlar)||[]),kul=G.esyaKullanimi(R);
+    const kul=G.esyaKullanimi(R);
     for(const p of P.players){const uye=(room.oyunUyeleri&&room.oyunUyeleri.get(p.id))||(room.members.get(p.id)||{}).uye;if(!uye)continue;
       const odul=G.kasaOdulu();if(odul.tur==='kozmetik')odul.donusum=G.NADIRLIK[odul.nadir].donusum;
       const k=(kul[p.id]||[]).find(e=>e.kaynak==='envanter'&&e.kullanildi);const harcanan=k?k.key:null; // v2: dizi (envanterden en çok bir eşya gelir)
-      const gonder=()=>kayit.macSonu(uye,P.oyunId,{odul,rozetler:G.rozetlerFor(R,p.id),harcanan,bonus:kaz.has(p.id)?2:0});
+      const dokum=G.yildizDokumu(R,p.id);
+      const gonder=()=>kayit.macSonu(uye,P.oyunId,{odul,rozetler:G.rozetlerFor(R,p.id),harcanan,bonus:G.yildizToplam(dokum)});
       // RPC idempotent: geçici hata (null) bir kez yeniden denenir; yine olmazsa ayırma kalkar, eşya düşülmez
       gonder().then(r=>r||new Promise(res=>setTimeout(res,ilerlemeDenemeMs)).then(gonder)).then(r=>{
         // ayırma, düşüm sonucu bellekteki bütün kopyalara işlendikten sonra kalkar (aradaki rövanş aynı eşyayı yeniden alamaz)
         if(r&&harcanan&&!r.tekrar)for(const oda of rooms.values())for(const m of oda.members.values())if(m.uye===uye&&m.envanter&&m.envanter.esyalar[harcanan]>0)m.envanter.esyalar[harcanan]--;
         birak(p.id);
         if(!r)return;const mem=room.members.get(p.id);if(!mem)return;
-        for(const ws of mem.socks)send(ws,{t:'kasa',d:{odul:r.odul||null,donustu:!!r.donustu,yildiz:r.yildiz,rozetler:r.yeni_rozetler||[],tavan:!!r.tavan,tekrar:!!r.tekrar}});
+        for(const ws of mem.socks)send(ws,{t:'kasa',d:{odul:r.odul||null,donustu:!!r.donustu,yildiz:r.yildiz,rozetler:r.yeni_rozetler||[],tavan:!!r.tavan,tekrar:!!r.tekrar,dokum:r.tavan||r.tekrar?[]:dokum,gununIlki:+r.gunun_ilki||0,bagli:!!(mem.envanter&&mem.envanter.bagli)}});
         if(mem.uye&&typeof kayit.envanterOku==='function')kayit.envanterOku(mem.uye).then(e=>{if(e)envanterAyarla(room,p.id,mem,e)}).catch(()=>{})}).catch(()=>{birak(p.id)})}
     // kayıtsız oyuncunun ayırması olmaz; yine de işlenmeyen kalırsa bırak
     const islenen=new Set(P.players.map(p=>p.id));room.ayirma=(room.ayirma||[]).filter(a=>a.oyun!==oyun||islenen.has(a.pid));

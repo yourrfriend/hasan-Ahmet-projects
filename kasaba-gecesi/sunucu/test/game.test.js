@@ -1052,6 +1052,7 @@ test('göç 010 miktarları game.js ile aynı (günün ilki, bağlama)',()=>{
   const sql=require('fs').readFileSync(require('path').join(__dirname,'../db/goc/010_yildiz_1.sql'),'utf8');
   assert.strictEqual(Number((sql.match(/gunun_ilki_miktar constant int := (\d+)/)||[])[1]),G.YILDIZ_KAYNAK.gunun_ilki.adet);
   assert.strictEqual(Number((sql.match(/bagla_miktar constant int := (\d+)/)||[])[1]),G.YILDIZ_KAYNAK.bagla.adet);
+  assert.strictEqual(Number((sql.match(/greatest\(0, yildiz - (\d+)\)/)||[])[1]),G.YILDIZ_KAYNAK.bagla.adet,'birleştirmede geri alınan ödül');
   assert.ok(sql.includes("p_key = 'bayrak:mektup'")&&sql.includes("'bayrak:mektup') on conflict"),'mektup anahtarı göçte');
   assert.ok(Object.entries(G.KOZMETIK).every(([t,o])=>Object.entries(o).every(([k,v])=>!v.ozel||(t+':'+k)==='bayrak:mektup')),'özel öğe yalnız mektup (göç bunu sabit tutar)');
 });

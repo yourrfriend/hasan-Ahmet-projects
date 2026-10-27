@@ -227,3 +227,11 @@ test('ilerleme RPC: envanterOku, macSonu, kozmetikAl doğru gövde ve anahtarla;
   }finally{await k.kapat();await t.kapat()}
   const k2=Kayit.olustur({quiet:true});assert.strictEqual(await k2.envanterOku(UUID[0]),null);assert.strictEqual(await k2.macSonu(UUID[0],'o',{}),null);assert.strictEqual(await k2.kozmetikAl(UUID[0],'x',1),null);await k2.kapat();
 });
+test('ilerleme RPC: baglaOdulu gövdesi; ayarsız ve uyesiz → null',async()=>{
+  const t=await taklitRest();const k=Kayit.olustur({url:t.url,serviceKey:'srv',kurulum:'kasaba-test',quiet:true});
+  try{t.rpcAyarla('bagla_odulu',g=>({ok:true,yildiz:25,_uye:g.p_uye}));
+    assert.deepStrictEqual(await k.baglaOdulu(UUID[0]),{ok:true,yildiz:25,_uye:UUID[0]});assert.deepStrictEqual(t.istekler.find(x=>x.tablo==='rpc/bagla_odulu').govde,{p_uye:UUID[0]});
+    assert.strictEqual(await k.baglaOdulu(null),null);
+  }finally{await k.kapat();await t.kapat()}
+  const k2=Kayit.olustur({quiet:true});assert.strictEqual(await k2.baglaOdulu(UUID[0]),null);await k2.kapat();
+});

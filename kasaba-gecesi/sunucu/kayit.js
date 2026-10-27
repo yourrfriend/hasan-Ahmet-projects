@@ -123,8 +123,9 @@ function olustur(opts={}){
   async function macSonu(uye,oyunId,o){if(!uye||!oyunId)return null;o=o||{};
     const r=await rpcCagir('mac_sonu',{p_uye:uye,p_oyun:oyunId,p_odul:o.odul||null,p_rozetler:o.rozetler||[],p_harcanan:o.harcanan||null,p_bonus:o.bonus||0});if(r)sayac.kasa++;return r}
   const kozmetikAl=(uye,key,fiyat)=>uye?rpcCagir('kozmetik_al',{p_uye:uye,p_key:key,p_fiyat:fiyat}):Promise.resolve(null);
+  const baglaOdulu=uye=>uye?rpcCagir('bagla_odulu',{p_uye:uye}):Promise.resolve(null);
   return{
-    kuyrukla,profil,sonRoller,envanterOku,macSonu,kozmetikAl,
+    kuyrukla,profil,sonRoller,envanterOku,macSonu,kozmetikAl,baglaOdulu,
     async kapat(){ // yeni iş alınmaz; kuyruktaki kalan olaylar (bitiş dahil) en çok 3 sn içinde yazılır, sonra kapanır
       kapaniyor=true;for(const b of bekleyen.values())clearTimeout(b.t);bekleyen.clear();
       if(uykuCoz){clearTimeout(zamanlayici);uykuCoz()}

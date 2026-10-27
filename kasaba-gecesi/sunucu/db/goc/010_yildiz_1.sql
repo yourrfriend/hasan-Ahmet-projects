@@ -155,9 +155,15 @@ begin
   insert into public.kasalar (uye, oyun_id, odul, zaman) select yeni, oyun_id, odul, zaman from public.kasalar where uye = eski
     on conflict (uye, oyun_id) do nothing;
   delete from public.kasalar where uye = eski;
-  -- göç 010: bağlama ödülü kaydı yeniye geçer (yeninin kaydı yoksa); "bir kez" kuralı birleştirmeden sonra da geçerli
-  if not exists (select 1 from public.bagla_odulleri where uye = yeni) then
-    update public.bagla_odulleri set uye = yeni where uye = eski;
+  -- göç 010: bağlama ödülü kaydı yeniye geçer; ikisi de ödül aldıysa fazla ödül (25 ⭐, yukarıda toplanan) geri alınır,
+  -- eski adresin kaydı kalır (uye boşalır) — bir kişi birleştirmeyle iki ödül tutamaz
+  if exists (select 1 from public.bagla_odulleri where uye = eski) then
+    if exists (select 1 from public.bagla_odulleri where uye = yeni) then
+      update public.cuzdan set yildiz = greatest(0, yildiz - 25) where uye = yeni;
+      update public.bagla_odulleri set uye = null where uye = eski;
+    else
+      update public.bagla_odulleri set uye = yeni where uye = eski;
+    end if;
   end if;
 end;
 $$;
