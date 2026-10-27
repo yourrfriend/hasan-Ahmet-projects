@@ -270,7 +270,8 @@ function paketKapat(R){const g=R.g,P=R.P;if(!g||!g.paket)return;const pk=g.paket
 // tick içinden: açılış / süre dolumu. Değişiklik olduysa true.
 function paketTik(R){const g=R.g,P=R.P;if(!g||!g.paket||P.phase!=='talk')return false;const pk=g.paket;
   if(!pk.acik&&clock()>=pk.zaman){if(clock()+PAKET.sure>P.ends){g.paket=null;return false} // faz bitmek üzereyse açılmaz
-    pk.acik=true;pk.ends=clock()+PAKET.sure;P.paket={key:pk.keys[0],n:pk.keys.length,ends:pk.ends};g.paketSayisi++;return true}
+    pk.acik=true;pk.ends=clock()+PAKET.sure;const r=0.99*Math.sqrt(rnd()),a=rnd()*2*Math.PI,yu=v=>Math.round(v*100)/100;P.paket={key:pk.keys[0],n:pk.keys.length,ends:pk.ends,yer:{x:yu(r*Math.cos(a)),y:yu(r*Math.sin(a))}}; // yer: meydanın iç elipsinde birim disk (herkes aynı yeri görür)
+    g.paketSayisi++;return true}
   if(pk.acik&&clock()>=pk.ends){paketKapat(R);return true}
   return false}
 // kap: ilk dokunan alır; her başarısızlık sessiz (false)

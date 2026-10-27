@@ -881,7 +881,8 @@ test('meydan paketi: tartışmada planlanır, zamanında açılır (tür+sayı+s
     assert.ok(pk.zaman>=t+7000&&pk.zaman<=t+7000+120*1000*2/3,'sabah animasyonundan (7 sn) sonra, ilk üçte iki');
     { G.setRnd(()=>0);const R0=esyali(['hain','masum','masum','masum','masum'],{});G.advance(R0);assert.strictEqual(R0.g.paket.zaman,t+7000,'rnd=0 → tam animasyon sonu');G.setRnd(()=>0.1) }assert.strictEqual(R.P.paket,null);noLeak(R.P);
     assert.strictEqual(G.tick(R),false);t=pk.zaman;assert.strictEqual(G.tick(R),true,'açılış değişiklik');assert.strictEqual(R.P.phase,'talk');
-    assert.deepStrictEqual(R.P.paket,{key:pk.keys[0],n:1,ends:t+5000});assert.strictEqual(R.g.paketSayisi,1);noLeak(R.P);
+    assert.deepStrictEqual({...R.P.paket,yer:undefined},{key:pk.keys[0],n:1,ends:t+5000,yer:undefined});
+    { const y=R.P.paket.yer;assert.ok(y&&Math.hypot(y.x,y.y)<=1.0001&&Number.isFinite(y.x)&&Number.isFinite(y.y),'yer birim disk içinde: '+JSON.stringify(y)) }assert.strictEqual(R.g.paketSayisi,1);noLeak(R.P);
     assert.strictEqual(G.kap(R,'u1',1,R.P.gameId),true);assert.strictEqual(R.g.esya.u1.length,2);assert.deepStrictEqual(R.g.esya.u1[1],{key:pk.keys[0],kaynak:'paket',kullanildi:false});
     assert.strictEqual(R.P.paket,null,'tek eşya alınınca hemen kapanır');assert.strictEqual(R.g.paket,null);
     const son=R.P.chat[R.P.chat.length-1];assert.ok(son.sys&&son.t==='📦 Meydana '+G.ESYA[pk.keys[0]].ico+' '+G.ESYA[pk.keys[0]].n.toLowerCase()+' düştü — biri kaptı',son.t);
@@ -950,6 +951,16 @@ test('privFor.hamle: gece kendi hamlesi geri gelir (yenileme); başka fazda ve b
   assert.deepStrictEqual(G.privFor(R,'u1').hamle,{kill:null,ab:'u2',guess:null,det:false,esya:'kilit',esyaHedef:'u0'});
   assert.strictEqual(G.privFor(R,'u2').hamle,null,'başkasının hamlesi görünmez');noLeak(R.P);
   G.advance(R);assert.strictEqual(R.P.phase,'talk');assert.strictEqual(G.privFor(R,'u1').hamle,null,'gündüz yok');
+});
+test('meydan paketi yeri: rastgele, birim disk içinde, her pakette yeniden; herkese aynı (P), deterministik',()=>{
+  let t=1000;G.setClock(()=>t);
+  try{const yerler=new Set();
+    for(let i=0;i<40;i++){G.setRnd(()=>0.1);const R=esyali(['hain','masum','masum','masum','masum'],{});G.advance(R);t=R.g.paket.zaman;
+      let j=0;const seq=[0.05,0.95,0.5,0.25,0.75,0.33];G.setRnd(()=>(seq[(i+j++)%seq.length]+i*0.013)%1);G.tick(R);const y=R.P.paket.yer;
+      assert.ok(Math.hypot(y.x,y.y)<=1.0001,'disk: '+JSON.stringify(y));yerler.add(y.x+','+y.y)}
+    assert.ok(yerler.size>=10,'yer her pakette değişir: '+yerler.size);
+    G.setRnd(()=>0);const R=esyali(['hain','masum','masum','masum','masum'],{});G.advance(R);t=R.g.paket.zaman;G.tick(R);assert.deepStrictEqual(R.P.paket.yer,{x:0,y:0},'rnd=0 → merkez');
+  }finally{G.setClock();G.setRnd(null)}
 });
 test('oy fişi: oyu 2 sayar, eşiğe sayılmaz, eşitliği bozar; anonim özet',()=>{
   let R=esyali(['hain','masum','masum','masum','masum'],{u0:'fis'});G.advance(R);G.advance(R);

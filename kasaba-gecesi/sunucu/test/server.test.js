@@ -869,7 +869,7 @@ test('eşya v2: esya{k:kum} tartışmayı uzatır ve herkese sys satırı; kap{d
     assert.strictEqual(R.P.ends,ends+30000);await a.until(c=>c.P.ends===ends+30000);await a.until(c=>c.priv.esya[0].kullanildi===true);
     // paket: sunucu tick'i açar
     R.g.paket={zaman:0,keys:['fis'],alanlar:[],acik:false,ends:null};await a.until(c=>c.P.paket&&c.P.paket.key==='fis'&&c.P.paket.n===1);await b.until(c=>c.P.paket&&c.P.paket.key==='fis');
-    assert.deepStrictEqual(Object.keys(a.P.paket).sort(),['ends','key','n']);
+    assert.deepStrictEqual(Object.keys(a.P.paket).sort(),['ends','key','n','yer']);assert.deepStrictEqual(a.P.paket.yer,acik[1].P.paket.yer,'herkes aynı yeri görür');
     b.send({t:'kap',d:1,g:R.P.gameId});await b.until(c=>c.priv.esya.length===2&&c.priv.esya[1].key==='fis');
     await a.until(c=>c.P.paket===null);await a.until(c=>c.chat.some(m=>m.sys&&/📦 Meydana 🗳️ oy fişi düştü — biri kaptı/.test(m.t)));
     assert.strictEqual(a.priv.esya.length,1,'kapmayanın envanteri değişmez');assert.ok(!a.raw.includes(b.me+'"]')&&!/alanlar/.test(a.raw),'kimin kaptığı state\'te yok');

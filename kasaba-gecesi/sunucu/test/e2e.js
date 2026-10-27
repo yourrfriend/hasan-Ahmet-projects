@@ -511,8 +511,12 @@ const step=t=>console.log('•',t);
       // meydan paketi (telefon ölçüsü): sahnede görünür, sohbet/düğmelerle çakışmaz, dokununca ikinci eşya, kapanış satırı
       await pe.setViewportSize({width:844,height:390});R.g.paket={zaman:0,keys:['fis'],alanlar:[],acik:false,ends:null};
       await pe.waitForFunction(()=>P.paket&&P.paket.key==='fis'&&!!document.querySelector('svg .paket'),null,{timeout:5000});
-      { const k=await pe.evaluate(()=>{const r=e=>e&&e.getBoundingClientRect();const c=r(document.querySelector('svg .paket'));return ['.ov.chat','.notesbtn','.ov.mine'].map(s=>{const o=r(document.querySelector(s));return !!o&&!(c.right<=o.left||o.right<=c.left||c.bottom<=o.top||o.bottom<=c.top)})});
-        assert.deepStrictEqual(k,[false,false,false],'paket sohbet/Notlar/rol kartıyla çakışmaz')}
+      // rastgele yer: dört uç noktada da sohbet/Notlar/rol kartı/evlerle çakışmaz, yer değişince paket taşınır
+      for(const yer of [0,1,2,3,4,5,6,7].map(i=>({x:+(0.99*Math.cos(i*Math.PI/4)).toFixed(2),y:+(0.99*Math.sin(i*Math.PI/4)).toFixed(2)}))){R.P.paket={...R.P.paket,yer};pe.evaluate(()=>send({t:'look',name:'Ev'}));
+        await pe.waitForFunction(y=>P.paket&&P.paket.yer&&P.paket.yer.x===y.x&&P.paket.yer.y===y.y&&document.querySelector('svg .paket'),yer,{timeout:5000});await pe.waitForTimeout(150);
+        const k=await pe.evaluate(()=>{const r=e=>e&&e.getBoundingClientRect();const c=r(document.querySelector('svg .paket circle'));const kes=o=>!!o&&!(c.right<=o.left||o.right<=c.left||c.bottom<=o.top||o.bottom<=c.top);
+          const ui=['.ov.chat','.notesbtn','.ov.mine','.ov.timerbox','.ov.rolebar'].map(s=>kes(r(document.querySelector(s))));const ekranda=c.left>=0&&c.top>=0&&c.right<=innerWidth&&c.bottom<=innerHeight;return{ui,ekranda}});
+        assert.deepStrictEqual(k.ui,[false,false,false,false,false],'paket sohbet/Notlar/rol kartı/sayaç/rol şeridiyle çakışmaz '+JSON.stringify(yer));assert.ok(k.ekranda,'paket ekranın içinde '+JSON.stringify(yer))}
       { const h=()=>pe.evaluate(()=>+document.querySelector('svg .paket .halka').getAttribute('stroke-dashoffset'));const h1=await h();await pe.waitForTimeout(400);const h2=await h();assert.ok(h2>h1,'paket halkası 400 ms içinde küçülür: '+h1+' → '+h2)}
       await pe.evaluate(()=>document.querySelector('svg .paket').dispatchEvent(new MouseEvent('click',{bubbles:true})));
       await pe.waitForFunction(()=>priv.esya&&priv.esya.length===2&&priv.esya[1].key==='fis',null,{timeout:5000});
