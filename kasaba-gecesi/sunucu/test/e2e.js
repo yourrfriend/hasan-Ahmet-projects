@@ -136,6 +136,7 @@ const step=t=>console.log('•',t);
           const t=await p5.textContent('main');assert.match(t,/⭐ 20/);assert.match(t,/İksir ×2/);assert.match(t,/Rozetler \(1\//);
           assert.strictEqual(await p5.evaluate(()=>document.querySelectorAll('.rozet:not(.kilitli)').length),1,'bir rozet kazanılmış');
           assert.ok(await p5.evaluate(()=>[...document.querySelectorAll('#icerik h3')].some(h=>h.textContent==='Evler')),'Evler bölümü');assert.strictEqual(await p5.evaluate(()=>document.querySelectorAll('.urun svg.onizleme, .urun img.onizleme').length),Object.keys(G.KOZMETIK.ev).length,'her eve önizleme');
+          assert.ok(await p5.evaluate(()=>[...document.querySelectorAll('.urun svg.onizleme')].filter(x=>x.firstChild).length<KG_EVLER.svg().length),'SVG önizlemeler tembel çizilir');
           await p5.click('.urun[data-key="bayrak:mavi"] button');await p5.waitForFunction(()=>/⭐ 8/.test(document.querySelector('main').textContent),null,{timeout:8000});
           assert.deepStrictEqual(alimlar.map(a=>a.key),['bayrak:mavi']);assert.match(alimlar[0].auth,/^Bearer ey/,'oturum tokenıyla');
           await p5.click('.urun[data-key="sapka:tac"] button');await p5.waitForFunction(()=>{try{return JSON.parse(localStorage.getItem('kg_look')).hat==='tac'}catch(e){return false}},null,{timeout:8000});
@@ -476,8 +477,10 @@ const step=t=>console.log('•',t);
       // ev seçimi: sunucu sahipliği doğrular (envanter sunucuda), sahnede o ev çizilir; resimli ev resim olarak yüklenir
       { const odaE=[...srv.rooms.values()].find(r=>r.code===oda);const benE=await pe.evaluate(()=>myId);const memE=odaE.members.get(benE);memE.envanter={yildiz:5,esyalar:{iksir:2},kozmetikler:['sapka:tac','bayrak:mavi','ev:pagoda','ev:fici-han']};
         await pe.click('.ov.custom .evler button:has-text("Pagoda")');await pe.waitForFunction(()=>{const g=scene&&scene.houses[myId]&&scene.houses[myId].g;return P.lobby.find(x=>x.id===myId).ev==='pagoda'&&g&&g.getAttribute('data-ev')==='pagoda'},null,{timeout:5000});
+        assert.strictEqual(await pe.evaluate(()=>scene.houses[myId].door.childElementCount),0,'modelli evde genel kapı çizilmez (kendi kapısı)');
         await pe.click('.ov.custom .evler button:has-text("Fıçı han")');await pe.waitForFunction(()=>{const g=scene.houses[myId].g;return g.getAttribute('data-ev')==='fici-han'&&!!g.querySelector('image')},null,{timeout:5000});
         const yuklendi=await pe.evaluate(()=>new Promise(res=>{const im=new Image();im.onload=()=>res(im.naturalWidth);im.onerror=()=>res(0);im.src=scene.houses[myId].g.querySelector('image').getAttribute('href')}));assert.ok(yuklendi>0,'ev resmi yüklenir');
+        assert.ok(await pe.evaluate(()=>{const g=scene.winLights[myId];return !!g&&!!g.querySelector('image')&&/fici-han-isik\.webp/.test(g.querySelector('image').getAttribute('href'))}),'resimli evde gece ışık katmanı');
         await pe.click('.ov.custom .evler button:has-text("Varsayılan")');await pe.waitForFunction(()=>scene.houses[myId].g.getAttribute('data-ev')==='none',null,{timeout:5000})}
       await pe.evaluate(()=>{ui.custom=false;render()});
       // bayrak çizimi: drawHouse bayrak rengini taşır

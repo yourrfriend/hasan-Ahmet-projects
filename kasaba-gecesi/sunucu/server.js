@@ -111,6 +111,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
   // Önbellek: html ve sürümsüz betikler no-cache + ETag (Cloudflare kenarı eski kopyayı tutmasın; tarayıcı 304 alır);
   // ?v=<sürüm> ile istenen /sayfa/* dosyaları bir yıl önbelleklenir. Sayfalar betikleri __V__ yerine yazılan kurulum sürümüyle ister.
   const SURUM_V=(process.env.KG_SURUM||'').replace(/[^A-Za-z0-9._-]/g,'-')||('dev'+Date.now());
+  const evResim=new Map(); // ev resimleri sunucu açıkken değişmez: bir kez okunur (en çok ~56 dosya)
   function statik(req,res,buf,tip,surumlu){
     const etag='W/"'+crypto.createHash('sha1').update(buf).digest('base64url').slice(0,20)+'"';
     const cc=surumlu?'public, max-age=31536000, immutable':'no-cache';
@@ -214,8 +215,9 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
     }
     if(url==='/ayar.json'){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-cache'});return res.end(JSON.stringify(ayarAcik()))}
     // ev resimleri (kullanıcı çizimleri, sayfa/ev/<key>.webp): yalnız katalogdaki anahtar, yalnız webp
-    {const em=/^\/sayfa\/ev\/([a-z0-9-]+)\.webp$/.exec(url);if(em){if(!Object.prototype.hasOwnProperty.call(G.KOZMETIK.ev,em[1])){res.writeHead(404);return res.end('yok')}
-      fs.readFile(path.join(SAYFA,'ev',em[1]+'.webp'),(err,buf)=>{if(err){res.writeHead(404);return res.end('yok')}statik(req,res,buf,'image/webp',surumlu)});return}}
+    {const em=/^\/sayfa\/ev\/([a-z0-9-]+?)(-isik)?\.webp$/.exec(url);if(em){if(!Object.prototype.hasOwnProperty.call(G.KOZMETIK.ev,em[1])){res.writeHead(404);return res.end('yok')}
+      const ad=em[1]+(em[2]||'')+'.webp',ok=evResim.get(ad);if(ok)return statik(req,res,ok,'image/webp',surumlu);
+      fs.readFile(path.join(SAYFA,'ev',ad),(err,buf)=>{if(err){res.writeHead(404);return res.end('yok')}evResim.set(ad,buf);statik(req,res,buf,'image/webp',surumlu)});return}}
     if(/^\/sayfa\/[a-z0-9_-]+\.(js|css)$/.test(url)){
       const css=url.endsWith('.css');
       fs.readFile(path.join(SAYFA,url.slice(7)),(err,buf)=>{

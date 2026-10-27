@@ -914,6 +914,8 @@ test('ev kozmetiği: sahibi değilse varsayılana düşer, sahibiyse lobide ve m
     a.send({t:'start'});await a.until(c=>c.P.phase==='night');assert.strictEqual(a.P.players.find(x=>x.id===a.me).ev,'fici-han','maçta oyuncu listesinde ev');
     const r=await getH(I.b,'/sayfa/ev/fici-han.webp');assert.strictEqual(r.s,200);assert.strictEqual(r.h['content-type'],'image/webp');
     assert.strictEqual((await getH(I.b,'/sayfa/evler.js')).s,200);
+    {const r2=await getH(I.b,'/sayfa/ev/fici-han.webp');assert.strictEqual(r2.s,200);assert.strictEqual(r2.h.etag,r.h.etag,'bellekteki kopya aynı');const li=await getH(I.b,'/sayfa/ev/fici-han-isik.webp');assert.strictEqual(li.s,200);assert.strictEqual(li.h['content-type'],'image/webp')}
+    assert.strictEqual((await getH(I.b,'/sayfa/ev/yok-isik.webp')).s,404);
     for(const yol of ['/sayfa/ev/yok.webp','/sayfa/ev/..%2Fevler.webp','/sayfa/ev/%2e%2e%2f%2e%2e%2fserver.webp','/sayfa/ev/FICI.webp','/sayfa/ev/fici-han.png'])assert.strictEqual((await getH(I.b,yol)).s,404,yol);
   }finally{for(const c of acik)await c.close();await I.kapat()}
 });

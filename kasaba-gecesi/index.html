@@ -237,7 +237,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 <div id="app"><div class="panel"><p class="muted">Yükleniyor…</p></div></div>
 <script>
 // Script daha başlamadan çökerse "Yükleniyor…" yerine hatayı göster (sürüm damgasıyla).
-window.KG_VER='2026-11-04a';
+window.KG_VER='2026-11-04b';
 window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ff6b6b"><p><b>Sayfa açılamadı.</b> Sürüm '+KG_VER+'</p><p class="small" style="word-break:break-all">'+String(e.message||e.error||e)+(e.filename?' @'+e.lineno:'')+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}});
 setTimeout(function(){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ffb347"><p><b>Sayfa yüklenemedi.</b> Sürüm '+KG_VER+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}},8000);
 </script>
@@ -600,17 +600,17 @@ function drawHouse(parent,x,y,name,k=1,bayrak,ev){
   SE('path',{d:'M-34 -8 l8 -8',stroke:'#e6f7ff','stroke-width':3,'stroke-linecap':'round',opacity:.9},b);
   }
   const K=V.kapi;const door=SE('g',{},b);
-  if(M&&!K){}
-  else if(M){SE('rect',{x:K.x,y:K.y,width:K.w,height:K.h,rx:K.rx,fill:'#7d5236',stroke:'#4a2f1c','stroke-width':2},door);SE('rect',{x:K.x+3,y:K.y+3,width:K.w-6,height:K.h-3,rx:Math.max(1,K.rx-3),fill:'#a5744a'},door);SE('circle',{cx:K.x+K.w-5,cy:K.y+K.h*0.58,r:2.2,fill:'#f1e3c8'},door)}
-  else{SE('rect',{x:12,y:-10,width:26,height:42,rx:3,fill:'#7d5236'},door);SE('rect',{x:15,y:-7,width:20,height:39,rx:2,fill:'#a5744a'},door);SE('circle',{cx:32,cy:14,r:2.2,fill:'#f1e3c8'},door)}
+  // model kendi kapısını ciz() içinde çizer; genel kapı yalnız varsayılan evde
+  if(!M){SE('rect',{x:12,y:-10,width:26,height:42,rx:3,fill:'#7d5236'},door);SE('rect',{x:15,y:-7,width:20,height:39,rx:2,fill:'#a5744a'},door);SE('circle',{cx:32,cy:14,r:2.2,fill:'#f1e3c8'},door)}
   const doorOpen=SE('g',{opacity:0,class:'fade'},b);
   if(K){SE('rect',{x:K.x,y:K.y,width:K.w,height:K.h,rx:K.rx,fill:'#1a1326'},doorOpen);SE('path',{d:`M${K.x} ${K.y} l-14 -6 v${K.h} l14 6 z`,fill:'#a5744a',stroke:'#7d5236','stroke-width':1.5},doorOpen);
     SE('ellipse',{cx:K.x+K.w/2,cy:40,rx:22,ry:6,fill:'#d9c48f',opacity:.9},g)}
   // ölüm karartması: resimli evde gri tonlu kopya, çizimde silüet gölgesi
   const dim=SE('g',{opacity:0,class:'fade'},g);if(M&&M.olu)M.olu(dim,SE);else SE('path',{d:V.silu,fill:'#000',opacity:.3},dim);
   const label=SE('text',{x:0,y:(V.ust||-84)-8,'text-anchor':'middle','font-size':17,'font-weight':800,fill:'#fff',style:'paint-order:stroke;stroke:rgba(0,0,0,.45);stroke-width:4px;font-family:Nunito,system-ui'},g);label.textContent=name;
-  if(sahipMi(KOZMETIK.bayrak,bayrak)){const B=KOZMETIK.bayrak[bayrak];const f=SE('g',{transform:'translate(62,-36)'},g);SE('line',{x1:0,y1:0,x2:0,y2:-32,stroke:'#5a3a1a','stroke-width':2.4},f);SE('path',{d:'M0 -32 L34 -24 L0 -14 Z',fill:B.renk,stroke:'rgba(0,0,0,.35)','stroke-width':1},f);if(B.ico)SE('text',{x:12,y:-19,'font-size':11,'text-anchor':'middle'},f).textContent=B.ico}
-  return {g,body:b,glow,door,doorOpen,dim,label,x,y,k,pencere:V.pencere};
+  // bayrak: varsayılan evde yan duvarda; modelli evde avluya dikili direk (dar/uzun siluetlerde havada kalmasın)
+  if(sahipMi(KOZMETIK.bayrak,bayrak)){const B=KOZMETIK.bayrak[bayrak];const BX=M?Math.round(V.golge.cx+V.golge.rx*0.88):62,BY=M?-30:-36;const f=SE('g',{transform:`translate(${BX},${BY})`},g);if(M)SE('line',{x1:0,y1:0,x2:0,y2:64,stroke:'#5a3a1a','stroke-width':2.4},f);SE('line',{x1:0,y1:0,x2:0,y2:-32,stroke:'#5a3a1a','stroke-width':2.4},f);SE('path',{d:'M0 -32 L34 -24 L0 -14 Z',fill:B.renk,stroke:'rgba(0,0,0,.35)','stroke-width':1},f);if(B.ico)SE('text',{x:12,y:-19,'font-size':11,'text-anchor':'middle'},f).textContent=B.ico}
+  return {g,body:b,glow,door,doorOpen,dim,label,x,y,k,pencere:V.pencere,kapi:V.kapi,golge:V.golge,ust:V.ust||-84,isik:M?M.isik||null:null,model:!!M};
 }
 // Karakter: dik kapsül, öne (baktığı yöne) şişen göbek, göbek deliği, küçük kollar/ayaklar.
 function beanInner(g,c,hat,o){
@@ -696,7 +696,9 @@ function buildScene(players){
   SE('rect',{width:SW,height:SH,fill:'#0e1a3d',opacity:.58},nightLayer);
   for(let i=0;i<40;i++)SE('circle',{cx:(i*263)%SW,cy:(i*97)%220,r:1.2+(i%3)*.5,fill:'#fff',opacity:.5+(i%4)*.12},nightLayer);
   SE('circle',{cx:1040,cy:90,r:120,fill:'url(#s_moon)'},nightLayer);SE('circle',{cx:1040,cy:90,r:34,fill:'#fff3c4'},nightLayer);SE('circle',{cx:1052,cy:80,r:28,fill:'#1a2a55',opacity:.25},nightLayer);
-  const winLights={};players.forEach(p=>{const {hx,hy}=pos[p.id];const W=houses[p.id]?houses[p.id].pencere:EV_VARSAYILAN.pencere;const g=SE('g',{class:'fade'},nightLayer);if(W){SE('rect',{x:hx+W.x*k,y:hy+W.y*k,width:W.w*k,height:W.h*k,rx:W.rx*k,fill:'#ffd766',filter:'url(#s_win)',opacity:.9},g);SE('rect',{x:hx+W.x*k,y:hy+W.y*k,width:W.w*k,height:W.h*k,rx:W.rx*k,fill:'#ffe9a6'},g)}winLights[p.id]=g});
+  const winLights={};players.forEach(p=>{const {hx,hy}=pos[p.id];const H_=houses[p.id],W=H_?H_.pencere:EV_VARSAYILAN.pencere;const g=SE('g',{class:'fade'},nightLayer);
+    if(H_&&H_.isik){const I=H_.isik;SE('image',{href:I.href,x:hx+I.x*k,y:hy+I.y*k,width:I.w*k,height:I.h*k,filter:'url(#s_win)',opacity:.9},g);SE('image',{href:I.href,x:hx+I.x*k,y:hy+I.y*k,width:I.w*k,height:I.h*k},g)}
+    if(W){SE('rect',{x:hx+W.x*k,y:hy+W.y*k,width:W.w*k,height:W.h*k,rx:W.rx*k,fill:'#ffd766',filter:'url(#s_win)',opacity:.9},g);SE('rect',{x:hx+W.x*k,y:hy+W.y*k,width:W.w*k,height:W.h*k,rx:W.rx*k,fill:'#ffe9a6'},g)}winLights[p.id]=g});
   const topLayer=SE('g',{},svg),labels=SE('g',{},svg),aksiyon=SE('g',{class:'aksiyon',style:'pointer-events:none'},svg),ambLayer=SE('g',{style:'pointer-events:none'},svg);
   const beans={};players.forEach(p=>beans[p.id]=drawBean(beanLayer,p));
   scene={wrap,svg,pos,houses,beans,houseLayer,graveLayer,beanLayer,fx,nightLayer,winLights,topLayer,labels,aksiyon,key:null,graves:{},env,ambLayer,k};
@@ -798,7 +800,8 @@ function paketMerkez(S_,yer){const ps=Object.values(S_.pos||{});if(!ps.length||!
   const mx=(Math.min(...xs)+Math.max(...xs))/2,my=(Math.min(...ys)+Math.max(...ys))/2,rx=(Math.max(...xs)-Math.min(...xs))/2*0.5,ry=(Math.max(...ys)-Math.min(...ys))/2*0.35;
   return{x:mx+yer.x*rx,y:my+yer.y*ry}}
 function paketHalka(g,pk){const kalan=Math.max(0,Math.min(1,(pk.ends-now())/PAKET.sure));const C=2*Math.PI*54;g._halka.setAttribute('stroke-dasharray',C);g._halka.setAttribute('stroke-dashoffset',C*(1-kalan))}
-function nightSpot(h,posKind){const k=h.k||1;const o={door:[26,44],enter:[25,22],bush:[-78,30],window:[-24,36],home:[26,44]}[posKind]||[26,44];return {x:h.x+o[0]*k,y:h.y+o[1]*k}}
+function nightSpot(h,posKind){const k=h.k||1;const K=h.model&&h.kapi,W=h.model&&h.pencere;const kx=K?K.x+K.w/2:26;
+  const o={door:[kx,44],enter:[kx,K?K.y+K.h*0.75:22],bush:[h.model&&h.golge?Math.min(-78,h.golge.cx-h.golge.rx-6):-78,30],window:[W?W.x+W.w/2:-24,36],home:[kx,44]}[posKind]||[kx,44];return {x:h.x+o[0]*k,y:h.y+o[1]*k}}
 function myRoleKey(){return priv.role?priv.role.key:null}
 // sayfa gece ortasında yenilendiyse sunucunun sakladığı kendi hamlesi geri gelir: karakter hedefte durur, yürüyüş ve rol hareketi tekrar oynamaz
 function hamleGeriYukle(){const h=priv.hamle;if(!h||P.phase!=='night'||local.geri===P.gameId+':'+P.day)return;local.geri=P.gameId+':'+P.day;
@@ -850,7 +853,7 @@ function renderScene(){
     h.g.style.cursor=pick?'pointer':'default';h.g.onclick=pick?()=>pickHouse(p.id):null;
     h.doorOpen.setAttribute('opacity',selHouse&&entered?1:0);
     if(S_.winLights[p.id])S_.winLights[p.id].setAttribute('opacity',dead||(selHouse&&entered)?0:1);
-    const hk=h.k||1;if(selHouse){tagAt(S_.labels,h.x+70*hk,h.y-70*hk,night?'HEDEFİN':'SENİN OYUN','#ffb020','#3a2f1c');if(night&&priv.role)iconAt(S_.labels,h.x+26*hk,h.y-100*hk,priv.role.ico,17)}
+    const hk=h.k||1,hu=Math.min(-84,h.ust||-84);if(selHouse){tagAt(S_.labels,h.x+70*hk,h.y+(hu+14)*hk,night?'HEDEFİN':'SENİN OYUN','#ffb020','#3a2f1c');if(night&&priv.role)iconAt(S_.labels,h.x+26*hk,h.y+(hu-16)*hk,priv.role.ico,17)}
     if(P.phase==='vote'&&(P.provoked===p.id||priv.fakeProvoked===p.id)){const t=SE('g',{transform:`translate(${h.x+66*hk},${h.y-90*hk})`},S_.labels);SE('circle',{r:15,fill:'#ff5c5c',filter:'url(#s_sh)'},t);SE('text',{y:5,'text-anchor':'middle','font-size':13,'font-weight':900,fill:'#fff'},t).textContent='+2'}
     // karakter konumu
     const pos=S_.pos[p.id];let x=pos.cx,y=pos.cy,show=true,look=pos.cx<SCX?1:-1,pose='idle',tilt=((p.name.length*7)%9)-4,front=false,s=(players.length>=9?.88:1)*(S_.k||1),fast=false,enterMode=false,yuruyusMs;
@@ -1252,7 +1255,7 @@ function rehberCekmece(stage){
   stage.append(c);
 }
 function odulMetni(o){if(!o)return '';if(o.tur==='esya'&&sahipMi(ESYA,o.key))return ESYA[o.key].ico+' '+ESYA[o.key].n+' ×'+(o.adet||1);if(o.tur==='yildiz')return '⭐ +'+o.adet+' yıldız';
-  if(o.tur==='kozmetik'){const [t,k]=String(o.key).split(':');const v=sahipMi(KOZMETIK,t)&&sahipMi(KOZMETIK[t],k)?KOZMETIK[t][k]:null;return v?({sapka:'🎩 ',bayrak:'🚩 ',efekt:'✨ '}[t]||'')+v.n+' ('+({siradan:'sıradan',nadir:'nadir',efsanevi:'efsanevi'}[v.nadir]||'')+')':''}return ''}
+  if(o.tur==='kozmetik'){const [t,k]=String(o.key).split(':');const v=sahipMi(KOZMETIK,t)&&sahipMi(KOZMETIK[t],k)?KOZMETIK[t][k]:null;return v?({sapka:'🎩 ',bayrak:'🚩 ',efekt:'✨ ',ev:'🏠 '}[t]||'')+v.n+' ('+({siradan:'sıradan',nadir:'nadir',efsanevi:'efsanevi'}[v.nadir]||'')+')':''}return ''}
 function kasaKarti(k){const c=el('div','kasa');c.append(el('b',null,'🎁 Kasa'));
   if(k.tekrar){c.append(el('div','small','Bu maçın kasası daha önce açıldı.'));return c}
   if(k.tavan)c.append(el('div','small','Bugünlük kasa sınırına ulaştın; yarın yine açılır.'));

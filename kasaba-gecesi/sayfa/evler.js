@@ -267,11 +267,14 @@ const RESIM={'kemerli-kulube':[320,278],'toprak-dam':[309,320],'kaya-konak':[283
   'fici-han':[318,320],'kapsul-ev':[311,320],'ahsap-kosk':[308,320],'mantar-kosk':[307,320],'kutuk-ev':[315,320],'kubbe-ev':[320,293],'a-catili':[320,317],'kule-ev':[217,320],'kok-kosk':[320,315],'sarmasikli-ev':[308,320],'kapadokya':[265,320],'kiyi-feneri':[172,320],'tas-degirmen':[230,320],'cumbali-konak':[254,320],'porselen-demlik':[320,288],'cini-kule':[187,320],'ejderli-ev':[304,320],'balkabagi':[311,320],'carkli-ev':[318,320],'deniz-kabugu':[298,320]};
 // sahne ölçüsü: genişlik en çok 150, yükseklik en çok 140 birim; taban y=40
 function resimOlcu(key){const r=RESIM[key];if(!r)return null;const s=Math.min(150/r[0],140/r[1]);const w=r[0]*s,h=r[1]*s;return{w,h,x:-w/2+6,y:40-h}}
-function resimModel(key,url){const o=resimOlcu(key);return{resim:url,kapi:null,pencere:null,golge:{cx:6,rx:o.w*0.48},ust:o.y+4,
+function resimModel(key,url,isikUrl){const o=resimOlcu(key);return{resim:url,isik:isikUrl&&ISIKLI.has(key)?{href:isikUrl,x:o.x,y:o.y,w:o.w,h:o.h}:null,kapi:null,pencere:null,golge:{cx:6,rx:o.w*0.48},ust:o.y+4,
   silu:`M${o.x+6} ${o.y+o.h*0.25} Q${o.x+o.w/2} ${o.y-6} ${o.x+o.w-6} ${o.y+o.h*0.25} L${o.x+o.w} 38 L${o.x} 38 Z`,
   ciz(b,SE){SE('image',{href:url,x:o.x,y:o.y,width:o.w,height:o.h,preserveAspectRatio:'xMidYMax meet'},b)},
   olu(b,SE){SE('image',{href:url,x:o.x,y:o.y,width:o.w,height:o.h,preserveAspectRatio:'xMidYMax meet',filter:'url(#s_olu)'},b)}}}
 // model(key, sürüm): SVG ya da resim modeli; yoksa null (varsayılan ev)
-function model(key,v){if(M[key])return M[key];if(RESIM[key])return resimModel(key,'/sayfa/ev/'+key+'.webp'+(v?'?v='+v:''));return null}
+const own=(o,k)=>typeof k==='string'&&Object.prototype.hasOwnProperty.call(o,k);
+// gece ışık katmanı olan resimler (sayfa/ev/<key>-isik.webp: yanan pencere/fener pikselleri); penceresi seçilemeyenlerde yok
+const ISIKLI=new Set(['ayakli-ev','balkabagi','carkli-ev','cimen-dam','cini-kule','cumbali-konak','deniz-kabugu','ejderli-ev','fici-han','kapadokya','kapsul-ev','kaya-konak','kemerli-kulube','kiyi-feneri','kok-kosk','kubbe-ev','kutuk-ev','mantar-kosk','mekanik-mantar','porselen-demlik','sarmasikli-ev','tas-degirmen','ucan-daire']);
+function model(key,v){const q=v?'?v='+v:'';if(own(M,key))return M[key];if(own(RESIM,key))return resimModel(key,'/sayfa/ev/'+key+'.webp'+q,'/sayfa/ev/'+key+'-isik.webp'+q);return null}
 return{model,anahtarlar:()=>[...Object.keys(M),...Object.keys(RESIM)],svg:()=>Object.keys(M),resimler:()=>Object.keys(RESIM),RESIM};
 });

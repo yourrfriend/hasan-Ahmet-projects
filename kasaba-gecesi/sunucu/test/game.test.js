@@ -703,14 +703,19 @@ test('ev kozmetiği: en az 80 ev, adlar kısa, nadirlik geçerli; çizim dosyas�
   for(const [k,v] of Object.entries(EV)){assert.ok(/^[a-z0-9-]+$/.test(k),k);assert.ok(v.n&&v.n.length<=18,'ad '+k+': '+v.n);assert.ok(G.NADIRLIK[v.nadir],k)}
   assert.deepStrictEqual(Object.keys(EV).sort(),E.anahtarlar().sort(),'game.js kataloğu ve evler.js çizimleri aynı anahtarlar');
   for(const k of E.resimler())assert.ok(fs.existsSync(path.join(__dirname,'../../sayfa/ev',k+'.webp')),'resim dosyası '+k);
+  for(const k of E.resimler()){const m=E.model(k);if(m.isik)assert.ok(fs.existsSync(path.join(__dirname,'../../sayfa/ev',k+'-isik.webp')),'ışık dosyası '+k)}
+  assert.strictEqual(E.model('constructor'),null);assert.strictEqual(E.model('__proto__'),null);
   const say={siradan:0,nadir:0,efsanevi:0};for(const v of Object.values(EV))say[v.nadir]++;assert.ok(say.siradan>=25&&say.nadir>=20&&say.efsanevi>=10,JSON.stringify(say));
   assert.strictEqual(G.kozmetikGecerli('ev','none',new Set()),true,'varsayılan ev herkese');assert.strictEqual(G.kozmetikGecerli('ev','fici',new Set()),false);assert.strictEqual(G.kozmetikGecerli('ev','fici',new Set(['ev:fici'])),true);
   for(const k of E.anahtarlar()){const m=E.model(k);assert.ok(m&&m.silu&&m.golge&&typeof m.ust==='number'&&typeof m.ciz==='function',k)}
 });
-test('kasaOdulu kozmetik: nadirlik içinde tür dengeli (85 ev şapka/bayrağı ezmez)',()=>{
-  const say={};let n=0;for(let i=0;i<40000;i++){const o=G.kasaOdulu();if(o.tur!=='kozmetik'||o.nadir!=='siradan')continue;n++;const t=o.key.split(':')[0];say[t]=(say[t]||0)+1}
-  const turler=Object.keys(G.KOZMETIK).filter(t=>Object.values(G.KOZMETIK[t]).some(v=>v.nadir==='siradan'));
-  for(const t of turler)assert.ok(Math.abs(say[t]/n-1/turler.length)<0.03,t+' %'+(100*say[t]/n).toFixed(1));
+test('kasaOdulu kozmetik: tür ağırlığı öğe sayısının karekökü (evler baskın, tek öğeli tür şişmez)',()=>{
+  for(const nadir of ['siradan','nadir','efsanevi']){
+    const say={};let n=0;for(let i=0;i<60000;i++){const o=G.kasaOdulu();if(o.tur!=='kozmetik'||o.nadir!==nadir)continue;n++;const t=o.key.split(':')[0];say[t]=(say[t]||0)+1}
+    const sayi=t=>Object.values(G.KOZMETIK[t]).filter(v=>v.nadir===nadir).length;const turler=Object.keys(G.KOZMETIK).filter(t=>sayi(t)>0);const top=turler.reduce((a,t)=>a+Math.sqrt(sayi(t)),0);
+    for(const t of turler)assert.ok(Math.abs(say[t]/n-Math.sqrt(sayi(t))/top)<0.035,nadir+' '+t+' %'+(100*say[t]/n).toFixed(1)+' beklenen %'+(100*Math.sqrt(sayi(t))/top).toFixed(1));
+    if(nadir==='siradan')assert.ok(say.efekt/n<0.15,'tek sıradan efekt (Yaprak) şişmez: %'+(100*say.efekt/n).toFixed(1));
+  }
 });
 test('kasaOdulu: her dal ve oranlar',()=>{
   const seq=a=>{let i=0;return()=>a[i++%a.length]};
