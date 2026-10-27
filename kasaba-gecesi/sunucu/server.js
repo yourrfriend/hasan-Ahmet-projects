@@ -123,7 +123,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
   const ipBirlestirme=new Map(); // birleştirme IP tavanı (dakikada 5)
   const tavan=Kod.tavanlar({saat:ayar.kodSaatlik,gun:ayar.kodGunluk,...(opts.kodTavan||{})});const kodSayac={gonderildi:0,turnstile_red:0};
   const icFetch=opts.icFetch||((u,o)=>fetch(u,o)),turnstileFetch=opts.turnstileFetch||((u,o)=>fetch(u,o));
-  const tavanTemizle=setInterval(()=>{tavan.temizle();const simdi=Date.now();for(const [k,v] of ipBirlestirme){const son=v.filter(t=>simdi-t<60000);if(son.length)ipBirlestirme.set(k,son);else ipBirlestirme.delete(k)}for(const [k,v] of ipAl){if(!v.some(t=>simdi-t<60000))ipAl.delete(k)}},600000);if(tavanTemizle.unref)tavanTemizle.unref(); // ipBirlestirme da süpürülür (bellek)
+  const tavanTemizle=setInterval(()=>{tavan.temizle();const simdi=Date.now();for(const [k,v] of ipBirlestirme){const son=v.filter(t=>simdi-t<60000);if(son.length)ipBirlestirme.set(k,son);else ipBirlestirme.delete(k)}for(const m of [ipAl,ipBagla])for(const [k,v] of m){if(!v.some(t=>simdi-t<60000))m.delete(k)}},600000);if(tavanTemizle.unref)tavanTemizle.unref(); // ipBirlestirme da süpürülür (bellek)
   const uyarilar=[];const uyar=m=>{uyarilar.push(m);log('UYARI: '+m)}; // açılış uyarıları (/saglik'e girmez; testler okur)
   if(ayar.url&&ayar.serviceKey&&ayar.kancaSirri&&!ayar.icUrl)uyar('SUPABASE_IC_URL yok; /eposta/kod ve /hesap/anonim 503 döner');
   if(ayar.turnstileSecret&&!(Array.isArray(ayar.turnstileHostnames)&&ayar.turnstileHostnames.filter(Boolean).length))uyar('Turnstile hostname listesi boş: hostname denetimi kapalı (TURNSTILE_HOSTNAMES ya da ALAN ver)');
@@ -189,7 +189,10 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
     const json=(d,b)=>{res.writeHead(d,{'Content-Type':'application/json'});res.end(JSON.stringify(b))};
     if(!(ayar.url&&ayar.serviceKey)||typeof kayit.baglaOdulu!=='function'){res.writeHead(404);return res.end('yok')}
     const ip=ipOf(req),simdi=Date.now();const son=(ipBagla.get(ip)||[]).filter(t=>simdi-t<60000);if(son.length>=10)return json(429,{error:'limit'});son.push(simdi);ipBagla.set(ip,son);
-    const t=String(req.headers.authorization||'').replace(/^Bearer /,'');const kim=t?Kimlik.dogrula(t,dogrulama):null;if(!kim||kim.suresiDolmus)return json(401,{error:'token'});
+    const t=String(req.headers.authorization||'').replace(/^Bearer /,'');let kim=t?Kimlik.dogrula(t,dogrulama):null;
+    // e-postayı yeni bağlayan, anahtar döndükten sonra imzalanmış token taşır: birleştirmedeki gibi JWKS bir kez yeniden çekilir
+    if(t&&!kim&&ayar.url&&opts.jwksAlma!==false&&kidBilinmiyor(t)&&Date.now()-jwksSonCekim>=jwksYenilemeMs){await jwksGetir();kim=Kimlik.dogrula(t,dogrulama)}
+    if(!kim||kim.suresiDolmus)return json(401,{error:'token'});
     const r=await kayit.baglaOdulu(kim.sub);
     if(!r)return json(503,{error:'ic'});if(r.hata)return json(409,{error:r.hata});if(r.tekrar)return json(200,{tekrar:true});
     for(const oda of rooms.values())for(const [uid,m] of oda.members){if(m.uye!==kim.sub)continue;for(const ws of m.socks)send(ws,{t:'baglaOdulu',d:{yildiz:r.yildiz,kozmetik:'bayrak:mektup'}});

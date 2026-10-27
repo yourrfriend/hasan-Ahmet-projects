@@ -181,6 +181,13 @@ const step=t=>console.log('•',t);
         // hatırlatma yardımcısı: yalnız e-postasız kayıtlıda; son ekran bu yardımcıyı kullanır
         assert.deepStrictEqual(await p6.evaluate(()=>[hatirlatGoster({eposta:true},true,null),hatirlatGoster({eposta:true},true,'a@b.c'),hatirlatGoster({eposta:false},true,null),hatirlatGoster(null,false,null),hatirlatGoster({eposta:true},false,null)]),[true,false,false,false,false]);
         assert.ok(await p6.evaluate(()=>renderEndUI.toString().includes('hatirlatGoster(')&&renderEndUI.toString().includes('hesap-hatirlat')),'son ekran hatırlatması yardımcıya bağlı');
+        // /ben'de ödül gelince sayfa yeni cüzdan ve mektupla yeniden çizilir (düğmeler eski yıldızla gri kalmaz)
+        { const eskiY=tablo.cuzdan[0].yildiz;await p6.evaluate(()=>localStorage.removeItem('kg_bagla_odul'));await p6.unroute('**/hesap/bagla-odulu');
+          await p6.route('**/hesap/bagla-odulu',route=>{tablo.kozmetikler.push({uye:ben,key:'bayrak:mektup'});tablo.cuzdan[0].yildiz=58;return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,yildiz:58})})});
+          await p6.goto(o3+'/ben');await p6.waitForFunction(()=>/Hesabın güvende/.test(document.querySelector('main').textContent)&&document.querySelector('.urun[data-key="bayrak:mektup"] button'),null,{timeout:8000});
+          assert.match(await p6.textContent('main'),/⭐ 58/);assert.strictEqual((await p6.textContent('.urun[data-key="bayrak:mektup"] button')).trim(),'Giy','mektup alındı: Giy');
+          tablo.kozmetikler=tablo.kozmetikler.filter(k=>k.key!=='bayrak:mektup');tablo.cuzdan[0].yildiz=eskiY;await p6.unroute('**/hesap/bagla-odulu');
+          await p6.goto(base3);await p6.waitForSelector('button.hesap-cikis',{timeout:8000}) }
         await p6.click('button.hesap-cikis');await p6.waitForSelector('button.hesap-bagla',{timeout:8000});assert.deepStrictEqual(authIstekler.filter(a=>a.yol==='logout').map(a=>a.scope),['local'],'çıkış yalnız bu cihaz (scope=local)');assert.notStrictEqual(await p6.evaluate(()=>JSON.parse(localStorage.getItem('kg_token'))),jwtBagli,'çıkışta bağlı token gider; yenilemede yeni anonim oturum');
         await c6.close();
         step('e-posta: ikinci cihaz — kod ile gir, 2 oyunu ekle → /hesap/birlestir; Hayır → çağrı yok; yavaş Supabase → zaman aşımı metni');

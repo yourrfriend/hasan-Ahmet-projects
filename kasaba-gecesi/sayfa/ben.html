@@ -34,9 +34,11 @@
     if(aldi)g.append(el('p','hatirlat-satin','⭐ '+yildiz+' yıldızın yalnız bu tarayıcıda. E-postanı bağla, kaybolmasın.'));
     g.append(el('p','small','Oyna ✓ · Yıldız kazan '+(yildiz>0?'✓':'☐')+' · E-posta bağla ☐'));
     const a=el('a',null,'E-posta bağla → +'+G.YILDIZ_KAYNAK.bagla.adet+' ⭐ ve ✉️ Mühürlü mektup bayrağı');a.href='/?bagla=1';g.append(a);icerik.append(g)}
-  else{let iste=true;try{iste=localStorage.getItem('kg_bagla_odul')!==session.user.id}catch(e){}
+  else{let odul=false;try{odul=sessionStorage.getItem('kg_ben_bagla')==='1';sessionStorage.removeItem('kg_ben_bagla')}catch(e){}
+    // ödül geldiyse sayfa yeni cüzdan ve mektupla yeniden yüklendi; bildirim burada
+    if(odul)not('✉️ Hesabın güvende! +'+G.YILDIZ_KAYNAK.bagla.adet+' ⭐ ve Mühürlü mektup bayrağı');let iste=true;try{iste=localStorage.getItem('kg_bagla_odul')!==session.user.id}catch(e){}
     if(iste)fetch('/hesap/bagla-odulu',{method:'POST',headers:{Authorization:'Bearer '+session.access_token}}).then(async r=>{if(!r.ok)return;const j=await r.json();try{localStorage.setItem('kg_bagla_odul',session.user.id)}catch(e){}
-      if(j&&j.ok){not('✉️ Hesabın güvende! +'+G.YILDIZ_KAYNAK.bagla.adet+' ⭐ ve Mühürlü mektup bayrağı');const y=document.getElementById('yildiz');if(y)y.firstChild.textContent='⭐ '+j.yildiz}}).catch(()=>{})}
+      if(j&&j.ok){try{sessionStorage.setItem('kg_ben_bagla','1')}catch(e){}location.reload()}}).catch(()=>{})}
   // özet
   const p1=el('div','panel');p1.append(el('h2',null,'Özet'));const oz=el('div','ozet');const o=ozet[0]||{oyun:0,kazanma:0};
   const kart=(b,t)=>{const k=el('div','kart');k.append(el('b',null,String(b)),el('span','small muted',t));return k};

@@ -1052,7 +1052,14 @@ test('göç 010: bağlama miktarı game.js ile aynı; günün ilki parametreden'
   const sql=require('fs').readFileSync(require('path').join(__dirname,'../db/goc/010_yildiz_1.sql'),'utf8');
   assert.ok(!/gunun_ilki_miktar/.test(sql)&&/p_gunluk int default 0/.test(sql),'günün ilki miktarı sunucudan (p_gunluk), eski çağrıya 0');
   assert.strictEqual(Number((sql.match(/bagla_miktar constant int := (\d+)/)||[])[1]),G.YILDIZ_KAYNAK.bagla.adet);
+  assert.strictEqual(Number((sql.match(/yildiz = greatest\(0, yildiz - (\d+)\)/)||[])[1]),G.YILDIZ_KAYNAK.bagla.adet,'birleştirmede geri alınan ödül de aynı miktar');
   assert.strictEqual(Number((sql.match(/greatest\(0, yildiz - (\d+)\)/)||[])[1]),G.YILDIZ_KAYNAK.bagla.adet,'birleştirmede geri alınan ödül');
   assert.ok(sql.includes("p_key = 'bayrak:mektup'")&&sql.includes("'bayrak:mektup') on conflict"),'mektup anahtarı göçte');
   assert.ok(Object.entries(G.KOZMETIK).every(([t,o])=>Object.entries(o).every(([k,v])=>!v.ozel||(t+':'+k)==='bayrak:mektup')),'özel öğe yalnız mektup (göç bunu sabit tutar)');
+});
+test('yildizDokumu: bir gecede tek olay bir kez sayılır (tuzağa iki kişi, yıldırımla iki ölü); iki gece iki kez',()=>{
+  const R=fixed(['hain','tuzakci','masum','masum','masum']);
+  R.gameLog.push({tur:'gece_sonuc',gun:1,veri:{tuzak:[{kuran:'u1',hedef:'u2'},{kuran:'u1',hedef:'u3'}],olenler:[{id:'u2',sekil:'bolt',kimden:['u1']},{id:'u3',sekil:'bolt',kimden:['u1']}]}});
+  bitir(R,['u0']);let d=G.yildizDokumu(R,'u1');assert.strictEqual(dokumSay(d,'tuzak_ustasi'),1);assert.strictEqual(dokumSay(d,'yildirim'),1);
+  R.gameLog.push({tur:'gece_sonuc',gun:2,veri:{tuzak:[{kuran:'u1',hedef:'u4'}]}});d=G.yildizDokumu(R,'u1');assert.strictEqual(dokumSay(d,'tuzak_ustasi'),2);
 });

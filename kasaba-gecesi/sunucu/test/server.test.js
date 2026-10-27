@@ -1067,3 +1067,18 @@ test('/ben/al: yalnız bağlamayla verilen öğe satılmaz; nadir yeni fiyat 70'
   }finally{await I.kapat()}
 });
 
+test('/hesap/bagla-odulu: imza anahtarı dönünce JWKS bir kez yeniden çekilir, ödül verilir',async()=>{
+  const ec=crypto.generateKeyPairSync('ec',{namedCurve:'P-256'}),ec2=crypto.generateKeyPairSync('ec',{namedCurve:'P-256'});
+  const jwk=(k,kid)=>({...k.publicKey.export({format:'jwk'}),kid,alg:'ES256',use:'sig'});const UYE='55555555-6666-4777-8888-999999999993';
+  const b64=o=>Buffer.from(JSON.stringify(o)).toString('base64url');
+  const tok=(kid,priv,sub,ek)=>{const d=b64({alg:'ES256',typ:'JWT',kid})+'.'+b64({sub,exp:Math.floor(Date.now()/1000)+60,...ek});return d+'.'+crypto.sign('sha256',Buffer.from(d),{key:priv,dsaEncoding:'ieee-p1363'}).toString('base64url')};
+  let kaynak=[()=>({keys:[jwk(ec,'k1')]}),()=>({keys:[jwk(ec,'k1'),jwk(ec2,'k2')]})];let cagri=0;const verilen=[];
+  const kayit={kuyrukla(){},profil(){},kapat(){},sayac:{},baglaOdulu:async u=>{verilen.push(u);return {ok:true,yildiz:25}}};
+  const s2=createServer({quiet:true,tickMs:50,kayit,ayar:{url:'https://x',anonKey:'a',serviceKey:'s',kurulum:'t'},jwksGetirici:async()=>{cagri++;return kaynak.shift()()},jwksDenemeMs:[60,60,60],jwksYenilemeMs:0});
+  await new Promise(r=>s2.server.listen(0,'127.0.0.1',r));const b2='127.0.0.1:'+s2.server.address().port;
+  try{
+    await new Promise(r=>setTimeout(r,150));assert.strictEqual(cagri,1);
+    const r=await postJ(b2,'/hesap/bagla-odulu','{}',{Authorization:'Bearer '+tok('k2',ec2.privateKey,UYE,{email:'a@b.c'})});
+    assert.strictEqual(r.s,200,r.b);assert.strictEqual(cagri,2,'bilinmeyen kid → bir kez yeniden çekildi');assert.deepStrictEqual(verilen,[UYE]);
+  }finally{await new Promise(r=>s2.close(r))}
+});

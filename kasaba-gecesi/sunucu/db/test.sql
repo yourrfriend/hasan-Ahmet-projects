@@ -380,4 +380,21 @@ do $$ declare r jsonb; x uuid := 'bbbbbbbb-1111-1111-1111-111111111111'; y uuid 
 end $$;
 reset role;
 
+-- 23) günün ilki sınırı (göç 011 aralık koşulu): İstanbul'da dün 23:59'daki kasa sayılmaz, bugün 00:00'daki sayılır
+insert into auth.users (id, instance_id, aud, role, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, is_anonymous)
+values ('dddddddd-1111-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, '{}', '{}', now(), now(), true);
+set local role service_role;
+do $$ declare r jsonb; u uuid := 'dddddddd-1111-1111-1111-111111111111';
+  bas timestamptz := date_trunc('day', now() at time zone 'Europe/Istanbul') at time zone 'Europe/Istanbul'; begin
+  insert into public.kasalar (uye, oyun_id, odul, zaman) values (u, gen_random_uuid(), '{"tur":"yildiz","adet":1}', bas - interval '1 minute');
+  r := public.mac_sonu(u, gen_random_uuid(), '{"tur":"yildiz","adet":1}', null, null, 0, 5);
+  if (r->>'gunun_ilki')::int <> 5 then raise exception 'BAŞARISIZ 23: dünkü kasa bugünü kapattı: %', r; end if;
+  delete from public.kasalar where uye = u;
+  insert into public.kasalar (uye, oyun_id, odul, zaman) values (u, gen_random_uuid(), '{"tur":"yildiz","adet":1}', bas);
+  r := public.mac_sonu(u, gen_random_uuid(), '{"tur":"yildiz","adet":1}', null, null, 0, 5);
+  if (r->>'gunun_ilki')::int <> 0 then raise exception 'BAŞARISIZ 23: bugün 00:00 kasası sayılmadı: %', r; end if;
+  raise notice 'GEÇTİ 23: günün ilki gün sınırı';
+end $$;
+reset role;
+
 rollback;

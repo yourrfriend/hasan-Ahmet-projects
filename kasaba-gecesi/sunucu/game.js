@@ -108,11 +108,13 @@ function roleLabel(r){const b=ROLES[r.key];return b.n+((r.team==='imp'&&b.team!=
 // maç sonu rozetleri: yalnız günlükteki gerçek olaylardan (oylar tek tek kaydedilmez → oya dayalı rozet yok); maç sayısı rozetleri RPC'de
 // rol başarıları: günlükteki gece olayları, olay başına bir anahtar (rozet ve yıldız dökümü ortak; eşya olayları hariç)
 function rolBasarilari(R,id){const g=R.g,out=[];if(!g)return out;
-  for(const e of R.gameLog||[]){if(e.tur!=='gece_sonuc')continue;const v=e.veri||{};
-    for(const k of v.kurtaranlar||[])if(k.kim===id)out.push('kurtarici');
-    for(const t of v.tutanlar||[])if(t.kim===id&&g.roles[t.hedef]&&g.roles[t.hedef].team==='imp')out.push('bekci');
-    for(const t of v.tuzak||[])if(t.kuran===id)out.push('tuzak_ustasi');
-    for(const o of v.olenler||[]){const bolt=o.sekil==='bolt'?o.kimden:(o.sekiller||[]).includes('bolt')?o.yildirim_kimden:null;if(bolt&&bolt.includes(id))out.push('yildirim')}}
+  // bir gecede her tür bir kez: tuzağa iki kişi düşmesi ya da yıldırımın iki kişiyi vurması tek olay
+  for(const e of R.gameLog||[]){if(e.tur!=='gece_sonuc')continue;const v=e.veri||{},gece=new Set();
+    for(const k of v.kurtaranlar||[])if(k.kim===id)gece.add('kurtarici');
+    for(const t of v.tutanlar||[])if(t.kim===id&&g.roles[t.hedef]&&g.roles[t.hedef].team==='imp')gece.add('bekci');
+    for(const t of v.tuzak||[])if(t.kuran===id)gece.add('tuzak_ustasi');
+    for(const o of v.olenler||[]){const bolt=o.sekil==='bolt'?o.kimden:(o.sekiller||[]).includes('bolt')?o.yildirim_kimden:null;if(bolt&&bolt.includes(id))gece.add('yildirim')}
+    out.push(...gece)}
   return out}
 // yıldız kaynakları (tasarım 2026-10-27-kasaba-gecesi-yildiz-1): miktarlar tek kaynak; gunun_ilki ve bagla göç 010'da da aynı sayı (test denetler)
 const YILDIZ_KAYNAK={kazanma:{n:'Kazandın',adet:2},tek_kazanan:{n:'Tek başına kazandın',adet:4},rol_basari:{n:'Rol başarısı',adet:1},kalabalik:{n:'Kalabalık maç',adet:1},
