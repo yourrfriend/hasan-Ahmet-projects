@@ -7,7 +7,14 @@ Bütün iş üç parçadır; bu belge yalnız **1. parça**dır. 2. parça (kade
 Bugün yıldızın tek kaynağı maç sonu kasası (%12 ihtimalle 3–5 ⭐, kopya kozmetik dönüşümü) ve kazanana +2; ortalama ~1,5 ⭐/maç, efsanevi ev (80 ⭐) ~55 maç.
 Kullanıcı yıldızın dört şeyi birden teşvik etmesini istiyor: **sık gelmek, iyi oynamak, arkadaş getirmek, koleksiyonun ilerlemesi**; ayrıca **e-posta bağlamanın özellikle teşvik edilmesini** (hesap tarayıcıya bağlı; tarayıcı verisi silinince yıldız, ev, geçmiş gider).
 
-Hedef hız (tüm parçalar bitince): haftada 10 maç oynayan biri efsanevi eve ~4 haftada; haftada 3 maç ~8 hafta; 30 maç ~2 hafta (günlük 20 kasa tavanı keser). Bu parça tek başına maç başına ~1,5 → ~3 ⭐ civarına çıkarmalı; kesin sayılar denemeden sonra ayarlanır.
+Hedef hız (tüm parçalar bitince): haftada 10 maç oynayan biri efsanevi eve ~4 haftada; haftada 3 maç ~8 hafta; 30 maç ~2 hafta (günlük 20 kasa tavanı keser). **Hız ayarı fiyatlardan yapılır (kullanıcı kararı, 2026-10-27: "ödüller cömert, fiyatlar yüksek")**: kaynaklar aşağıdaki tablodaki gibi cömert kalır; dükkân fiyatları ve onlarla orantılı iki ayar büyür:
+
+| | Sıradan | Nadir | Efsanevi |
+|---|---|---|---|
+| Fiyat (`NADIRLIK.fiyat`) | 12 → **25** | 30 → **70** | 80 → **180** |
+| Kopya dönüşümü (`NADIRLIK.donusum`) | 3 → **6** | 8 → **18** | 20 → **45** |
+
+Kasadan yıldız `3–5` → **`6–10`**. Önceden alınmış kozmetikler kalır; yalnız bundan sonraki alımlar yeni fiyattan. Bu parçayla haftada 10 maç oynayan ~45 ⭐/hafta → efsanevi ~4 hafta (parça 2–3 eklenince yeniden ölçülüp yalnız fiyat tablosu ayarlanır).
 
 ## Hedefler
 1. Maç sonunda, kasa ve mevcut kazanma bonusuna ek olarak şu yıldızlar (oyun sunucusu hesaplar):
@@ -18,8 +25,9 @@ Hedef hız (tüm parçalar bitince): haftada 10 maç oynayan biri efsanevi eve ~
    | Rol başarısı | +1 / olay, **maç başına en çok +3** | Doktor kurtardı, Polis haini evde tuttu, tuzak yakaladı, Büyücü yıldırımı isabet etti (bugünkü `rozetlerFor` olaylarının rol olanları; eşya olayları — iksir, fener — **hariç**, onlar şans) |
    | Kalabalık maç | +1 | maç 8+ oyuncuyla başladıysa (`P.players.length>=8`) |
    | Asılan haine oy | +2 / gün | o gün oylamada asılan kişi **hain takımındaysa** (`g.roles[asilan].team==='imp'`, oylama anında) ve oyuncu o gün ona oy verdiyse ve oyuncu **masum tarafındaysa** (oylama anında `team==='inn'` ya da `mad`) |
-   | Günün ilk maçı | +5 | oyuncunun bu takvim gününde (Europe/Istanbul) **ilk kasası**; veritabanı karar verir |
-2. **E-posta bağlama ödülü**: bir kerelik **+25 ⭐ ve yalnız bağlı hesaplara verilen kozmetik "✉️ Mühürlü mektup" bayrağı** (`bayrak:mektup`, nadirlik `nadir`, dükkânda satılmaz, kasadan çıkmaz). Daha önce bağlamış mevcut oyuncular da alır (ilk bağlantıda/girişte).
+   | Günün ilk maçı | +5 | oyuncunun bu takvim gününde (Europe/Istanbul) **ilk kasası**; veritabanı karar verir; tavana takılan (boş) kasa günün ilki sayılmaz |
+2. **E-posta bağlama ödülü**: bir kerelik **+25 ⭐ ve yalnız bağlı hesaplara verilen kozmetik "✉️ Mühürlü mektup" bayrağı** (`bayrak:mektup`, nadirlik `nadir`, dükkânda satılmaz, kasadan çıkmaz). Daha önce bağlamış mevcut oyuncular da alır (bir sonraki oyun açılışında ya da `/ben` ziyaretinde).
+   **"Bağlı" tanımı:** `auth.users.email` dolu **ve** `email_confirmed_at` dolu. `is_anonymous`'a bakılmaz (e-posta bağlansa da anonim bayrağı kalabiliyor; bkz. `sunucu/hesap.js` `y.anonim&&!y.eposta`).
 3. **Hatırlatma** (bağlı değilse):
    - Maç sonu kasa kartının altında: "⭐ N yıldızın yalnız bu tarayıcıda. E-postanı bağla, kaybolmasın → (+25 ⭐ ve ✉️ bayrak)"; dokununca mevcut hesap bağlama akışı (6 haneli kod) açılır.
    - `/ben`'de dükkândan bir şey alınca aynı satır.
@@ -56,23 +64,27 @@ Başarılar/sayaçlar (parça 2); haftalık görev, seri, davet ödülü, vitrin
 
 ### Sunucu (`sunucu/server.js`, `kayit.js`)
 - `ilerlemeIsle`: `bonus` artık `toplam(yildizDokumu(R,p.id))`; `kasa` mesajına `dokum` (satırlar) eklenir; RPC'nin döndürdüğü `gunun_ilki` (miktar) da karta gider.
-- Bağlama ödülü: sunucu bir üyenin **bağlı** olduğunu öğrendiğinde (envanter okunurken veritabanı `bagli:true, bagla_odulu:false` döndürürse) `bagla_odulu(p_uye)` RPC'sini bir kez çağırır; başarılıysa üyenin soketlerine `{t:'baglaOdulu', d:{yildiz, kozmetik:'bayrak:mektup'}}` gönderir ve envanteri yeniler. İstemci kod doğrulaması `bagla` ile bitince sunucuya `{t:'envanterYenile'}` (ya da mevcut eşdeğeri) gönderir; böylece ödül hemen gelir. Mevcut bağlı oyuncular bir sonraki girişlerinde alır.
+- Bağlama ödülü: yeni HTTP ucu **`POST /hesap/bagla-odulu`** (`Authorization: Bearer <oturum token'ı>`, `/ben/al` ile aynı kimlik doğrulaması ve IP tavanı deseni). Sunucu token'ı doğrular, `bagla_odulu(sub)` RPC'sini çağırır, `{ok, yildiz}` / `{tekrar:true}` / `{hata:'bagli_degil'}` döner; `ok` ise o üyenin açık soketlerine `{t:'baglaOdulu', d:{yildiz, kozmetik:'bayrak:mektup'}}` gönderir ve bellekteki envanteri yeniler.
+  Çağıranlar: (1) `index.html` `hesapDogrula` `bagla` başarıyla bitince; (2) `index.html` açılışta oturum bağlıysa ve envanterde ödül yoksa bir kez; (3) `/ben` açılışta aynı koşulla. Uç idempotent; tekrar çağrı zarar vermez.
+- `/dukkan` (koddaki adı `/ben/al`): `ozel` öğede 400.
 
 ### Veritabanı (göç `010_yildiz_1.sql`)
 - `mac_sonu`: kilit altındaki tavan sayımının yanında, **ekleme yapılmadan önce** "bu üyenin bugün (`Europe/Istanbul` takvim günü) kasası var mı" bakılır; yoksa ve tavan değilse cüzdana +5; dönüşe `'gunun_ilki', 5|0`. İmza değişmez (sunucu ve testler bozulmasın); miktar SQL'de sabit, `game.js`'teki `YILDIZ_KAYNAK.gunun_ilki` ile eşit olduğu test edilir.
-- Yeni tablo `bagla_odulleri(uye uuid pk references uyeler, eposta_ozet text unique not null, zaman timestamptz default now())`; RLS açık, hiçbir role okuma yok (yalnız RPC).
-- `bagla_odulu(p_uye uuid) returns jsonb`, `security definer`, yalnız `service_role`: `auth.users`'tan `p_uye`'nin e-postası okunur; e-posta yoksa ya da kullanıcı anonimse `{'hata':'bagli_degil'}`. Özet `encode(sha256(lower(email)::bytea),'hex')`. Cüzdan satırı kilitlenir; `uye` **ya da** `eposta_ozet` zaten varsa `{'tekrar':true}`; yoksa satır eklenir, cüzdana +25, `kozmetikler`'e `bayrak:mektup` (varsa dokunmaz). Dönüş `{ok, yildiz}`.
-- `envanter_oku` dönüşüne `bagli` (e-posta var ve anonim değil) ve `bagla_odulu` (satır var) eklenir.
+- Yeni tablo `bagla_odulleri(eposta_ozet text primary key, uye uuid unique references auth.users on delete set null, zaman timestamptz not null default now())`; hesap silinse de özet kalır (aynı adres ikinci kez alamaz). RLS açık, hiçbir role okuma yok (yalnız RPC).
+- `bagla_odulu(p_uye uuid) returns jsonb`, `security definer`, yalnız `service_role`: `auth.users`'tan `p_uye`'nin e-postası ve `email_confirmed_at`'i okunur; ikisinden biri boşsa `{'hata':'bagli_degil'}`. Özet `encode(sha256(lower(email)::bytea),'hex')`. Cüzdan satırı kilitlenir; `uye` **ya da** `eposta_ozet` zaten varsa `{'tekrar':true}`; yoksa satır eklenir, cüzdana +25, `kozmetikler`'e `bayrak:mektup` (varsa dokunmaz). Dönüş `{ok, yildiz}`.
+- `envanter_oku` dönüşüne `bagli` (yukarıdaki tanım) ve `bagla_odulu` (bu üyeye satır var) eklenir.
 - `hesap_birlestir`: eski üyenin `bagla_odulleri` satırı varsa ve yeni üyenin yoksa yeniye taşınır (yoksa silinir); böylece "bir kez" kuralı birleştirmeden sonra da geçerli.
-- `test.sql`'e senaryolar: günün ilki iki maçta yalnız birincide; tavanda günün ilki yok; bağlama ödülü ikinci çağrıda `tekrar`; aynı e-posta özetiyle başka üye `tekrar`; anonim/e-postasız `bagli_degil`; birleştirmeden sonra yeni üye tekrar alamaz; `bagla_odulleri` `authenticated` için okunamaz.
+- `test.sql`'e senaryolar: günün ilki iki maçta yalnız birincide; tavanda günün ilki yok; bağlama ödülü ikinci çağrıda `tekrar`; aynı e-posta özetiyle başka üye `tekrar`; e-postasız ya da doğrulanmamış `bagli_degil`; silinen üyenin adresiyle yeni üye `tekrar`; birleştirmeden sonra yeni üye tekrar alamaz; `bagla_odulleri` `authenticated` için okunamaz.
 
 ### İstemci (`index.html`, `sayfa/ben.html`)
 - Kasa kartı: döküm satırları (Türkçe kısa adlar `YILDIZ_KAYNAK`'tan), günün ilki satırı, bağlı değilse hatırlatma satırı + bağla düğmesi.
 - `baglaOdulu` mesajında tek seferlik kart: "✉️ Hesabın güvende! +25 ⭐ ve Mühürlü mektup bayrağı" (yeni eşya kartı gibi, `sessionStorage` ile tekrar etmez).
-- `/ben`: hesap güvenliği kartı (üstte), dükkân satın almasından sonra hatırlatma, `ozel` öğelerde fiyat yerine kilit metni.
+- `/ben`: hesap güvenliği kartı (üstte; "E-posta bağla" adımı ana sayfanın mevcut bağlama akışını açar: `/?hesap=bagla`, `index.html` bu parametreyle hesap penceresini `bagla` modunda açar — `/ben`'e ikinci bir kod akışı kopyalanmaz), dükkân satın almasından sonra hatırlatma, `ozel` öğelerde fiyat yerine kilit metni; fiyatlar `NADIRLIK`'ten (yeni değerler).
 
 ### Ölçüm
-- `npm run denge` çıktısına "ortalama ⭐/maç (kasa hariç döküm)" ve kaynak başına ortalama eklenir; botlar oy verdiği için hain oyu ödülü de ölçülür.
+- `npm run denge` çıktısına kaynak başına ortalama ⭐/maç eklenir (`yildizDokumu` + kasa beklentisi); botlar oy verdiği için hain oyu ödülü de ölçülür.
+- Günün ilki veritabanında karar verildiği için `denge`'de ayrıca **haftalık senaryo** satırı: haftada 3/10/30 maç, maçlar 2/4/7 güne yayılmış varsayımıyla ⭐/hafta ve efsanevi eve hafta (günün ilki sabiti `YILDIZ_KAYNAK.gunun_ilki`'nden). Hedef: 10 maç → ~4 hafta (±1).
+- `YILDIZ_KAYNAK.gunun_ilki` ile göç 010'daki SQL sabiti aynı olmalı: `game.test.js` göç dosyasını okuyup sayıyı karşılaştırır.
 
 ## Builder'a kalanlar
 Kartların görsel düzeni ve tam metinleri (kısa, Türkçe); `mektup` bayrağının rengi; döküm satırlarının sırası; testlerin dosya içindeki yeri; `envanterYenile` mesajının adı ya da mevcut bir mesajın yeniden kullanımı; hesap güvenliği kartının bağlıyken gizlenmesi mi "güvende ✓" mi göstermesi.
@@ -82,4 +94,6 @@ Kartların görsel düzeni ve tam metinleri (kısa, Türkçe); `mektup` bayrağ�
 - Tarafsız tek kazanan +4 kazanmanın yerine (üstüne değil).
 - Gün sınırı Europe/Istanbul takvim günü (24 saatlik kayan pencere değil: "bugün" oyuncunun anladığı şey).
 - Bağlama kozmetiği bir bayrak (yeni ev çizimi gerektirmez); ileride bağlılara özel ev eklenebilir.
-- Bağlama ödülü uye **ve** e-posta özeti başına bir kez.
+- Bağlama ödülü uye **ve** e-posta özeti başına bir kez; özet hesap silinse de kalır.
+- Fiyat ölçeği (25/70/180), dönüşüm (6/18/45), kasa yıldızı (6–10): önerim, kullanıcı "ödüller cömert, fiyatlar yüksek" yolunu seçti.
+- Bağlama ödülü HTTP ucuyla (WebSocket mesajı değil): `/ben` oyun soketine bağlanmıyor.
