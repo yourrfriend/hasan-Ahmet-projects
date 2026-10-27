@@ -491,6 +491,8 @@ const step=t=>console.log('•',t);
         await pe.setViewportSize({width:844,height:390});await pe.waitForTimeout(200);
         const sig=s=>pe.evaluate(s=>{const r=document.querySelector(s).getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight+1&&r.left>=0&&r.right<=innerWidth+1},s);
         assert.ok(await sig('.ov.custom'),'karakter paneli 844×390 sığar');await pe.click('.ov.custom button.ev-sec');assert.ok(await sig('.ov.ev-galeri'),'galeri sığar');
+        await pe.evaluate(()=>{ui.evGaleri=false;envanter.kozmetikler=[...new Set([...(envanter.kozmetikler||[]),...Object.keys(KOZMETIK.ev).slice(0,12).map(x=>'ev:'+x)])];render()});await pe.click('.ov.custom button.ev-sec');await pe.waitForSelector('.ov.ev-galeri .ev-kart');
+        assert.deepStrictEqual(await pe.evaluate(()=>[...document.querySelectorAll('.ev-galeri .ev-kart')].filter(k=>k.scrollHeight>k.clientHeight+1).map(k=>k.dataset.key||'al')),[],'galeri taşınca kartlar ezilmez, ev adları görünür');
         await pe.click('.ev-galeri .ev-kart[data-key="none"]');await pe.waitForFunction(()=>!document.querySelector('.ov.ev-galeri'));
         await pe.evaluate(()=>{ui.custom=false;ui.menu=true;render()});await pe.waitForSelector('.ov.menu');assert.ok(await sig('.ov.menu'),'ayarlar menüsü sığar');assert.ok(await pe.evaluate(()=>{const m=document.querySelector('.ov.menu');return m.scrollHeight<=m.clientHeight+2}),'ayarlar menüsü 844×390da kaydırmadan sığar');await pe.evaluate(()=>{ui.menu=false;render()});
         await pe.setViewportSize({width:900,height:520});await pe.evaluate(()=>{ui.custom=true;render()});await pe.waitForFunction(()=>scene.houses[myId].g.getAttribute('data-ev')==='none',null,{timeout:5000})}
