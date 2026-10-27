@@ -175,7 +175,10 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 .fis{right:56px;top:100px;border:0;border-radius:12px;background:var(--paper);color:var(--ink);font-weight:800;font-size:clamp(11px,1.5vw,15px);padding:6px 14px}.fis.on{background:#ffd23f}
 .esya-cip{right:10px;bottom:118px;background:rgba(255,255,255,.88);border-radius:10px;padding:4px 10px;font-size:clamp(10px,1.3vw,13px);font-weight:700}.esya-cip.bitti{opacity:.55}button.esya-cip{border:0;cursor:pointer;font:inherit;font-weight:800;text-align:left}button.esya-cip.kum-hazir{background:#ffe6a8}.esya-bilgi .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.ozet .esya{font-size:12px;margin-left:6px;opacity:.85}.paket{cursor:pointer}.paket .halka{transition:stroke-dashoffset .25s linear}
 .act .esya-kullan.on{background:#ffd23f;color:#3a2f1c}.lobi-esya{left:12px;bottom:14px;max-width:min(34vw,300px);white-space:normal;line-height:1.25;font-size:clamp(11px,1.3vw,14px)}
-.endcard .lobi-esya{justify-self:center;font-weight:700;color:#3a2f1c}.endcard .kasa{display:grid;gap:3px;justify-items:center;background:#fff7e0;border-radius:12px;padding:8px 12px;color:#3a2f1c}.endcard .kasa .odul{font-weight:800}
+.endcard .lobi-esya{justify-self:center;font-weight:700;color:#3a2f1c}.endcard .kasa{display:grid;gap:3px;justify-items:center;background:#fff7e0;border-radius:12px;padding:8px 12px;color:#3a2f1c}
+.kasa .dokum{font-size:12px;font-weight:700;color:#7a5a10}
+.bagla-kart{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:30;background:#fff;color:#2a2418;border-radius:14px;padding:16px 18px;box-shadow:0 12px 30px rgba(0,0,0,.45);text-align:center;display:grid;gap:8px;max-width:min(92vw,360px)}
+.bagla-kart button{justify-self:center}.endcard .kasa .odul{font-weight:800}
 .efekt-parca{opacity:0;animation:efektYuksel 2.4s ease-out forwards}@keyframes efektYuksel{0%{opacity:0;transform:translateY(0)}20%{opacity:1}100%{opacity:0;transform:translateY(-60px)}}
 .top a.profil{margin-left:auto;font-weight:800;color:#ffd766;text-decoration:none}
 .lobbybar{top:10px;left:50%;transform:translateX(-50%);display:flex;gap:8px;align-items:center;background:rgba(255,255,255,.9);border-radius:14px;padding:6px 8px 6px 12px;font-size:clamp(11px,1.4vw,14px);box-shadow:0 2px 0 rgba(0,0,0,.12);max-width:min(92vw,560px)}
@@ -237,14 +240,14 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 <div id="app"><div class="panel"><p class="muted">Yükleniyor…</p></div></div>
 <script>
 // Script daha başlamadan çökerse "Yükleniyor…" yerine hatayı göster (sürüm damgasıyla).
-window.KG_VER='2026-11-04f';
+window.KG_VER='2026-11-05a';
 window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ff6b6b"><p><b>Sayfa açılamadı.</b> Sürüm '+KG_VER+'</p><p class="small" style="word-break:break-all">'+String(e.message||e.error||e)+(e.filename?' @'+e.lineno:'')+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}});
 setTimeout(function(){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ffb347"><p><b>Sayfa yüklenemedi.</b> Sürüm '+KG_VER+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}},8000);
 </script>
 <script src="sayfa/evler.js?v=__V__"></script><script src="sunucu/game.js?v=__V__"></script>
 <script>
 // ---------- Rol tanımları: sunucu/game.js ile tek kaynak (window.KG_GAME) ----------
-const {ROLES,SETUP,COLORS,HATS:HAT_IDS,roleLabel,rolEtiketi,DAGILIM,HIZLI_TUR,HIZLI_GUN,HIZLI_BEKLE_MS,ESYA,PAKET,KOZMETIK,NADIRLIK,ROZETLER}=window.KG_GAME;
+const {ROLES,SETUP,COLORS,HATS:HAT_IDS,roleLabel,rolEtiketi,DAGILIM,HIZLI_TUR,HIZLI_GUN,HIZLI_BEKLE_MS,ESYA,PAKET,KOZMETIK,NADIRLIK,ROZETLER,YILDIZ_KAYNAK}=window.KG_GAME;
 const sahipMi=(o,k)=>typeof k==='string'&&Object.prototype.hasOwnProperty.call(o,k);
 const HAT_NAMES={none:'Yok',beanie:'Bere',cap:'Kasket',ears:'Kulak',bow:'Fiyonk',glasses:'Gözlük',hood:'Kapüşon'};
 const HATS=HAT_IDS.map(k=>[k,HAT_NAMES[k]||k]);
@@ -308,7 +311,7 @@ async function kimlikHazirla(){
     let {data:{session}}=await sb.auth.getSession();
     // anonim kimlik sunucudan (Plan 7): GoTrue'nun /signup ucu dış kapıda kapalı; sunucu IP tavanıyla yerel GoTrue'ya sorar. 429/503/ağ → misafir
     if(!session){const r=await fetch('hesap/anonim',{method:'POST',signal:AbortSignal.timeout(10000)});if(r.ok){const j=await r.json();if(j&&j.access_token&&j.refresh_token){await sb.auth.setSession({access_token:j.access_token,refresh_token:j.refresh_token});session=(await sb.auth.getSession()).data.session}}}
-    if(session&&session.user)hesapGuncelle(session);
+    if(session&&session.user){hesapGuncelle(session);baglaOduluIste()}
     sb.auth.onAuthStateChange((ev,s)=>{if(s&&s.access_token){ls('kg_token',s.access_token);token=s.access_token}}); // yenilenen token: bir sonraki yüklemede ve bu sayfadaki hesap isteklerinde
     return session&&session.access_token||null})();
   oturum.catch(()=>{}); // yarış 2 sn'de biterse sonradan gelen hata konsola düşmesin
@@ -356,6 +359,13 @@ async function turnstileBelirtec(action){
     try{turnstileWidget=turnstile.render(el,{sitekey:ayar.turnstile,action,appearance:'interaction-only',execution:'execute','before-interactive-callback':kutuGeldi,'after-interactive-callback':kutuGitti,callback:bitir(res),'error-callback':()=>bitir(rej)(hata('hata')),'expired-callback':()=>bitir(rej)(hata('hata'))});turnstile.execute(turnstileWidget)}
     catch(e){bitir(rej)(hata('hata'))}})}
 function turnstileSifirla(){try{if(window.turnstile&&turnstileWidget)turnstile.remove(turnstileWidget)}catch(e){}turnstileWidget=null}
+// e-posta bağlama ödülü (yıldız ekonomisi 1): bağlı oturumda sunucuya bir kez sorulur (karar veritabanında; tekrar zararsız), kart oturumda bir kez
+async function baglaOduluIste(){if(!hesap.eposta||!hesap.uuid||!token)return;try{if(localStorage.getItem('kg_bagla_odul')===hesap.uuid)return}catch(e){}
+  try{const r=await fetch('hesap/bagla-odulu',{method:'POST',headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(10000)});if(!r.ok)return;const j=await r.json();
+    try{localStorage.setItem('kg_bagla_odul',hesap.uuid)}catch(e){}if(j&&j.ok)baglaKartGoster()}catch(e){}}
+function baglaKartGoster(){try{if(sessionStorage.getItem('kg_bagla_kart'))return}catch(e){}ui.baglaKart=true;render()}
+function baglaKartEkle(hedef){if(!ui.baglaKart)return;const c=el('div','ov bagla-kart');c.append(el('b',null,'✉️ Hesabın güvende! +'+YILDIZ_KAYNAK.bagla.adet+' ⭐ ve Mühürlü mektup bayrağı'),el('div','small','Yıldızların, evlerin ve geçmişin artık e-postana bağlı.'));
+  const b=el('button','primary','Tamam');b.onclick=()=>{try{sessionStorage.setItem('kg_bagla_kart','1')}catch(e){}ui.baglaKart=false;render()};c.append(b);hedef.append(c)}
 function hesapAc(tur){ui.hesap={tur,adim:'eposta',eposta:'',hata:'',bekleBitis:0,N:0,eski:null,yukleniyor:false,bilgi:'',dogrulama:false};render()}
 function hesapKapat(){ui.hesap.tur=null;ui.hesap.hata='';render()}
 async function hesapKodGonder(){
@@ -385,7 +395,7 @@ async function hesapDogrula(){
     const {data,error}=await hesapSure(sb.auth.verifyOtp({email:h.eposta,token:kod,type:h.tur==='bagla'?'email_change':'email'}));if(error)throw error;
     if(data&&data.session)hesapGuncelle(data.session);
     if(h.tur==='gir'){if(h.N>0){h.adim='birlestir';h.yukleniyor=false;render();return}h.yukleniyor=false;return hesapBirlestir(true)}
-    h.tur=null;
+    h.tur=null;baglaOduluIste();
   }catch(err){h.hata=hesapHataMetni(err)}
   h.yukleniyor=false;render();
 }
@@ -479,7 +489,7 @@ function onServerMsg(m){
   else if(m.t==='priv'){priv=m.d||{role:null,notes:[],mates:[],dchat:[]};hamleGeriYukle();render()}
   else if(m.t==='envanter'){envanter=m.d||null;render()}
   else if(m.t==='lobiEsya'){lobiEsya=m.d||null;render()}
-  else if(m.t==='kasa'){kasaSonuc=m.d||null;render()}
+  else if(m.t==='kasa'){kasaSonuc=m.d||null;render()}else if(m.t==='baglaOdulu'){baglaKartGoster()}
   else if(m.t==='err'){
     if(m.code==='soft'){hizliUyar(m.m||'');render();return}
     connErr=m.m||'Bağlantı hatası.';
@@ -1030,7 +1040,7 @@ function render(){
 }
 function renderInner(){
   const full=P.phase!=='landing';document.body.classList.toggle('landing',!full);
-  if(!full){app.replaceChildren();renderLanding();return}
+  if(!full){app.replaceChildren();renderLanding();baglaKartEkle(app);return}
   const stage=renderScene();
   stage.querySelectorAll('.ov').forEach(e=>e.remove());
   if(app.firstChild!==stage)app.replaceChildren(stage);
@@ -1038,6 +1048,7 @@ function renderInner(){
   else if(!everConnected)stage.append(connectingPanel());
   else if(!connected)stage.append(el('div','ov offline','📡 Bağlantı yok · yeniden bağlanılıyor…'));
   if(P.phase==='lobby')renderLobbyUI(stage);else if(P.phase==='end')renderEndUI(stage);else renderGameUI(stage);
+  baglaKartEkle(stage);
 }
 function renderLanding(){
   const top=el('div','top');const br=el('div','brand');br.append(el('div','moon'),el('h1',null,'Kasaba Gecesi'));top.append(br);
@@ -1275,6 +1286,8 @@ function kasaKarti(k){const c=el('div','kasa');c.append(el('b',null,'🎁 Kasa')
   if(k.tekrar){c.append(el('div','small','Bu maçın kasası daha önce açıldı.'));return c}
   if(k.tavan)c.append(el('div','small','Bugünlük kasa sınırına ulaştın; yarın yine açılır.'));
   else if(k.odul)c.append(el('div','odul',odulMetni(k.odul)+(k.donustu?' · zaten vardı → yıldıza döndü':'')));
+  if(!k.tavan){for(const x of k.dokum||[]){const ad=sahipMi(YILDIZ_KAYNAK,x.key)?YILDIZ_KAYNAK[x.key].n:sahipMi(ROZETLER,x.key)?ROZETLER[x.key].n:'';if(ad&&x.adet>0)c.append(el('div','dokum','+'+x.adet+' '+ad))}
+    if(k.gununIlki>0)c.append(el('div','dokum','+'+k.gununIlki+' '+YILDIZ_KAYNAK.gunun_ilki.n))}
   if(k.yildiz!=null)c.append(el('div','small','Yıldızın: ⭐ '+k.yildiz));
   const yeni=(k.rozetler||[]).filter(r=>sahipMi(ROZETLER,r));if(yeni.length)c.append(el('div','rozetler','Yeni rozet: '+yeni.map(r=>ROZETLER[r].ico+' '+ROZETLER[r].n).join(', ')));
   return c}
@@ -1290,7 +1303,7 @@ function renderEndUI(stage){
   if(kasaSonuc)c.append(kasaKarti(kasaSonuc));
   if(P.settings&&P.settings.esyaModu&&lobiEsya&&sahipMi(ESYA,lobiEsya.key)){const E=ESYA[lobiEsya.key];c.append(el('div','lobi-esya small','🎒 Sonraki maçta eşyan: '+E.ico+' '+E.n+(lobiEsya.kaynak==='bedava'?' (rastgele)':' (kasandan)')))}
   // e-postasız kayıtlı oyuncuya hatırlatma (Plan 6): giriş sayfasına gider (odadan çıkar), form açık gelir
-  if(hatirlatGoster(ayar,kayitli,hesap.eposta)){const a=el('a','hesap-hatirlat','💾 Geçmişini kaybetme: e-postanı bağla (giriş sayfasına gider)');a.href='/?bagla=1';c.append(a)}
+  if(hatirlatGoster(ayar,kayitli,hesap.eposta)&&!(kasaSonuc&&kasaSonuc.bagli)){const y=kasaSonuc&&kasaSonuc.yildiz!=null;const a=el('a','hesap-hatirlat',y?'⭐ '+kasaSonuc.yildiz+' yıldızın yalnız bu tarayıcıda. E-postanı bağla, kaybolmasın (+'+YILDIZ_KAYNAK.bagla.adet+' ⭐ ve ✉️ bayrak)':'💾 Geçmişini kaybetme: e-postanı bağla (giriş sayfasına gider)');a.href='/?bagla=1';c.append(a)}
   // Kasabada Bu Gece: sunucunun gerçek olaylardan ürettiği en çok 3 kart (P.gazete; yalnız bitmiş oyun)
   if(P.gazete&&P.gazete.length){const gz=el('div','gazete');gz.append(el('b',null,'🗞️ KASABADA BU GECE'));P.gazete.forEach(k=>gz.append(el('div','kart',k.metin)));c.append(gz)}
   // maç özeti: her oyuncu bir satır (ad + rol / akıbet); özet sunucudan gelir (P.ozet), Supabase gerekmez

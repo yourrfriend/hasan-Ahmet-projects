@@ -3,7 +3,7 @@
 const http=require('http');
 // Taklit PostgREST: tablo başına bellek; GET ?sahip=eq., POST (representation), PATCH ?id=eq.; t.hata(req) → durum kodu ile hata üretir
 function taklitRest(){const T={kasabalar:[],kasaba_uyeleri:[],oyunlar:[],oyun_oyunculari:[],olaylar:[],profiller:[]};const istekler=[];let hata=()=>null;let sayac=0;
-  const rpc={envanter_oku:()=>({yildiz:0,esyalar:{},kozmetikler:[]}),mac_sonu:g=>({odul:g.p_odul,donustu:false,yildiz:0,yeni_rozetler:g.p_rozetler||[],tavan:false}),kozmetik_al:()=>({ok:true,yildiz:0})};let gecikme=0; // gecikme: yanıt öncesi bekleme (ms; zaman aşımı testleri)
+  const rpc={envanter_oku:()=>({yildiz:0,esyalar:{},kozmetikler:[]}),mac_sonu:g=>({odul:g.p_odul,donustu:false,yildiz:0,yeni_rozetler:g.p_rozetler||[],tavan:false}),kozmetik_al:()=>({ok:true,yildiz:0}),bagla_odulu:()=>({ok:true,yildiz:25})};let gecikme=0; // gecikme: yanıt öncesi bekleme (ms; zaman aşımı testleri)
   const s=http.createServer((req,res)=>{let b='';req.on('data',d=>b+=d);req.on('end',()=>setTimeout(()=>{
     const u=new URL(req.url,'http://x');const tablo=u.pathname.replace('/rest/v1/','');const govde=b?JSON.parse(b):null;
     const kayit={yol:req.url,tablo,yontem:req.method,prefer:req.headers.prefer||'',govde,xff:req.headers['x-forwarded-for']||null};istekler.push(kayit);
