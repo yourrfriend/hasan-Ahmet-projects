@@ -174,7 +174,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 .skip.on{background:var(--orange);color:#fff;box-shadow:0 4px 0 #a86a1c}
 .fis{right:56px;top:100px;border:0;border-radius:12px;background:var(--paper);color:var(--ink);font-weight:800;font-size:clamp(11px,1.5vw,15px);padding:6px 14px}.fis.on{background:#ffd23f}
 .esya-cip{right:10px;bottom:118px;background:rgba(255,255,255,.88);border-radius:10px;padding:4px 10px;font-size:clamp(10px,1.3vw,13px);font-weight:700}.esya-cip.bitti{opacity:.55}button.esya-cip{border:0;cursor:pointer;font:inherit;font-weight:800;text-align:left}button.esya-cip.kum-hazir{background:#ffe6a8}.esya-bilgi .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.ozet .esya{font-size:12px;margin-left:6px;opacity:.85}.paket{cursor:pointer}.paket .halka{transition:stroke-dashoffset .25s linear}
-.act .esya-kullan.on{background:#ffd23f;color:#3a2f1c}.lobi-esya{left:50%;transform:translateX(-50%);top:54px}
+.act .esya-kullan.on{background:#ffd23f;color:#3a2f1c}.lobi-esya{left:12px;bottom:14px;max-width:min(34vw,300px);white-space:normal;line-height:1.25;font-size:clamp(11px,1.3vw,14px)}
 .endcard .lobi-esya{justify-self:center;font-weight:700;color:#3a2f1c}.endcard .kasa{display:grid;gap:3px;justify-items:center;background:#fff7e0;border-radius:12px;padding:8px 12px;color:#3a2f1c}.endcard .kasa .odul{font-weight:800}
 .efekt-parca{opacity:0;animation:efektYuksel 2.4s ease-out forwards}@keyframes efektYuksel{0%{opacity:0;transform:translateY(0)}20%{opacity:1}100%{opacity:0;transform:translateY(-60px)}}
 .top a.profil{margin-left:auto;font-weight:800;color:#ffd766;text-decoration:none}
@@ -237,7 +237,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 <div id="app"><div class="panel"><p class="muted">Yükleniyor…</p></div></div>
 <script>
 // Script daha başlamadan çökerse "Yükleniyor…" yerine hatayı göster (sürüm damgasıyla).
-window.KG_VER='2026-11-04c';
+window.KG_VER='2026-11-04d';
 window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ff6b6b"><p><b>Sayfa açılamadı.</b> Sürüm '+KG_VER+'</p><p class="small" style="word-break:break-all">'+String(e.message||e.error||e)+(e.filename?' @'+e.lineno:'')+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}});
 setTimeout(function(){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ffb347"><p><b>Sayfa yüklenemedi.</b> Sürüm '+KG_VER+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}},8000);
 </script>
@@ -1097,7 +1097,7 @@ function renderLobbyUI(stage){
     b.onclick=()=>{myName=i.value.trim().slice(0,16);if(!myName)return;ls('kg_name',myName);sendHello();render()};i.onkeydown=e=>{if(e.key==='Enter')b.click()};c.append(i,b);stage.append(c);return}
   stage.append(el('div','ov count pill','👥 '+n+' / 12 oyuncu · en az 4'));
   stage.append(rehberDugme());
-  if(P.settings&&P.settings.esyaModu){const E=lobiEsya&&ESYA[lobiEsya.key];stage.append(el('div','ov pill lobi-esya','🎒 Eşya modu'+(E?' · Eşyan: '+E.ico+' '+E.n+(lobiEsya.kaynak==='bedava'?' (rastgele)':'')+(lobiEsya.key==='zar'?' · maç başında nadir bir eşyaya dönüşür':''):'')))}
+  if(P.settings&&P.settings.esyaModu){const E=lobiEsya&&ESYA[lobiEsya.key];stage.append(el('div','ov pill lobi-esya','🎒 Eşya modu'+(E?' · Eşyan: '+E.ico+' '+E.n+(lobiEsya.kaynak==='bedava'?' (rastgele)':'')+(lobiEsya.key==='zar'?' → maçta nadir eşya':''):'')))}
   if(ayar&&ayar.kayit&&myId&&!kayitli)stage.append(el('div','ov pill kimlik-notu-lobi','👤 Misafir: bu oyun geçmişine yazılmaz')); // sunucu kayıtlı saymadıysa (anahtar yok, token geçersiz) açıkça söyle
   if(P.skor&&P.skor.length){const sk=el('div','ov lobby-skor skor');sk.append(el('b',null,'BU AKŞAM'));P.skor.forEach(s=>sk.append(el('span','cip',s.ad+' '+s.kazandi+'/'+s.oynadi)));stage.append(sk)} // oturum skoru lobide de
   // oda kodu sunucudan gelmeden davet çubuğu çizilmez ("?oda=null" görünmesin)
@@ -1136,6 +1136,8 @@ function renderLobbyUI(stage){
       for(const key of ['none',...Object.keys(KOZMETIK.ev).filter(x=>sahip.has('ev:'+x))]){const on=(myLook.ev||'none')===key;const kt=el('button','ev-kart'+(on?' on':''));kt.dataset.key=key;kt.append(evOnizleme(key),el('small',null,key==='none'?'Varsayılan':KOZMETIK.ev[key].n),el('i',null,key==='none'?'herkese açık':NAD[KOZMETIK.ev[key].nadir]));
         kt.onclick=()=>{myLook.ev=key;ls('kg_look',myLook);sendHello();ui.evGaleri=false;render()};iz.append(kt)}
       gl.append(iz);stage.append(gl)}}
+  // ipucu davet şeridinin altında (iPhone'da şerit iki satıra çıkıp ipucunu örtüyordu)
+  {const lb=stage.querySelector('.lobbybar'),hn=stage.querySelector('.ov.hint');if(lb&&hn)requestAnimationFrame(()=>{const r=lb.getBoundingClientRect();if(r.height)hn.style.top=Math.round(r.bottom+6)+'px'})}
 }
 // ev önizlemesi (dolap ve galeri): oyundaki drawHouse çizimi, ad etiketsiz
 function evOnizleme(key){const svg=SE('svg',{viewBox:'-95 -150 200 200'});drawHouse(svg,0,0,'',1,null,key==='none'?null:key);return svg}

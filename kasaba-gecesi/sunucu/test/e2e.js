@@ -470,6 +470,9 @@ const step=t=>console.log('•',t);
       await pe.waitForFunction(()=>P.lobby&&P.lobby.length===4);
       await pe.click('.gear');await pe.click('text=Eşya modu: kapalı');await pe.waitForFunction(()=>P.settings&&P.settings.esyaModu===true,null,{timeout:4000});
       await pe.waitForFunction(()=>/Eşyan:/.test((document.querySelector('.lobi-esya')||{}).textContent||''),null,{timeout:4000});
+      { await pe.setViewportSize({width:844,height:390});await pe.waitForTimeout(300);
+        const k=await pe.evaluate(()=>{const r=s=>{const e=document.querySelector(s);return e?e.getBoundingClientRect():null};const kes=(a,b)=>!!a&&!!b&&!(a.right<=b.left||b.right<=a.left||a.bottom<=b.top||b.bottom<=a.top);const e=r('.lobi-esya'),h=r('.ov.hint'),l=r('.lobbybar'),b=r('.ov.start');return{esyaHint:kes(e,h),esyaBar:kes(e,l),hintBar:kes(h,l),esyaStart:kes(e,b)}});
+        assert.deepStrictEqual(k,{esyaHint:false,esyaBar:false,hintBar:false,esyaStart:false},'lobi: eşya kutusu, ipucu, davet şeridi ve başlat düğmesi çakışmaz (844×390)');await pe.setViewportSize({width:900,height:520}) }
       await pe.evaluate(()=>{lobiEsya={key:'zar',kaynak:'bedava'};render()});assert.match(await pe.textContent('.lobi-esya'),/Zar.*nadir/);
       // dolap: envanter gelmiş gibi (Supabase yok) → premium şapka, bayrak ve eşya seçenekleri görünür
       await pe.evaluate(()=>{envanter={yildiz:5,esyalar:{iksir:2},kozmetikler:['sapka:tac','bayrak:mavi','ev:pagoda','ev:fici-han']};ui.custom=true;render()});
