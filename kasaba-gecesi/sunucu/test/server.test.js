@@ -901,6 +901,22 @@ test('eşya v2: kap başarılıysa yalnız kapanın priv\'i gider; paket açık 
     await a.until(c=>c.chat.some(m=>m.sys&&/ikisini de kaptılar/.test(m.t)));
   }finally{for(const c of acik)await c.close();await I.kapat()}
 });
+test('ev kozmetiği: sahibi değilse varsayılana düşer, sahibiyse lobide ve maçta görünür; ev resmi ve evler.js sunulur, yol dışı istek 404',async()=>{
+  const I=await ilerlemeSunucu({[SA]:{yildiz:0,esyalar:{},kozmetikler:['ev:fici-han']}});const acik=[];
+  try{
+    const a=client('ev0','A',{host:true,token:I.tok(SA),ev:'fici-han'},I.b);acik.push(a);await a.until(c=>c.P&&c.P.room);await a.until(c=>c.diger.some(m=>m.t==='envanter'));
+    await a.until(c=>c.P.lobby.find(x=>x.id===c.me).ev==='fici-han');
+    const g=client('ev1','G',{room:a.P.room,ev:'pagoda'},I.b);acik.push(g);await a.until(c=>c.P.lobby.some(x=>x.id===g.me));
+    assert.strictEqual(a.P.lobby.find(x=>x.id===g.me).ev,'none','sahip olunmayan ev kabul edilmez');
+    a.send({t:'look',name:'A',ev:'kristal'});await a.until(c=>c.P.lobby.find(x=>x.id===c.me).ev==='none');
+    a.send({t:'look',name:'A',ev:'fici-han'});await a.until(c=>c.P.lobby.find(x=>x.id===c.me).ev==='fici-han');
+    for(const u of ['ev2','ev3'])acik.push(client(u,u,{room:a.P.room},I.b));await a.until(c=>c.P.lobby.length===4);
+    a.send({t:'start'});await a.until(c=>c.P.phase==='night');assert.strictEqual(a.P.players.find(x=>x.id===a.me).ev,'fici-han','maçta oyuncu listesinde ev');
+    const r=await getH(I.b,'/sayfa/ev/fici-han.webp');assert.strictEqual(r.s,200);assert.strictEqual(r.h['content-type'],'image/webp');
+    assert.strictEqual((await getH(I.b,'/sayfa/evler.js')).s,200);
+    for(const yol of ['/sayfa/ev/yok.webp','/sayfa/ev/..%2Fevler.webp','/sayfa/ev/%2e%2e%2f%2e%2e%2fserver.webp','/sayfa/ev/FICI.webp','/sayfa/ev/fici-han.png'])assert.strictEqual((await getH(I.b,yol)).s,404,yol);
+  }finally{for(const c of acik)await c.close();await I.kapat()}
+});
 test('ilerleme: maç sonu kayıtlı her oyuncuya bir macSonu ve {t:kasa}; oylamasız maç kasa vermez; ikinci flush tekrar etmez',async()=>{
   const I=await ilerlemeSunucu({});const acik=[];
   try{

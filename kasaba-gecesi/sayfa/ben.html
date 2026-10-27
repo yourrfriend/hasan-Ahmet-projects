@@ -1,10 +1,10 @@
 <!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kasaba Gecesi — Profilim</title>
-<link rel="stylesheet" href="/sayfa/ortak.css?v=__V__"><script src="/sunucu/game.js?v=__V__"></script><script src="/sayfa/ortak.js?v=__V__"></script>
+<link rel="stylesheet" href="/sayfa/ortak.css?v=__V__"><script src="/sunucu/game.js?v=__V__"></script><script src="/sayfa/evler.js?v=__V__"></script><script src="/sayfa/ortak.js?v=__V__"></script>
 <style>
 .ozet{display:flex;gap:10px;flex-wrap:wrap}.ozet .kart{flex:1;min-width:110px;text-align:center;padding:8px;border-radius:10px;background:#f6f1e6}.ozet .kart b{display:block;font-size:22px}
 .rozet{display:inline-flex;align-items:center;gap:6px;margin:3px;padding:4px 10px;border-radius:999px;background:#fff3c4;font-size:13px}.rozet.kilitli{background:#eee;color:#999;filter:grayscale(1)}
 .urun{display:flex;align-items:center;gap:8px;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee}.urun .ad{flex:1}.urun .nadir{font-size:11px;color:#8a7a5a}
-.urun.efsanevi .nadir{color:#b8860b;font-weight:800}.urun.nadir .nadir{color:#4b2299}.urun button{padding:4px 10px;border-radius:8px;border:0;background:#1e3a8a;color:#fff;font-weight:700}
+.urun svg.onizleme,.urun img.onizleme{width:58px;height:46px;flex:none}.urun.efsanevi .nadir{color:#b8860b;font-weight:800}.urun.nadir .nadir{color:#4b2299}.urun button{padding:4px 10px;border-radius:8px;border:0;background:#1e3a8a;color:#fff;font-weight:700}
 .urun button.giyili{background:#2fb55a}.urun button:disabled{opacity:.5}.yildiz{font-size:20px;font-weight:800}
 </style></head>
 <body><main><a class="geri" href="/">← Kasaba Gecesi</a><h1>Profilim</h1><div id="icerik" class="panel"><p class="muted">Yükleniyor…</p></div></main>
@@ -46,9 +46,13 @@
   icerik.append(p3);
   // koleksiyon + dükkân + dolap
   const p4=el('div','panel');p4.append(el('h2',null,'Koleksiyon ve dükkân'));p4.append(el('p','small muted','Kasadan çıkanlar ya da yıldızla aldıkların. "Giy" bu cihazdaki görünüşünü değiştirir; maçta herkes görür.'));
-  const BASLIK={sapka:'Şapkalar',bayrak:'Ev bayrakları',efekt:'Ölüm efektleri'},ALAN={sapka:'hat',bayrak:'bayrak',efekt:'efekt'};
+  const BASLIK={sapka:'Şapkalar',bayrak:'Ev bayrakları',efekt:'Ölüm efektleri',ev:'Evler'},ALAN={sapka:'hat',bayrak:'bayrak',efekt:'efekt',ev:'ev'};
+  // ev önizlemesi: oyundaki çizimin küçüğü (SVG) ya da kullanıcı resmi
+  const NS='http://www.w3.org/2000/svg';const SE=(t,a,p)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e};
+  const onizleme=k=>{const m=window.KG_EVLER&&KG_EVLER.model(k,'__V__');if(!m)return null;if(m.resim){const i=el('img','onizleme');i.src=m.resim;i.alt='';i.loading='lazy';return i}
+    const svg=SE('svg',{class:'onizleme',viewBox:'-90 -140 190 190'});m.ciz(SE('g',{},svg),SE);return svg};
   for(const [tur,liste] of Object.entries(G.KOZMETIK)){p4.append(el('h3',null,BASLIK[tur]));
-    for(const [k,v] of Object.entries(liste)){const key=tur+':'+k;const r=el('div','urun '+v.nadir);r.dataset.key=key;r.append(el('span','ad',v.n),el('span','nadir',NADIR[v.nadir]));
+    for(const [k,v] of Object.entries(liste)){const key=tur+':'+k;const r=el('div','urun '+v.nadir);r.dataset.key=key;if(tur==='ev'){const o=onizleme(k);if(o)r.append(o)}r.append(el('span','ad',v.n),el('span','nadir',NADIR[v.nadir]));
       if(sahip.has(key)){const giyili=look()[ALAN[tur]]===k;const b=el('button',giyili?'giyili':'',giyili?'Giyili ✓':'Giy');b.onclick=()=>{giy(ALAN[tur],giyili?'none':k);location.reload()};r.append(b)}
       else{const fiyat=G.NADIRLIK[v.nadir].fiyat;const b=el('button',null,'Al · ⭐ '+fiyat);b.disabled=yildiz<fiyat;
         b.onclick=async()=>{b.disabled=true;try{const {data}=await sb.auth.getSession();const tok=data&&data.session&&data.session.access_token;

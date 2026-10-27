@@ -142,6 +142,7 @@ rm -rf "$YENI" "$ESKI";mkdir -p "$YENI/sunucu"
 install -m 644 "$OYUN/index.html" "$YENI/index.html"
 for f in "$OYUN"/sunucu/*.js "$OYUN"/sunucu/package.json "$OYUN"/sunucu/package-lock.json; do [ -f "$f" ] && install -m 644 "$f" "$YENI/sunucu/" || true; done # sunucu/ altındaki tüm modüller (eposta.js, hesap.js… yeni dosya eklenince liste güncellemek gerekmesin); testler test/ altında
 if [ -d "$OYUN/sayfa" ]; then mkdir -p "$YENI/sayfa"; for f in "$OYUN"/sayfa/*.js "$OYUN"/sayfa/*.css "$OYUN"/sayfa/*.html; do [ -f "$f" ] && install -m 644 "$f" "$YENI/sayfa/" || true; done; fi # gömülü supabase-js, geçmiş sayfaları ve ortak dosyalar
+if [ -d "$OYUN/sayfa/ev" ]; then mkdir -p "$YENI/sayfa/ev"; for f in "$OYUN"/sayfa/ev/*.webp; do [ -f "$f" ] && install -m 644 "$f" "$YENI/sayfa/ev/" || true; done; fi # ev görünümü resimleri (kozmetik "ev")
 # Caddy şablonu da sürümle birlikte durur: parça hep kurulu sürümün şablonundan üretilir (eski sürümlerde yoksa bu klasördeki)
 [ -f "$OYUN/sunucu/Caddyfile" ] && install -m 644 "$OYUN/sunucu/Caddyfile" "$YENI/sunucu/" || true
 (cd "$YENI/sunucu" && npm ci --omit=dev --no-audit --no-fund --loglevel=error)

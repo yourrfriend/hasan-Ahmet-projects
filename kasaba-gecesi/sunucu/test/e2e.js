@@ -135,6 +135,7 @@ const step=t=>console.log('•',t);
           await p5.goto(o3+'/ben');await p5.waitForFunction(()=>[...document.querySelectorAll('#icerik h2')].some(h=>/Koleksiyon/.test(h.textContent)),null,{timeout:8000});
           const t=await p5.textContent('main');assert.match(t,/⭐ 20/);assert.match(t,/İksir ×2/);assert.match(t,/Rozetler \(1\//);
           assert.strictEqual(await p5.evaluate(()=>document.querySelectorAll('.rozet:not(.kilitli)').length),1,'bir rozet kazanılmış');
+          assert.ok(await p5.evaluate(()=>[...document.querySelectorAll('#icerik h3')].some(h=>h.textContent==='Evler')),'Evler bölümü');assert.strictEqual(await p5.evaluate(()=>document.querySelectorAll('.urun svg.onizleme, .urun img.onizleme').length),Object.keys(G.KOZMETIK.ev).length,'her eve önizleme');
           await p5.click('.urun[data-key="bayrak:mavi"] button');await p5.waitForFunction(()=>/⭐ 8/.test(document.querySelector('main').textContent),null,{timeout:8000});
           assert.deepStrictEqual(alimlar.map(a=>a.key),['bayrak:mavi']);assert.match(alimlar[0].auth,/^Bearer ey/,'oturum tokenıyla');
           await p5.click('.urun[data-key="sapka:tac"] button');await p5.waitForFunction(()=>{try{return JSON.parse(localStorage.getItem('kg_look')).hat==='tac'}catch(e){return false}},null,{timeout:8000});
@@ -470,8 +471,14 @@ const step=t=>console.log('•',t);
       await pe.waitForFunction(()=>/Eşyan:/.test((document.querySelector('.lobi-esya')||{}).textContent||''),null,{timeout:4000});
       await pe.evaluate(()=>{lobiEsya={key:'zar',kaynak:'bedava'};render()});assert.match(await pe.textContent('.lobi-esya'),/Zar.*nadir/);
       // dolap: envanter gelmiş gibi (Supabase yok) → premium şapka, bayrak ve eşya seçenekleri görünür
-      await pe.evaluate(()=>{envanter={yildiz:5,esyalar:{iksir:2},kozmetikler:['sapka:tac','bayrak:mavi']};ui.custom=true;render()});
-      const dolap=await pe.textContent('.ov.custom');assert.match(dolap,/Taç/);assert.match(dolap,/Mavi bayrak/);assert.match(dolap,/İksir ×2/);
+      await pe.evaluate(()=>{envanter={yildiz:5,esyalar:{iksir:2},kozmetikler:['sapka:tac','bayrak:mavi','ev:pagoda','ev:fici-han']};ui.custom=true;render()});
+      const dolap=await pe.textContent('.ov.custom');assert.match(dolap,/Taç/);assert.match(dolap,/Mavi bayrak/);assert.match(dolap,/İksir ×2/);assert.match(dolap,/Evin/);assert.match(dolap,/Pagoda/);assert.match(dolap,/Fıçı han/);
+      // ev seçimi: sunucu sahipliği doğrular (envanter sunucuda), sahnede o ev çizilir; resimli ev resim olarak yüklenir
+      { const odaE=[...srv.rooms.values()].find(r=>r.code===oda);const benE=await pe.evaluate(()=>myId);const memE=odaE.members.get(benE);memE.envanter={yildiz:5,esyalar:{iksir:2},kozmetikler:['sapka:tac','bayrak:mavi','ev:pagoda','ev:fici-han']};
+        await pe.click('.ov.custom .evler button:has-text("Pagoda")');await pe.waitForFunction(()=>{const g=scene&&scene.houses[myId]&&scene.houses[myId].g;return P.lobby.find(x=>x.id===myId).ev==='pagoda'&&g&&g.getAttribute('data-ev')==='pagoda'},null,{timeout:5000});
+        await pe.click('.ov.custom .evler button:has-text("Fıçı han")');await pe.waitForFunction(()=>{const g=scene.houses[myId].g;return g.getAttribute('data-ev')==='fici-han'&&!!g.querySelector('image')},null,{timeout:5000});
+        const yuklendi=await pe.evaluate(()=>new Promise(res=>{const im=new Image();im.onload=()=>res(im.naturalWidth);im.onerror=()=>res(0);im.src=scene.houses[myId].g.querySelector('image').getAttribute('href')}));assert.ok(yuklendi>0,'ev resmi yüklenir');
+        await pe.click('.ov.custom .evler button:has-text("Varsayılan")');await pe.waitForFunction(()=>scene.houses[myId].g.getAttribute('data-ev')==='none',null,{timeout:5000})}
       await pe.evaluate(()=>{ui.custom=false;render()});
       // bayrak çizimi: drawHouse bayrak rengini taşır
       assert.strictEqual(await pe.evaluate(()=>{const s=document.createElementNS('http://www.w3.org/2000/svg','g');const h=drawHouse(s,0,0,'x',1,'mavi');return !!s.querySelector('[fill="#3b7bff"]')}),true,'bayrak çizilir');

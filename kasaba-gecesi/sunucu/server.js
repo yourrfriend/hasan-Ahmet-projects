@@ -213,6 +213,9 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
       });return;
     }
     if(url==='/ayar.json'){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-cache'});return res.end(JSON.stringify(ayarAcik()))}
+    // ev resimleri (kullanıcı çizimleri, sayfa/ev/<key>.webp): yalnız katalogdaki anahtar, yalnız webp
+    {const em=/^\/sayfa\/ev\/([a-z0-9-]+)\.webp$/.exec(url);if(em){if(!Object.prototype.hasOwnProperty.call(G.KOZMETIK.ev,em[1])){res.writeHead(404);return res.end('yok')}
+      fs.readFile(path.join(SAYFA,'ev',em[1]+'.webp'),(err,buf)=>{if(err){res.writeHead(404);return res.end('yok')}statik(req,res,buf,'image/webp',surumlu)});return}}
     if(/^\/sayfa\/[a-z0-9_-]+\.(js|css)$/.test(url)){
       const css=url.endsWith('.css');
       fs.readFile(path.join(SAYFA,url.slice(7)),(err,buf)=>{
@@ -245,7 +248,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
   // lobi: bağlı ve adı olan üyeler, ev sahibi önde; aynı rengi seçen ikinciye boş renk
   function lobbyOf(room){
     const list=[];
-    for(const [id,m] of room.members)if(online(m)&&m.name)list.push({id,name:m.name,color:m.color,hat:m.hat,bayrak:m.bayrak||'none',efekt:m.efekt||'none'});
+    for(const [id,m] of room.members)if(online(m)&&m.name)list.push({id,name:m.name,color:m.color,hat:m.hat,bayrak:m.bayrak||'none',efekt:m.efekt||'none',ev:m.ev||'none'});
     list.sort((a,b)=>(b.id===room.hostId)-(a.id===room.hostId));
     const used=new Set();list.forEach(p=>{if(!p.color||used.has(p.color))p.color=G.COLORS.find(c=>!used.has(c))||G.COLORS[0];used.add(p.color);if(!p.hat)p.hat='none'});
     return list;
@@ -394,7 +397,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
     // görünüm: temel şapkalar herkese; katalogdaki şapka/bayrak/efekt yalnız sahibine (envanter join'de arka planda gelir → istenen saklanır, gelince yeniden uygulanır)
     const sahip=new Set(mem.envanter?mem.envanter.kozmetikler:[]);mem.istenen=mem.istenen||{};
     if(typeof m.hat==='string'){mem.istenen.hat=m.hat;if(G.kozmetikGecerli('sapka',m.hat,sahip))mem.hat=m.hat}
-    for(const tur of ['bayrak','efekt'])if(typeof m[tur]==='string'){mem.istenen[tur]=m[tur];mem[tur]=G.kozmetikGecerli(tur,m[tur],sahip)?m[tur]:'none'}
+    for(const tur of ['bayrak','efekt','ev'])if(typeof m[tur]==='string'){mem.istenen[tur]=m[tur];mem[tur]=G.kozmetikGecerli(tur,m[tur],sahip)?m[tur]:'none'}
     if(m.esya!==undefined){const yeni=typeof m.esya==='string'&&Object.prototype.hasOwnProperty.call(G.ESYA,m.esya)?m.esya:null;if(yeni!==mem.esyaSecim){mem.esyaSecim=yeni;if(room.lobiEsya)room.lobiEsya.delete(uid)}}
     if(mem.uye&&mem.name)kayit.profil(mem.uye,{ad:mem.name,renk:mem.color,sapka:mem.hat}); // kayıtlı oyuncu: profil (arka planda, oyunu beklemez)
   }

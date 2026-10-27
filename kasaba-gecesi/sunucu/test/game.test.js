@@ -688,7 +688,7 @@ test('katalog: eşyalar, kozmetikler, nadirlik, kasa ağırlıkları, rozetler t
   assert.deepStrictEqual(G.ESYA_KATMAN('siradan').sort(),['fis','kum','pusula','zar']);assert.deepStrictEqual(G.ESYA_KATMAN('nadir').sort(),['duman','fener','iksir','maske','vasiyet']);
   assert.deepStrictEqual(G.ESYA_KATMAN('efsanevi'),['kilit']);assert.strictEqual(G.ESYA_YUVA,2);
   assert.deepStrictEqual(G.KASA_ESYA,{siradan:50,nadir:40,efsanevi:10});assert.deepStrictEqual(G.PAKET,{sans:0.6,sure:5000,nadirP:0.25,maxMac:3,uzat:30000});
-  assert.deepStrictEqual(Object.keys(G.KOZMETIK).sort(),['bayrak','efekt','sapka']);
+  assert.deepStrictEqual(Object.keys(G.KOZMETIK).sort(),['bayrak','efekt','ev','sapka']);
   assert.strictEqual(Object.keys(G.KOZMETIK.sapka).length,9);assert.strictEqual(Object.keys(G.KOZMETIK.bayrak).length,8);assert.strictEqual(Object.keys(G.KOZMETIK.efekt).length,4);
   for(const tur of Object.values(G.KOZMETIK))for(const k of Object.values(tur))assert.ok(k.n&&G.NADIRLIK[k.nadir],JSON.stringify(k));
   for(const k of Object.keys(G.KOZMETIK.sapka))assert.ok(!G.HATS.includes(k),'premium şapka temel listede olmamalı: '+k);
@@ -697,11 +697,26 @@ test('katalog: eşyalar, kozmetikler, nadirlik, kasa ağırlıkları, rozetler t
   for(const r of Object.values(G.ROZETLER))assert.ok(r.n&&r.ico&&r.desc);
   for(const k of ['ilk_mac','mac_10','mac_50','kurtarici','bekci','tuzak_ustasi','hain_zafer','masum_zafer','sag_kalan','tek_kurt','hortlak_zafer','yildirim','iksir_kurtardi','fener_gordu'])assert.ok(G.ROZETLER[k],k);
 });
+test('ev kozmetiği: en az 80 ev, adlar kısa, nadirlik geçerli; çizim dosyasıyla birebir; resimli evlerin dosyası var',()=>{
+  const EV=G.KOZMETIK.ev,E=require('../../sayfa/evler.js'),fs=require('fs'),path=require('path');
+  assert.ok(Object.keys(EV).length>=80,'ev sayısı '+Object.keys(EV).length);
+  for(const [k,v] of Object.entries(EV)){assert.ok(/^[a-z0-9-]+$/.test(k),k);assert.ok(v.n&&v.n.length<=18,'ad '+k+': '+v.n);assert.ok(G.NADIRLIK[v.nadir],k)}
+  assert.deepStrictEqual(Object.keys(EV).sort(),E.anahtarlar().sort(),'game.js kataloğu ve evler.js çizimleri aynı anahtarlar');
+  for(const k of E.resimler())assert.ok(fs.existsSync(path.join(__dirname,'../../sayfa/ev',k+'.webp')),'resim dosyası '+k);
+  const say={siradan:0,nadir:0,efsanevi:0};for(const v of Object.values(EV))say[v.nadir]++;assert.ok(say.siradan>=25&&say.nadir>=20&&say.efsanevi>=10,JSON.stringify(say));
+  assert.strictEqual(G.kozmetikGecerli('ev','none',new Set()),true,'varsayılan ev herkese');assert.strictEqual(G.kozmetikGecerli('ev','fici',new Set()),false);assert.strictEqual(G.kozmetikGecerli('ev','fici',new Set(['ev:fici'])),true);
+  for(const k of E.anahtarlar()){const m=E.model(k);assert.ok(m&&m.silu&&m.golge&&typeof m.ust==='number'&&typeof m.ciz==='function',k)}
+});
+test('kasaOdulu kozmetik: nadirlik içinde tür dengeli (85 ev şapka/bayrağı ezmez)',()=>{
+  const say={};let n=0;for(let i=0;i<40000;i++){const o=G.kasaOdulu();if(o.tur!=='kozmetik'||o.nadir!=='siradan')continue;n++;const t=o.key.split(':')[0];say[t]=(say[t]||0)+1}
+  const turler=Object.keys(G.KOZMETIK).filter(t=>Object.values(G.KOZMETIK[t]).some(v=>v.nadir==='siradan'));
+  for(const t of turler)assert.ok(Math.abs(say[t]/n-1/turler.length)<0.03,t+' %'+(100*say[t]/n).toFixed(1));
+});
 test('kasaOdulu: her dal ve oranlar',()=>{
   const seq=a=>{let i=0;return()=>a[i++%a.length]};
   assert.strictEqual(G.kasaOdulu(seq([0.0,0.5])).tur,'esya');
   const y=G.kasaOdulu(seq([0.55,0.5]));assert.strictEqual(y.tur,'yildiz');assert.ok(y.adet>=3&&y.adet<=5);
-  const k1=G.kasaOdulu(seq([0.70,0.1]));assert.strictEqual(k1.tur,'kozmetik');assert.strictEqual(k1.nadir,'siradan');assert.match(k1.key,/^(sapka|bayrak|efekt):/);
+  const k1=G.kasaOdulu(seq([0.70,0.1]));assert.strictEqual(k1.tur,'kozmetik');assert.strictEqual(k1.nadir,'siradan');assert.match(k1.key,/^(sapka|bayrak|efekt|ev):/);
   assert.strictEqual(G.kasaOdulu(seq([0.90,0.1])).nadir,'nadir');assert.strictEqual(G.kasaOdulu(seq([0.99,0.1])).nadir,'efsanevi');
   const say={};for(let i=0;i<10000;i++){const o=G.kasaOdulu();const k=o.tur==='kozmetik'?o.nadir:o.tur;say[k]=(say[k]||0)+1}
   for(const [k,w] of Object.entries(G.KASA))assert.ok(Math.abs(say[k]/100-w)<2.5,k+' %'+say[k]/100);
