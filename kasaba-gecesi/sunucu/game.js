@@ -66,12 +66,12 @@ const sec=(a,r)=>a[Math.min(a.length-1,Math.floor(r*a.length))];
 function bedavaEsya(r){r=r||rnd;return sec(ESYA_KATMAN('siradan'),r())}
 function paketEsya(r){r=r||rnd;return r()<PAKET.nadirP?sec(ESYA_KATMAN('nadir'),r()):bedavaEsya(r)}
 function zarAt(r){r=r||rnd;return sec(ESYA_KATMAN('nadir'),r())}
-const NADIRLIK={siradan:{fiyat:12,donusum:3},nadir:{fiyat:30,donusum:8},efsanevi:{fiyat:80,donusum:20}};
+const NADIRLIK={siradan:{fiyat:25,donusum:6},nadir:{fiyat:70,donusum:18},efsanevi:{fiyat:180,donusum:45}};
 const KOZMETIK={
   sapka:{cicek:{n:'Çiçek',nadir:'siradan'},parti:{n:'Parti külahı',nadir:'siradan'},kask:{n:'Kask',nadir:'siradan'},sef:{n:'Aşçı şapkası',nadir:'siradan'},
     kovboy:{n:'Kovboy',nadir:'nadir'},korsan:{n:'Korsan',nadir:'nadir'},cadi:{n:'Cadı şapkası',nadir:'nadir'},tac:{n:'Taç',nadir:'efsanevi'},hale:{n:'Hale',nadir:'efsanevi'}},
   bayrak:{kirmizi:{n:'Kırmızı bayrak',nadir:'siradan',renk:'#e23b3b'},mavi:{n:'Mavi bayrak',nadir:'siradan',renk:'#3b7bff'},yesil:{n:'Yeşil bayrak',nadir:'siradan',renk:'#2fb55a'},mor:{n:'Mor bayrak',nadir:'siradan',renk:'#8e4bff'},
-    yildiz:{n:'Yıldızlı bayrak',nadir:'nadir',renk:'#1e3a8a',ico:'⭐'},ay:{n:'Hilal bayrağı',nadir:'nadir',renk:'#0e1a3d',ico:'🌙'},ejder:{n:'Ejder sancağı',nadir:'efsanevi',renk:'#7a1010',ico:'🐉'},simsek:{n:'Şimşek sancağı',nadir:'efsanevi',renk:'#3a2f1c',ico:'⚡'}},
+    yildiz:{n:'Yıldızlı bayrak',nadir:'nadir',renk:'#1e3a8a',ico:'⭐'},ay:{n:'Hilal bayrağı',nadir:'nadir',renk:'#0e1a3d',ico:'🌙'},ejder:{n:'Ejder sancağı',nadir:'efsanevi',renk:'#7a1010',ico:'🐉'},mektup:{n:'Mühürlü mektup',nadir:'nadir',renk:'#9b2335',ico:'✉️',ozel:'bagla'},simsek:{n:'Şimşek sancağı',nadir:'efsanevi',renk:'#3a2f1c',ico:'⚡'}},
   // ev görünümleri (99): çizimler sayfa/evler.js (71 SVG) ve sayfa/ev/<key>.webp (28 kullanıcı resmi, gece ışığı <key>-isik.webp); anahtar listesi testle eşlenir
   ev:{'kemerli-kulube':{n:'Kemerli kulübe',nadir:'siradan'},'toprak-dam':{n:'Toprak damlı ev',nadir:'siradan'},'kaya-konak':{n:'Kaya konak',nadir:'nadir'},'ayakli-ev':{n:'Ayaklı ev',nadir:'siradan'},'ucan-daire':{n:'Uçan daire',nadir:'efsanevi'},'mekanik-mantar':{n:'Mekanik mantar',nadir:'efsanevi'},'sera-kubbe':{n:'Sera kubbe',nadir:'efsanevi'},'cimen-dam':{n:'Çimen damlı ev',nadir:'nadir'},'fici-han':{n:'Fıçı han',nadir:'nadir'},'kapsul-ev':{n:'Kapsül ev',nadir:'efsanevi'},'ahsap-kosk':{n:'Ahşap köşk',nadir:'siradan'},'mantar-kosk':{n:'Mantar köşk',nadir:'nadir'},'kutuk-ev':{n:'Kütük ev',nadir:'nadir'},'kubbe-ev':{n:'Kubbe ev',nadir:'siradan'},'a-catili':{n:'A çatılı kulübe',nadir:'siradan'},'kule-ev':{n:'Kule ev',nadir:'nadir'},'kok-kosk':{n:'Kök köşk',nadir:'nadir'},'sarmasikli-ev':{n:'Sarmaşıklı ev',nadir:'siradan'},'kapadokya':{n:'Kapadokya evi',nadir:'nadir'},'kiyi-feneri':{n:'Kıyı feneri',nadir:'nadir'},'tas-degirmen':{n:'Taş değirmen',nadir:'nadir'},'cumbali-konak':{n:'Cumbalı konak',nadir:'nadir'},'porselen-demlik':{n:'Porselen demlik',nadir:'nadir'},'cini-kule':{n:'Çini kule',nadir:'efsanevi'},'ejderli-ev':{n:'Ejderli uzun ev',nadir:'nadir'},'balkabagi':{n:'Bal kabağı evi',nadir:'nadir'},'carkli-ev':{n:'Çarklı ev',nadir:'efsanevi'},'deniz-kabugu':{n:'Deniz kabuğu',nadir:'efsanevi'},'fici':{n:'Fıçı ev',nadir:'siradan'},'mantar':{n:'Benekli mantar',nadir:'siradan'},'peribacasi':{n:'Peri bacası',nadir:'nadir'},'yurt':{n:'Keçe yurt',nadir:'siradan'},'igloo':{n:'Buz evi',nadir:'nadir'},'deniz-feneri':{n:'Deniz feneri',nadir:'nadir'},'yel-degirmeni':{n:'Yel değirmeni',nadir:'nadir'},'caydanlik':{n:'Çaydanlık ev',nadir:'nadir'},'cizme':{n:'Çizme ev',nadir:'nadir'},'kabak':{n:'Kabak ev',nadir:'nadir'},'salyangoz':{n:'Salyangoz kabuğu',nadir:'nadir'},'ters-kayik':{n:'Ters kayık',nadir:'siradan'},'agac-ev':{n:'Ağaç ev',nadir:'efsanevi'},'bulut':{n:'Bulut ev',nadir:'efsanevi'},'yuzen-ada':{n:'Yüzen ada',nadir:'efsanevi'},'saat-kulesi':{n:'Saat kulesi',nadir:'efsanevi'},'kristal':{n:'Kristal mağara',nadir:'efsanevi'},'roket':{n:'Roket ev',nadir:'efsanevi'},'steampunk':{n:'Buhar köşkü',nadir:'efsanevi'},'cadi':{n:'Cadı kulübesi',nadir:'nadir'},'kitap':{n:'Kitap ev',nadir:'efsanevi'},'sirk-cadiri':{n:'Sirk çadırı',nadir:'nadir'},'serender':{n:'Serender',nadir:'siradan'},'kerpic-kule':{n:'Kerpiç kule',nadir:'nadir'},'rondavel':{n:'Saz kulübe',nadir:'siradan'},'ejder-yumurtasi':{n:'Ejder yumurtası',nadir:'efsanevi'},'kar-kuresi':{n:'Kar küresi',nadir:'efsanevi'},'pagoda':{n:'Pagoda',nadir:'efsanevi'},'basamakli-tas':{n:'Basamaklı taş ev',nadir:'nadir'},'yoruk-cadiri':{n:'Yörük çadırı',nadir:'siradan'},'kervansaray':{n:'Kervansaray evi',nadir:'nadir'},'kirmizi-ev':{n:'Kırmızı ahşap ev',nadir:'siradan'},'alp-saleti':{n:'Alp şalesi',nadir:'siradan'},'safranbolu':{n:'Safranbolu konağı',nadir:'nadir'},'mardin':{n:'Mardin taş evi',nadir:'nadir'},'ege-tas':{n:'Ege taş evi',nadir:'siradan'},'kerpic-dam':{n:'Kerpiç damlı ev',nadir:'siradan'},'santorini':{n:'Ak badanalı ev',nadir:'nadir'},'viking':{n:'Viking uzun evi',nadir:'nadir'},'minka':{n:'Minka',nadir:'nadir'},'fenerli-ev':{n:'Fenerli ev',nadir:'nadir'},'roma-villasi':{n:'Roma villası',nadir:'nadir'},'venedik':{n:'Venedik evi',nadir:'nadir'},'riad':{n:'Riad',nadir:'nadir'},'kanal-evi':{n:'Kanal evi',nadir:'nadir'},'izba':{n:'İzba',nadir:'siradan'},'tudor':{n:'Yarım ahşap ev',nadir:'siradan'},'tas-kulube':{n:'Taş kulübe',nadir:'siradan'},'tugla-ev':{n:'Tuğla ev',nadir:'siradan'},'karli-kulube':{n:'Karlı kulübe',nadir:'siradan'},'saz-damli':{n:'Saz damlı ev',nadir:'siradan'},'cim-damli':{n:'Yuvarlak kapılı ev',nadir:'siradan'},'balikci':{n:'Balıkçı evi',nadir:'siradan'},'firin':{n:'Fırın ev',nadir:'siradan'},'demirci':{n:'Demirci evi',nadir:'siradan'},'bahceli':{n:'Bahçeli ev',nadir:'siradan'},'ambar':{n:'Ambar ev',nadir:'siradan'},'gece-mavisi':{n:'Gece mavisi ev',nadir:'nadir'},'altin-kosk':{n:'Altın köşk',nadir:'efsanevi'},'buyucu-evi':{n:'Büyücü evi',nadir:'nadir'},'kurabiye':{n:'Kurabiye ev',nadir:'nadir'},'neon-ev':{n:'Neon ev',nadir:'efsanevi'},'gunes-evi':{n:'Güneş evi',nadir:'nadir'},'konak':{n:'Konak',nadir:'siradan'},'yali':{n:'Yalı',nadir:'nadir'},'karadeniz':{n:'Karadeniz evi',nadir:'siradan'},'burc':{n:'Burç ev',nadir:'siradan'},'nil-evi':{n:'Nil kerpiç evi',nadir:'siradan'},'hanok':{n:'Hanok',nadir:'nadir'},'bambu-ev':{n:'Bambu ev',nadir:'siradan'},'kutup-istasyonu':{n:'Kutup istasyonu',nadir:'nadir'}},
   efekt:{yaprak:{n:'Yaprak',nadir:'siradan',ico:'🍂'},yildiz:{n:'Yıldız',nadir:'nadir',ico:'✨'},duman:{n:'Duman',nadir:'nadir',ico:'💨'},havaifisek:{n:'Havai fişek',nadir:'efsanevi',ico:'🎆'}}
@@ -89,12 +89,12 @@ const ROZETLER={
 const TEK_KAZANAN=['serikatil','bombaci','hirsiz','buyucu'];
 function kasaOdulu(r){r=r||rnd;const x=r()*100,r2=r();let t=0;const sec2=a=>sec(a,r2);
   if(x<(t+=KASA.esya)){const y=x/KASA.esya*100;const kat=y<KASA_ESYA.siradan?'siradan':y<KASA_ESYA.siradan+KASA_ESYA.nadir?'nadir':'efsanevi';return {tur:'esya',key:sec2(ESYA_KATMAN(kat).filter(k=>k!=='zar')),adet:1}}
-  if(x<(t+=KASA.yildiz))return {tur:'yildiz',adet:3+Math.min(2,Math.floor(r2*3))};
+  if(x<(t+=KASA.yildiz))return {tur:'yildiz',adet:6+Math.min(4,Math.floor(r2*5))};
   const nadir=x<(t+=KASA.siradan)?'siradan':x<(t+=KASA.nadir)?'nadir':'efsanevi';
   // önce tür, ağırlık = bu nadirlikteki öğe sayısının karekökü (çok evli tür baskın kalır ama diğerlerini ezmez; tek öğeli tür şişmez), sonra öğe
-  const turler=Object.keys(KOZMETIK).map(t=>[t,Object.values(KOZMETIK[t]).filter(v=>v.nadir===nadir).length]).filter(([,n])=>n>0);
+  const turler=Object.keys(KOZMETIK).map(t=>[t,Object.values(KOZMETIK[t]).filter(v=>v.nadir===nadir&&!v.ozel).length]).filter(([,n])=>n>0);
   let top=0;for(const [,n] of turler)top+=Math.sqrt(n);let x2=r()*top,tur=turler[turler.length-1][0];for(const [t,n] of turler){x2-=Math.sqrt(n);if(x2<0){tur=t;break}}
-  const havuz=Object.keys(KOZMETIK[tur]).filter(k=>KOZMETIK[tur][k].nadir===nadir).map(k=>tur+':'+k);
+  const havuz=Object.keys(KOZMETIK[tur]).filter(k=>KOZMETIK[tur][k].nadir===nadir&&!KOZMETIK[tur][k].ozel).map(k=>tur+':'+k);
   return {tur:'kozmetik',key:sec2(havuz),nadir};
 }
 // kozmetik doğrulama: temel şapkalar ve 'none' herkese; katalogdakiler yalnız sahibine (sahip: Set('tur:anahtar'))
@@ -106,12 +106,30 @@ const has=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
 function roleLabel(r){const b=ROLES[r.key];return b.n+((r.team==='imp'&&b.team!=='imp')?' (Hain)':'')}
 // Kayıt satırından rol etiketi (tek kaynak: index.html, sayfa/ortak.js, sayfa/hikaye.js bunu kullanır): {rol_key,takim,deli_gibi,calinan_rol}
 // maç sonu rozetleri: yalnız günlükteki gerçek olaylardan (oylar tek tek kaydedilmez → oya dayalı rozet yok); maç sayısı rozetleri RPC'de
-function rozetlerFor(R,id){const g=R.g,P=R.P;if(!g||!g.roles[id])return [];const out=new Set();const r=g.roles[id];
+// rol başarıları: günlükteki gece olayları, olay başına bir anahtar (rozet ve yıldız dökümü ortak; eşya olayları hariç)
+function rolBasarilari(R,id){const g=R.g,out=[];if(!g)return out;
   for(const e of R.gameLog||[]){if(e.tur!=='gece_sonuc')continue;const v=e.veri||{};
-    if((v.kurtaranlar||[]).some(k=>k.kim===id))out.add('kurtarici');
-    if((v.tutanlar||[]).some(t=>t.kim===id&&g.roles[t.hedef]&&g.roles[t.hedef].team==='imp'))out.add('bekci');
-    if((v.tuzak||[]).some(t=>t.kuran===id))out.add('tuzak_ustasi');
-    for(const o of v.olenler||[]){const bolt=o.sekil==='bolt'?o.kimden:(o.sekiller||[]).includes('bolt')?o.yildirim_kimden:null;if(bolt&&bolt.includes(id))out.add('yildirim')}
+    for(const k of v.kurtaranlar||[])if(k.kim===id)out.push('kurtarici');
+    for(const t of v.tutanlar||[])if(t.kim===id&&g.roles[t.hedef]&&g.roles[t.hedef].team==='imp')out.push('bekci');
+    for(const t of v.tuzak||[])if(t.kuran===id)out.push('tuzak_ustasi');
+    for(const o of v.olenler||[]){const bolt=o.sekil==='bolt'?o.kimden:(o.sekiller||[]).includes('bolt')?o.yildirim_kimden:null;if(bolt&&bolt.includes(id))out.push('yildirim')}}
+  return out}
+// yıldız kaynakları (tasarım 2026-10-27-kasaba-gecesi-yildiz-1): miktarlar tek kaynak; gunun_ilki ve bagla göç 010'da da aynı sayı (test denetler)
+const YILDIZ_KAYNAK={kazanma:{n:'Kazandın',adet:2},tek_kazanan:{n:'Tek başına kazandın',adet:4},rol_basari:{n:'Rol başarısı',adet:1},kalabalik:{n:'Kalabalık maç',adet:1},
+  hain_oyu:{n:'Asılan haine oy',adet:2},gunun_ilki:{n:'Günün ilk maçı',adet:5},bagla:{n:'E-posta bağlandı',adet:25}};
+const ROL_BASARI_TAVAN=3;
+// maç sonu yıldız dökümü (yalnız bu oyuncuya gösterilir; veritabanına yalnız toplam gider). Oy bilgisi yalnız R.g.hainOyu belleğinden.
+function yildizDokumu(R,id){const g=R.g,P=R.P;if(!g||!g.roles[id]||P.phase!=='end')return [];const out=[],r=g.roles[id];
+  const kaz=P.winner&&(P.winner.kazananlar||[]).includes(id);
+  if(kaz){if(r.team==='neu'&&TEK_KAZANAN.includes(r.orig||r.key))out.push({key:'tek_kazanan',adet:YILDIZ_KAYNAK.tek_kazanan.adet});else out.push({key:'kazanma',adet:YILDIZ_KAYNAK.kazanma.adet})}
+  let kalan=ROL_BASARI_TAVAN;for(const k of rolBasarilari(R,id)){if(kalan<=0)break;out.push({key:k,adet:YILDIZ_KAYNAK.rol_basari.adet});kalan-=YILDIZ_KAYNAK.rol_basari.adet}
+  if(P.players.length>=8)out.push({key:'kalabalik',adet:YILDIZ_KAYNAK.kalabalik.adet});
+  const h=(g.hainOyu||{})[id]||0;if(h)out.push({key:'hain_oyu',adet:h*YILDIZ_KAYNAK.hain_oyu.adet});
+  return out}
+function yildizToplam(d){return (d||[]).reduce((a,x)=>a+x.adet,0)}
+function rozetlerFor(R,id){const g=R.g,P=R.P;if(!g||!g.roles[id])return [];const out=new Set();const r=g.roles[id];
+  for(const k of rolBasarilari(R,id))out.add(k);
+  for(const e of R.gameLog||[]){if(e.tur!=='gece_sonuc')continue;const v=e.veri||{};
     for(const x of v.esyalar||[]){if(x.kim!==id)continue;if(x.key==='iksir'&&x.etki==='korudu')out.add('iksir_kurtardi');if(x.key==='fener'&&x.etki==='hain_gordu')out.add('fener_gordu')}}
   if(P.phase==='end'&&P.winner&&(P.winner.kazananlar||[]).includes(id)){const me=pl(R,id);
     if(r.team==='imp')out.add('hain_zafer');if(r.team==='inn'||r.mad)out.add('masum_zafer');
@@ -445,6 +463,8 @@ function resolveVote(R){
   const E={out:null,summary:''};
   // vasiyet (pasif): asılanın o geceki notları oylama özetinde — Hortlak'ın "hayalet olarak gideceksin" notu yazılmadan önce toplanır (hedef sızmasın)
   let vasiyet=null;if(out){const e=esyaBul(R,out,'vasiyet');if(e){e.kullanildi=true;const n=geceNotlari(R,out);vasiyet={kim:out,metin:n.length?'📜 '+ek(nm(out),'in')+' vasiyeti: '+n.join(' · '):'📜 '+ek(nm(out),'in')+' vasiyeti boştu.'}}}
+  // asılan hain ise: o gün ona oy veren, oylama anında masum taraftaki oyunculara sayaç (yalnız R.g belleği; günlüğe yazılmaz)
+  if(out&&g.roles[out]&&g.roles[out].team==='imp'){g.hainOyu=g.hainOyu||{};for(const p of al){const r=g.roles[p.id];if(p.id!==out&&g.votes[p.id]===out&&r&&(r.team==='inn'||r.mad))g.hainOyu[p.id]=(g.hainOyu[p.id]||0)+1}}
   if(out){pl(R,out).alive=false;let shown=roleLabel(shownRole(R,out));if(g.blame&&g.blame.day===P.day&&g.blame.t===out)shown='Hain';P.dead.push({id:out,role:shown});E.out={id:out,role:shown};sysChat(R,'⚖️ Kasaba '+nm(out)+' kişisini gönderdi. Rolü: '+shown);
     if(g.roles[out].key==='hortlak'){g.hauntWins.push(out);const t=g.candle[out];if(t&&pl(R,t)&&pl(R,t).alive){g.haunt={t,night:P.day+1};note(R,out,'Asıldın! Bu gece '+nm(t)+' evine hayalet olarak gideceksin.')}else note(R,out,'Asıldın, kazandın! Mum koyduğun bir ev yoktu.')}}
   else sysChat(R,'⚖️ Oylar yetersiz, kimse gönderilmedi.');
@@ -657,7 +677,7 @@ function privFor(R,id){
 function esyaKullanimi(R){const out={};for(const [id,l] of Object.entries(R.g&&R.g.esya||{}))out[id]=l.map(e=>({key:e.kaynakKey||e.key,kaynak:e.kaynak,kullanildi:e.kullanildi}));return out
 }
 
-return{ROLES,SETUP,COLORS,HATS,DEFAULT_SETTINGS,ESYA,ESYA_YUVA,ESYA_KATMAN,KASA_ESYA,PAKET,setRnd,bedavaEsya,paketEsya,zarAt,NADIRLIK,KOZMETIK,KASA,ROZETLER,kasaOdulu,kozmetikGecerli,rozetlerFor,esyaKullan,esyaBul,DAGILIM,TEKRAR,tekrarCezasi,rolDagit,roleLabel,rolEtiketi,autoSetup,cleanSettings,setClock,
+return{ROLES,SETUP,COLORS,HATS,DEFAULT_SETTINGS,ESYA,ESYA_YUVA,ESYA_KATMAN,KASA_ESYA,PAKET,setRnd,bedavaEsya,paketEsya,zarAt,NADIRLIK,KOZMETIK,KASA,ROZETLER,YILDIZ_KAYNAK,ROL_BASARI_TAVAN,yildizDokumu,yildizToplam,kasaOdulu,kozmetikGecerli,rozetlerFor,esyaKullan,esyaBul,DAGILIM,TEKRAR,tekrarCezasi,rolDagit,roleLabel,rolEtiketi,autoSetup,cleanSettings,setClock,
   lobbyState,createGame,startGame,setPhase,advance,tick,kap,paketKapat,resolveNight,resolveVote,checkWin,kazananlar,gazeteFor,GAZETE_EN_COK,ek,endToLobby,olay,
   act,vote,chat,deadChat,esyaKullanimi,hizli,HIZLI_BEKLE_MS,HIZLI_GUN,HIZLI_TUR,privFor,pl,alivePlayers,inGame};
 });

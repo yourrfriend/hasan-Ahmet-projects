@@ -60,7 +60,7 @@ const step=t=>console.log('•',t);
         oturumVer=()=>oturum;let signupRota=0;let apiJsDurum=200;
         const g1='aaaaaaaa-0000-4000-8000-000000000001',g2='aaaaaaaa-0000-4000-8000-000000000002',g3='aaaaaaaa-0000-4000-8000-000000000003',k1='bbbbbbbb-0000-4000-8000-000000000001';
         const g4='aaaaaaaa-0000-4000-8000-000000000004',g9='aaaaaaaa-0000-4000-8000-000000000009';
-        const tablo={cuzdan:[{uye:'11111111-2222-4333-8444-555555555555',yildiz:20}],esyalar:[{uye:'11111111-2222-4333-8444-555555555555',key:'iksir',adet:2}],kozmetikler:[{uye:'11111111-2222-4333-8444-555555555555',key:'sapka:tac'}],rozetler:[{uye:'11111111-2222-4333-8444-555555555555',key:'kurtarici',kazanma:'2026-10-26T10:00:00Z'}],
+        const tablo={cuzdan:[{uye:'11111111-2222-4333-8444-555555555555',yildiz:33}],esyalar:[{uye:'11111111-2222-4333-8444-555555555555',key:'iksir',adet:2}],kozmetikler:[{uye:'11111111-2222-4333-8444-555555555555',key:'sapka:tac'}],rozetler:[{uye:'11111111-2222-4333-8444-555555555555',key:'kurtarici',kazanma:'2026-10-26T10:00:00Z'}],
           oyuncu_ozet:[{uye:ben,kurulum:'e2e',oyun:3,kazanma:2,en_cok_rol:'doktor',son_oyun:'2026-10-25T20:00:00Z'}],
           // g3: kasabamın maçı ama ben oynamadım → "son oyunların"da yok; g4: süren oyun (bitiş yok, roller gizli, olaylar RLS'de boş)
           oyunlar:[{id:g3,kasaba_id:k1,kurulum:'e2e',bitis:'2026-10-25T21:00:00Z',sonuc:'bitti',kazanan_takim:'inn',kazanan_metin:'Masumlar kazandı',oyuncu_sayisi:4,baslama:'2026-10-25T20:40:00Z'},
@@ -133,7 +133,7 @@ const step=t=>console.log('•',t);
         { const alimlar=[];await p5.route('**/ben/al',async route=>{const r=route.request();const g=JSON.parse(r.postData()||'{}');alimlar.push({key:g.key,auth:r.headers()['authorization']||''});
             tablo.kozmetikler.push({uye:ben,key:g.key});tablo.cuzdan[0].yildiz=8;return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,yildiz:8})})});
           await p5.goto(o3+'/ben');await p5.waitForFunction(()=>[...document.querySelectorAll('#icerik h2')].some(h=>/Koleksiyon/.test(h.textContent)),null,{timeout:8000});
-          const t=await p5.textContent('main');assert.match(t,/⭐ 20/);assert.match(t,/İksir ×2/);assert.match(t,/Rozetler \(1\//);
+          const t=await p5.textContent('main');assert.match(t,/⭐ 33/);assert.match(t,/İksir ×2/);assert.match(t,/Rozetler \(1\//);
           assert.strictEqual(await p5.evaluate(()=>document.querySelectorAll('.rozet:not(.kilitli)').length),1,'bir rozet kazanılmış');
           assert.ok(await p5.evaluate(()=>[...document.querySelectorAll('#icerik h3')].some(h=>h.textContent==='Evler')),'Evler bölümü');assert.strictEqual(await p5.evaluate(()=>document.querySelectorAll('.urun svg.onizleme, .urun img.onizleme').length),Object.keys(G.KOZMETIK.ev).length,'her eve önizleme');
           assert.ok(await p5.evaluate(()=>[...document.querySelectorAll('.urun svg.onizleme')].filter(x=>x.firstChild).length<KG_EVLER.svg().length),'SVG önizlemeler tembel çizilir');

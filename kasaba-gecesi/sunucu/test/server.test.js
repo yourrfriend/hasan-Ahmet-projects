@@ -944,8 +944,8 @@ test('/ben/al: token, katalog fiyatı, hata kodları, kayıt kapalı 404; /ben s
     const h={Authorization:'Bearer '+I.tok(SA)};
     assert.strictEqual((await postJ(I.b,'/ben/al',JSON.stringify({key:'sapka:yok'}),h)).s,400);
     const ok=await postJ(I.b,'/ben/al',JSON.stringify({key:'bayrak:mavi'}),h);assert.strictEqual(ok.s,200,ok.b);assert.deepStrictEqual(JSON.parse(ok.b),{ok:true,yildiz:3});
-    assert.deepStrictEqual(I.cagri.al[0],{u:SA,key:'bayrak:mavi',fiyat:12},'fiyat katalogdan');
-    const az=await postJ(I.b,'/ben/al',JSON.stringify({key:'sapka:tac'}),h);assert.strictEqual(az.s,409);assert.deepStrictEqual(JSON.parse(az.b),{error:'yildiz',yildiz:10});assert.strictEqual(I.cagri.al[1].fiyat,80);
+    assert.deepStrictEqual(I.cagri.al[0],{u:SA,key:'bayrak:mavi',fiyat:25},'fiyat katalogdan');
+    const az=await postJ(I.b,'/ben/al',JSON.stringify({key:'sapka:tac'}),h);assert.strictEqual(az.s,409);assert.deepStrictEqual(JSON.parse(az.b),{error:'yildiz',yildiz:10});assert.strictEqual(I.cagri.al[1].fiyat,180);
     const sg=JSON.parse((await get(I.b,'/saglik')).b);assert.deepStrictEqual(sg.ilerleme,{kasa:3,hata:1});
     assert.strictEqual((await get(I.b,'/ben')).s,200);
   }finally{await I.kapat()}
