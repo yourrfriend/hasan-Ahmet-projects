@@ -211,7 +211,7 @@ set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated"}', true);
 do $$ begin
   if (select adet from public.esyalar where key = 'iksir') <> 1 then raise exception 'BAŞARISIZ 14: eşya yazılmadı'; end if;
-  if (select yildiz from public.cuzdan) <> 2 then raise exception 'BAŞARISIZ 14: bonus yıldız yok'; end if;
+  if (select yildiz from public.cuzdan) <> 7 then raise exception 'BAŞARISIZ 14: bonus yıldız + günün ilki (2+5) yok'; end if;
   if (select count(*) from public.rozetler where key in ('kurtarici','ilk_mac')) <> 2 then raise exception 'BAŞARISIZ 14: rozetler (kurtarici + ilk_mac)'; end if;
   if (select count(*) from public.kasalar) <> 1 then raise exception 'BAŞARISIZ 14: kasa kaydı'; end if;
   begin insert into public.esyalar (uye, key, adet) values ('33333333-3333-3333-3333-333333333333', 'fener', 5); raise exception 'BAŞARISIZ 14: istemci eşya yazabildi';
@@ -236,7 +236,7 @@ do $$ declare r jsonb; u uuid := '33333333-3333-3333-3333-333333333333'; n int :
   r := public.mac_sonu(u, 'cccccccc-0000-0000-0000-000000000002', '{"tur":"kozmetik","key":"sapka:tac","donusum":20}'::jsonb, '{}', null, 0);
   if coalesce((r->>'donustu')::boolean, false) then raise exception 'BAŞARISIZ 15: ilk kozmetik dönüştü'; end if;
   r := public.mac_sonu(u, 'cccccccc-0000-0000-0000-000000000003', '{"tur":"kozmetik","key":"sapka:tac","donusum":20}'::jsonb, '{}', null, 0);
-  if not (r->>'donustu')::boolean or (r->>'yildiz')::int <> 22 then raise exception 'BAŞARISIZ 15: tekrar kozmetik yıldıza dönmedi: %', r; end if;
+  if not (r->>'donustu')::boolean or (r->>'yildiz')::int <> 27 then raise exception 'BAŞARISIZ 15: tekrar kozmetik yıldıza dönmedi: %', r; end if;
   r := public.mac_sonu(u, 'cccccccc-0000-0000-0000-000000000004', null, '{}', 'iksir', 0);
   r := public.mac_sonu(u, 'cccccccc-0000-0000-0000-000000000005', null, '{}', 'iksir', 0);
   if (select adet from public.esyalar where uye = u and key = 'iksir') <> 0 then raise exception 'BAŞARISIZ 15: harcama yanlış (eksiye inmemeli)'; end if;
@@ -253,11 +253,11 @@ end $$;
 -- 16) kozmetik_al: bakiye ve sahiplik
 do $$ declare r jsonb; u uuid := '33333333-3333-3333-3333-333333333333'; begin
   r := public.kozmetik_al(u, 'bayrak:mavi', 12);
-  if not coalesce((r->>'ok')::boolean, false) or (r->>'yildiz')::int <> 10 then raise exception 'BAŞARISIZ 16: satın alma: %', r; end if;
+  if not coalesce((r->>'ok')::boolean, false) or (r->>'yildiz')::int <> 15 then raise exception 'BAŞARISIZ 16: satın alma: %', r; end if;
   r := public.kozmetik_al(u, 'bayrak:mavi', 12); if r->>'hata' <> 'var' then raise exception 'BAŞARISIZ 16: ikinci alım: %', r; end if;
   r := public.kozmetik_al(u, 'sapka:hale', 80); if r->>'hata' <> 'yildiz' then raise exception 'BAŞARISIZ 16: yetersiz bakiye: %', r; end if;
   r := public.envanter_oku(u);
-  if (r->>'yildiz')::int <> 10 or not (r->'kozmetikler' ? 'bayrak:mavi') or (r->'esyalar'->>'fener') is null then raise exception 'BAŞARISIZ 16: envanter_oku: %', r; end if;
+  if (r->>'yildiz')::int <> 15 or not (r->'kozmetikler' ? 'bayrak:mavi') or (r->'esyalar'->>'fener') is null then raise exception 'BAŞARISIZ 16: envanter_oku: %', r; end if;
   raise notice 'GEÇTİ 16: kozmetik_al ve envanter_oku';
 end $$;
 
@@ -267,11 +267,99 @@ do $$ declare u1 uuid := '11111111-1111-1111-1111-111111111111'; u3 uuid := '333
   select adet into f3 from public.esyalar where uye = u3 and key = 'fener';
   perform public.hesap_birlestir(u3, u1);
   if (select adet from public.esyalar where uye = u1 and key = 'fener') <> f3 + 1 then raise exception 'BAŞARISIZ 17: eşya adetleri toplanmadı'; end if;
-  if (select yildiz from public.cuzdan where uye = u1) <> 15 then raise exception 'BAŞARISIZ 17: yıldız toplanmadı (10+5)'; end if;
+  if (select yildiz from public.cuzdan where uye = u1) <> 25 then raise exception 'BAŞARISIZ 17: yıldız toplanmadı (15 + 5 bonus + 5 günün ilki)'; end if;
   if not exists (select 1 from public.kozmetikler where uye = u1 and key = 'sapka:tac') then raise exception 'BAŞARISIZ 17: kozmetik taşınmadı'; end if;
   if (select count(*) from public.esyalar where uye = u3) + (select count(*) from public.cuzdan where uye = u3) + (select count(*) from public.kasalar where uye = u3) + (select count(*) from public.rozetler where uye = u3) + (select count(*) from public.kozmetikler where uye = u3) <> 0 then raise exception 'BAŞARISIZ 17: eski hesapta kalıntı'; end if;
   if (select count(*) from public.kasalar where uye = u1) < 30 then raise exception 'BAŞARISIZ 17: kasalar taşınmadı'; end if;
   raise notice 'GEÇTİ 17: birleştirme ilerlemeyi taşır';
+end $$;
+reset role;
+
+-- 18–21: yıldız ekonomisi 1 (göç 010). Kullanıcılar: u4 doğrulanmış e-posta, u5 sonra aynı adres, u6 e-postasız, u7 doğrulanmamış, u8 silinecek, u11 birleştirme hedefi
+insert into auth.users (id, instance_id, aud, role, email, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, is_anonymous)
+values ('44444444-4444-4444-4444-444444444444', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'Oyuncu@Ornek.com', now(), '{}', '{}', now(), now(), true),
+       ('55555555-5555-5555-5555-555555555555', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true),
+       ('66666666-6666-6666-6666-666666666666', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true),
+       ('77777777-7777-7777-7777-777777777777', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'bekle@ornek.com', null, '{}', '{}', now(), now(), false),
+       ('88888888-8888-8888-8888-888888888888', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'silinen@ornek.com', now(), '{}', '{}', now(), now(), false),
+       ('aaaaaaaa-1111-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'hedef@ornek.com', now(), '{}', '{}', now(), now(), false);
+-- dünkü kasa ve bugünkü tavan kasası günün ilkini engellemez
+insert into public.kasalar (uye, oyun_id, odul, zaman) values
+  ('66666666-6666-6666-6666-666666666666', gen_random_uuid(), '{"tur":"yildiz","adet":6}', now() - interval '1 day'),
+  ('66666666-6666-6666-6666-666666666666', gen_random_uuid(), '{"tavan":true}', now());
+
+-- 18) günün ilki: bugünkü ilk kasaya +5, ikinciye 0; tavanda yok; tekrar dönüşünde alan yok
+set local role service_role;
+do $$ declare r jsonb; u4 uuid := '44444444-4444-4444-4444-444444444444'; u6 uuid := '66666666-6666-6666-6666-666666666666'; u3 uuid := '11111111-1111-1111-1111-111111111111'; g uuid := gen_random_uuid(); begin
+  r := public.mac_sonu(u4, g, null, '{}', null, 2);
+  if (r->>'gunun_ilki')::int <> 5 or (r->>'yildiz')::int <> 7 then raise exception 'BAŞARISIZ 18: ilk maç +5: %', r; end if;
+  r := public.mac_sonu(u4, g, null, '{}', null, 2);
+  if not coalesce((r->>'tekrar')::boolean, false) or r ? 'gunun_ilki' then raise exception 'BAŞARISIZ 18: tekrar: %', r; end if;
+  r := public.mac_sonu(u4, gen_random_uuid(), null, '{}', null, 0);
+  if (r->>'gunun_ilki')::int <> 0 or (r->>'yildiz')::int <> 7 then raise exception 'BAŞARISIZ 18: ikinci maç 0: %', r; end if;
+  r := public.mac_sonu(u6, gen_random_uuid(), null, '{}', null, 0);
+  if (r->>'gunun_ilki')::int <> 5 then raise exception 'BAŞARISIZ 18: dünkü ve tavan kasası günün ilkini engelledi: %', r; end if;
+  r := public.mac_sonu(u3, gen_random_uuid(), null, '{}', null, 0);
+  if not (r->>'tavan')::boolean or (r->>'gunun_ilki')::int <> 0 then raise exception 'BAŞARISIZ 18: tavanda günün ilki: %', r; end if;
+  raise notice 'GEÇTİ 18: günün ilk maçı';
+end $$;
+
+-- 19) bagla_odulu: doğrulanmış e-posta bir kez; uye ve adres (küçük harf) başına bir kez
+do $$ declare r jsonb; u4 uuid := '44444444-4444-4444-4444-444444444444'; begin
+  r := public.bagla_odulu(u4);
+  if not coalesce((r->>'ok')::boolean, false) or (r->>'yildiz')::int <> 32 then raise exception 'BAŞARISIZ 19: ödül (7+25): %', r; end if;
+  if not exists (select 1 from public.kozmetikler where uye = u4 and key = 'bayrak:mektup') then raise exception 'BAŞARISIZ 19: mektup bayrağı yok'; end if;
+  r := public.bagla_odulu(u4);
+  if not coalesce((r->>'tekrar')::boolean, false) or (select yildiz from public.cuzdan where uye = u4) <> 32 then raise exception 'BAŞARISIZ 19: ikinci çağrı: %', r; end if;
+  r := public.bagla_odulu('66666666-6666-6666-6666-666666666666');
+  if r->>'hata' <> 'bagli_degil' then raise exception 'BAŞARISIZ 19: e-postasız: %', r; end if;
+  r := public.bagla_odulu('77777777-7777-7777-7777-777777777777');
+  if r->>'hata' <> 'bagli_degil' then raise exception 'BAŞARISIZ 19: doğrulanmamış: %', r; end if;
+  if position('for update' in pg_get_functiondef('public.bagla_odulu(uuid)'::regprocedure)) = 0 then raise exception 'BAŞARISIZ 19: cüzdan kilidi yok'; end if;
+  r := public.kozmetik_al(u4, 'bayrak:mektup', 70); if r->>'hata' <> 'ozel' then raise exception 'BAŞARISIZ 19: mektup satın alınabildi: %', r; end if;
+  raise notice 'GEÇTİ 19: bağlama ödülü bir kez';
+end $$;
+reset role;
+-- u4 adresini değiştirir; eski adres u5'e geçer (büyük harfle). Silinen u8'in adresi yeni üyeye geçer.
+update auth.users set email = 'yeni@ornek.com' where id = '44444444-4444-4444-4444-444444444444';
+update auth.users set email = 'OYUNCU@ornek.com', email_confirmed_at = now() where id = '55555555-5555-5555-5555-555555555555';
+set local role service_role;
+do $$ begin perform public.bagla_odulu('88888888-8888-8888-8888-888888888888'); end $$;
+reset role;
+delete from auth.users where id = '88888888-8888-8888-8888-888888888888';
+insert into auth.users (id, instance_id, aud, role, email, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, is_anonymous)
+values ('99999999-9999-9999-9999-999999999999', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'silinen@ornek.com', now(), '{}', '{}', now(), now(), false);
+set local role service_role;
+do $$ declare r jsonb; begin
+  r := public.bagla_odulu('44444444-4444-4444-4444-444444444444');
+  if not coalesce((r->>'tekrar')::boolean, false) then raise exception 'BAŞARISIZ 20: adres değiştiren üye ikinci kez aldı: %', r; end if;
+  r := public.bagla_odulu('55555555-5555-5555-5555-555555555555');
+  if not coalesce((r->>'tekrar')::boolean, false) then raise exception 'BAŞARISIZ 20: aynı adres (büyük harf) başka üyede: %', r; end if;
+  r := public.bagla_odulu('99999999-9999-9999-9999-999999999999');
+  if not coalesce((r->>'tekrar')::boolean, false) then raise exception 'BAŞARISIZ 20: silinen üyenin adresi yeniden ödül aldı: %', r; end if;
+  r := public.envanter_oku('44444444-4444-4444-4444-444444444444');
+  if not (r->>'bagli')::boolean or not (r->>'bagla_odulu')::boolean then raise exception 'BAŞARISIZ 20: envanter_oku bağlı: %', r; end if;
+  r := public.envanter_oku('77777777-7777-7777-7777-777777777777');
+  if (r->>'bagli')::boolean or (r->>'bagla_odulu')::boolean then raise exception 'BAŞARISIZ 20: envanter_oku doğrulanmamış: %', r; end if;
+  raise notice 'GEÇTİ 20: adres değişimi, büyük harf, silinen hesap; envanter_oku bayrakları';
+end $$;
+
+-- 21) birleştirme ödülü taşır (yeni üye tekrar alamaz); istemci tabloyu okuyamaz
+do $$ declare r jsonb; t uuid := 'aaaaaaaa-1111-1111-1111-111111111111'; begin
+  perform public.hesap_birlestir('44444444-4444-4444-4444-444444444444', t);
+  r := public.bagla_odulu(t);
+  if not coalesce((r->>'tekrar')::boolean, false) then raise exception 'BAŞARISIZ 21: birleştirmeden sonra ikinci ödül: %', r; end if;
+  if not (public.envanter_oku(t)->>'bagla_odulu')::boolean then raise exception 'BAŞARISIZ 21: ödül kaydı taşınmadı'; end if;
+end $$;
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"aaaaaaaa-1111-1111-1111-111111111111","role":"authenticated"}', true);
+do $$ begin
+  begin perform count(*) from public.bagla_odulleri; raise exception 'BAŞARISIZ 21: istemci bagla_odulleri okuyabildi';
+  exception when insufficient_privilege then null; end;
+  begin perform public.bagla_odulu('aaaaaaaa-1111-1111-1111-111111111111'); raise exception 'BAŞARISIZ 21: istemci bagla_odulu çağırabildi';
+  exception when insufficient_privilege then null; end;
+  raise notice 'GEÇTİ 21: birleştirme ve yetki';
 end $$;
 reset role;
 

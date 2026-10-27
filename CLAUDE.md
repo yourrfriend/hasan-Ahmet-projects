@@ -22,7 +22,7 @@ Her iş `main`'den kendi dalında; bitince `main` o dala fast-forward edilir (`g
 - Göç testi yerelde (kurulum betiğinin kendisiyle; elle `psql` döngüsü kurma: hata durdurma, göç başına işlem ve beklenen GEÇTİ sayısı betikte):
   ```sh
   docker run -d --name kg-pgtest -e POSTGRES_PASSWORD=test supabase/postgres:17.6.1.136   # host portu VERME: 55432 başka projenin arx-shadow-pg'si, ona dokunma
-  docker exec -i kg-pgtest psql -U supabase_admin -d postgres -c "alter table auth.users add column if not exists is_anonymous boolean not null default false"
+  docker exec -i kg-pgtest psql -U supabase_admin -d postgres -c "alter table auth.users add column if not exists is_anonymous boolean not null default false, add column if not exists email_confirmed_at timestamptz"
   docker exec -i kg-pgtest psql -U supabase_admin -d postgres -c "create or replace function auth.uid() returns uuid language sql stable as \$\$ select coalesce(nullif(current_setting('request.jwt.claim.sub',true),''), (nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'sub'))::uuid \$\$"
   SUPABASE_DB_KONTEYNER=kg-pgtest kasaba-gecesi/sunucu/db/uygula.sh && SUPABASE_DB_KONTEYNER=kg-pgtest kasaba-gecesi/sunucu/db/uygula.sh --test
   docker rm -f kg-pgtest
