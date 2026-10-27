@@ -264,7 +264,7 @@ const P={
 for(const [k,o] of Object.entries(P))M[k]=kutu(o);
 // ---------- kullanıcının çizdiği evler (raster) ----------
 const RESIM={'kemerli-kulube':[320,278],'toprak-dam':[309,320],'kaya-konak':[283,320],'ayakli-ev':[305,320],'ucan-daire':[320,320],'mekanik-mantar':[292,320],'sera-kubbe':[284,320],'cimen-dam':[313,320],
-  'fici-han':[301,320],'kapsul-ev':[311,320],'ahsap-kosk':[308,320],'mantar-kosk':[307,320],'kutuk-ev':[315,320],'kubbe-ev':[320,316],'a-catili':[320,317],'kule-ev':[217,320]};
+  'fici-han':[318,320],'kapsul-ev':[311,320],'ahsap-kosk':[308,320],'mantar-kosk':[307,320],'kutuk-ev':[315,320],'kubbe-ev':[320,293],'a-catili':[320,317],'kule-ev':[217,320],'kok-kosk':[320,315],'sarmasikli-ev':[308,320]};
 // sahne ölçüsü: genişlik en çok 150, yükseklik en çok 140 birim; taban y=40
 function resimOlcu(key){const r=RESIM[key];if(!r)return null;const s=Math.min(150/r[0],140/r[1]);const w=r[0]*s,h=r[1]*s;return{w,h,x:-w/2+6,y:40-h}}
 function resimModel(key,url){const o=resimOlcu(key);return{resim:url,kapi:null,pencere:null,golge:{cx:6,rx:o.w*0.48},ust:o.y+4,
