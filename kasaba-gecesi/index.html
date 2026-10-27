@@ -122,7 +122,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 .timerbox .timer{font-family:var(--display);font-size:clamp(17px,2.6vw,28px);font-variant-numeric:tabular-nums}
 .timerbox small{font-size:clamp(9px,1.1vw,12px);font-weight:700;color:#7a6a55}
 .gear{top:10px;right:10px;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.78);display:grid;place-items:center;font-size:19px;box-shadow:0 2px 0 rgba(0,0,0,.12);cursor:pointer;border:0;min-height:0;padding:0}
-.menu{top:56px;right:10px;background:rgba(255,255,255,.96);border-radius:12px;padding:6px;display:grid;gap:4px;min-width:200px;max-width:min(92vw,420px);max-height:calc(100vh - 70px);overflow:auto;box-shadow:0 8px 20px rgba(0,0,0,.3);font-size:14px;font-weight:700;z-index:5}
+.menu{top:56px;right:10px;background:rgba(255,255,255,.96);border-radius:12px;padding:6px;display:grid;gap:4px;min-width:200px;max-width:min(92vw,420px);max-height:calc(100vh - 70px);max-height:calc(100dvh - 64px);overflow:auto;overscroll-behavior:contain;box-shadow:0 8px 20px rgba(0,0,0,.3);font-size:14px;font-weight:700;z-index:5}
 .menu button{border:0;background:transparent;color:var(--ink);text-align:left;padding:8px 10px;border-radius:8px;min-height:0;font-weight:700}
 .menu button:hover{background:#f1e6cc}
 .menu button.d{color:#b3202a}
@@ -184,7 +184,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 .count{top:10px;left:10px}
 .start{left:50%;bottom:14px;transform:translateX(-50%);border:0;border-radius:16px;background:var(--orange);color:#fff;font-family:var(--display);font-weight:900;font-size:clamp(16px,2.4vw,24px);padding:10px 36px;box-shadow:0 5px 0 #a86a1c,0 8px 14px rgba(0,0,0,.25);min-height:0}
 .start:disabled{background:#c9bba0;box-shadow:0 5px 0 #9a8c74}
-.custom{left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(255,255,255,.97);border-radius:16px;padding:14px 16px;display:grid;gap:10px;box-shadow:0 12px 30px rgba(0,0,0,.4);z-index:6;width:min(92vw,420px)}
+.custom{left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(255,255,255,.97);border-radius:16px;padding:14px 16px;display:grid;gap:10px;box-shadow:0 12px 30px rgba(0,0,0,.4);z-index:6;width:min(92vw,420px);max-height:calc(100vh - 16px);max-height:calc(100dvh - 16px);overflow:auto;overscroll-behavior:contain;align-content:start}.custom .alan{display:grid;gap:5px;align-content:start}.custom h2,.custom>.primary{grid-column:1/-1;margin:0}@media (orientation:landscape) and (max-height:560px){.custom{width:min(96vw,780px);grid-template-columns:1fr 1fr;padding:10px 14px;gap:8px 16px}}.ev-sec{display:flex;align-items:center;gap:10px;width:100%;text-align:left}.ev-sec svg{width:64px;height:52px;flex:none}.ev-galeri{inset:8px;background:rgba(255,255,255,.98);border-radius:16px;z-index:7;display:flex;flex-direction:column;box-shadow:0 12px 30px rgba(0,0,0,.45)}.ev-galeri .ust{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid #eadfca}.ev-galeri .izgara{overflow:auto;overscroll-behavior:contain;padding:10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:10px}.ev-kart{display:grid;justify-items:center;gap:2px;padding:6px 4px;border:2px solid #eadfca;border-radius:12px;background:#f7f0e2;min-height:0}.ev-kart svg{width:104px;height:86px}.ev-kart.on{border-color:#2fb55a;background:#e7f7ea}.ev-kart small{font-size:12px;font-weight:800;color:var(--ink)}.ev-kart i{font-size:10px;font-style:normal;color:#8a7a5a}
 .custom .sw{display:flex;gap:6px;flex-wrap:wrap}
 .custom .sw button{width:30px;height:30px;border-radius:50%;border:3px solid transparent;padding:0;min-height:0}
 .custom .sw button.on{border-color:var(--ink)}
@@ -237,7 +237,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 <div id="app"><div class="panel"><p class="muted">Yükleniyor…</p></div></div>
 <script>
 // Script daha başlamadan çökerse "Yükleniyor…" yerine hatayı göster (sürüm damgasıyla).
-window.KG_VER='2026-11-04b';
+window.KG_VER='2026-11-04c';
 window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ff6b6b"><p><b>Sayfa açılamadı.</b> Sürüm '+KG_VER+'</p><p class="small" style="word-break:break-all">'+String(e.message||e.error||e)+(e.filename?' @'+e.lineno:'')+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}});
 setTimeout(function(){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ffb347"><p><b>Sayfa yüklenemedi.</b> Sürüm '+KG_VER+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}},8000);
 </script>
@@ -812,7 +812,7 @@ function myPosKind(){const k=myRoleKey();if(!k)return 'door';if(priv.role.team==
 function onStateChange(prev){
   const key=(P.gameId||'')+':'+P.day+':'+P.phase;if(key===lastKey)return;lastKey=key;
   local.act={};local.vote=null;local.fis=false;sel={};
-  ui.menu=false;ui.notes=false;ui.custom=false;ui.rules=false;ui.hizli=false;ui.hizliAlt=null;ui.rehber=false;ui.esyalar=false;
+  ui.menu=false;ui.notes=false;ui.custom=false;ui.evGaleri=false;ui.rules=false;ui.hizli=false;ui.hizliAlt=null;ui.rehber=false;ui.esyalar=false;
   if(scene)scene.aksiyon.replaceChildren(); // gece ortasında kalan rol hareketi sabaha taşmaz
   if(P.phase==='night'){anim={seq:'evening',t0:Date.now()};if(P.day===1)ui.roleCard=true;if(P.evening&&P.evening.out)SFX.gavel();setTimeout(()=>SFX.owl(),2500)}
   else if(P.phase==='talk'){anim={seq:'morning',t0:Date.now()};SFX.rooster();const M=P.morning||{};setTimeout(()=>{if(M.lightning&&M.lightning.length)SFX.thunder();if(M.exploded&&M.exploded.length)SFX.boom();if(M.haunted&&M.haunted.length)SFX.ghost();if(M.deaths&&M.deaths.length&&!(M.lightning||[]).length&&!(M.exploded||[]).length)SFX.stab()},900)}
@@ -1118,18 +1118,27 @@ function renderLobbyUI(stage){
   if(ui.rehber)rehberCekmece(stage);
   if(ui.esyalar)esyaCekmece(stage);
   if(ui.custom){const c=el('div','ov custom');c.append(el('h2',null,'Karakterin'));
-    const nm=el('input');nm.id='nameEdit';nm.value=myName;nm.maxLength=16;nm.onchange=()=>{const v=nm.value.trim().slice(0,16);if(v){myName=v;ls('kg_name',myName);sendHello()}};c.append(nm);
-    const sw=el('div','sw');COLORS.forEach(col=>{const b=el('button',myLook.color===col?'on':'');b.style.background=col;b.onclick=()=>{myLook.color=col;ls('kg_look',myLook);sendHello();render()};sw.append(b)});c.append(el('div','small',"Renk"),sw);
-    const sahip=new Set(envanter?envanter.kozmetikler:[]);const secim=(alan,liste,baslik,cls)=>{const r=el('div','row '+cls);liste.forEach(([k,l])=>{const b=el('button',(myLook[alan]||(alan==='esya'?'':'none'))===k?'on':'',l);b.onclick=()=>{myLook[alan]=k||null;ls('kg_look',myLook);sendHello();render()};r.append(b)});c.append(el('div','small',baslik),r)};
+    const kutu=(baslik,...el_)=>{const a=el('div','alan');if(baslik)a.append(el('div','small',baslik));a.append(...el_);c.append(a);return a};
+    const nm=el('input');nm.id='nameEdit';nm.value=myName;nm.maxLength=16;nm.onchange=()=>{const v=nm.value.trim().slice(0,16);if(v){myName=v;ls('kg_name',myName);sendHello()}};
+    const sw=el('div','sw');COLORS.forEach(col=>{const b=el('button',myLook.color===col?'on':'');b.style.background=col;b.onclick=()=>{myLook.color=col;ls('kg_look',myLook);sendHello();render()};sw.append(b)});kutu('Adın ve rengin',nm,sw);
+    const sahip=new Set(envanter?envanter.kozmetikler:[]);const secim=(alan,liste,baslik,cls)=>{const r=el('div','row '+cls);liste.forEach(([k,l])=>{const b=el('button',(myLook[alan]||(alan==='esya'?'':'none'))===k?'on':'',l);b.onclick=()=>{myLook[alan]=k||null;ls('kg_look',myLook);sendHello();render()};r.append(b)});kutu(baslik,r)};
     const sahipOlunan=tur=>Object.entries(KOZMETIK[tur]).filter(([k])=>sahip.has(tur+':'+k)).map(([k,v])=>[k,v.n]);
     secim('hat',[...HATS,...sahipOlunan('sapka')],'Şapka / aksesuar','hats');
     if(sahipOlunan('bayrak').length)secim('bayrak',[['none','Yok'],...sahipOlunan('bayrak')],'Ev bayrağı','bayraklar');
-    if(sahipOlunan('ev').length)secim('ev',[['none','Varsayılan'],...sahipOlunan('ev')],'Evin','evler');
+    if(sahipOlunan('ev').length){const su=myLook.ev&&sahipMi(KOZMETIK.ev,myLook.ev)&&sahip.has('ev:'+myLook.ev)?myLook.ev:'none';const b=el('button','ev-sec');b.append(evOnizleme(su),el('span',null,(su==='none'?'Varsayılan ev':KOZMETIK.ev[su].n)+' · Değiştir'));b.onclick=()=>{ui.evGaleri=true;render()};kutu('Evin',b)}
     if(sahipOlunan('efekt').length)secim('efekt',[['none','Yok'],...sahipOlunan('efekt')],'Ölüm efekti','efektler');
     const esyalarim=envanter?Object.entries(envanter.esyalar||{}).filter(([k,n])=>n>0&&ESYA[k]):[];
     if(esyalarim.length)secim('esya',[['','Rastgele'],...esyalarim.map(([k,n])=>[k,ESYA[k].ico+' '+ESYA[k].n+' ×'+n])],'Eşya modunda yanına al','esyalar');
-    const ok=el('button','primary','Tamam');ok.onclick=()=>{ui.custom=false;render()};c.append(ok);stage.append(c)}
+    const ok=el('button','primary','Tamam');ok.onclick=()=>{ui.custom=false;ui.evGaleri=false;render()};c.append(ok);stage.append(c);
+    // ev galerisi: sahip olunan evler resimleriyle (oyundaki çizimin aynısı), dokununca seçilir
+    if(ui.evGaleri){const gl=el('div','ov ev-galeri');const ust=el('div','ust');ust.append(el('b',null,'🏠 Evini seç'));const k=el('button','kapat','✕');k.onclick=()=>{ui.evGaleri=false;render()};ust.append(k);gl.append(ust);
+      const iz=el('div','izgara');const NAD={siradan:'Sıradan',nadir:'Nadir',efsanevi:'Efsanevi'};
+      for(const key of ['none',...Object.keys(KOZMETIK.ev).filter(x=>sahip.has('ev:'+x))]){const on=(myLook.ev||'none')===key;const kt=el('button','ev-kart'+(on?' on':''));kt.dataset.key=key;kt.append(evOnizleme(key),el('small',null,key==='none'?'Varsayılan':KOZMETIK.ev[key].n),el('i',null,key==='none'?'herkese açık':NAD[KOZMETIK.ev[key].nadir]));
+        kt.onclick=()=>{myLook.ev=key;ls('kg_look',myLook);sendHello();ui.evGaleri=false;render()};iz.append(kt)}
+      gl.append(iz);stage.append(gl)}}
 }
+// ev önizlemesi (dolap ve galeri): oyundaki drawHouse çizimi, ad etiketsiz
+function evOnizleme(key){const svg=SE('svg',{viewBox:'-95 -150 200 200'});drawHouse(svg,0,0,'',1,null,key==='none'?null:key);return svg}
 function fmtTime(ms){const s=Math.max(0,Math.ceil(ms/1000));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
 function renderGameUI(stage){
   const me=pl(myId);const alive=!!(me&&me.alive);const night=P.phase==='night';const a=age();

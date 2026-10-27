@@ -473,15 +473,23 @@ const step=t=>console.log('•',t);
       await pe.evaluate(()=>{lobiEsya={key:'zar',kaynak:'bedava'};render()});assert.match(await pe.textContent('.lobi-esya'),/Zar.*nadir/);
       // dolap: envanter gelmiş gibi (Supabase yok) → premium şapka, bayrak ve eşya seçenekleri görünür
       await pe.evaluate(()=>{envanter={yildiz:5,esyalar:{iksir:2},kozmetikler:['sapka:tac','bayrak:mavi','ev:pagoda','ev:fici-han']};ui.custom=true;render()});
-      const dolap=await pe.textContent('.ov.custom');assert.match(dolap,/Taç/);assert.match(dolap,/Mavi bayrak/);assert.match(dolap,/İksir ×2/);assert.match(dolap,/Evin/);assert.match(dolap,/Pagoda/);assert.match(dolap,/Fıçı han/);
+      const dolap=await pe.textContent('.ov.custom');assert.match(dolap,/Taç/);assert.match(dolap,/Mavi bayrak/);assert.match(dolap,/İksir ×2/);assert.match(dolap,/Evin/);assert.match(dolap,/Varsayılan ev · Değiştir/);
       // ev seçimi: sunucu sahipliği doğrular (envanter sunucuda), sahnede o ev çizilir; resimli ev resim olarak yüklenir
       { const odaE=[...srv.rooms.values()].find(r=>r.code===oda);const benE=await pe.evaluate(()=>myId);const memE=odaE.members.get(benE);memE.envanter={yildiz:5,esyalar:{iksir:2},kozmetikler:['sapka:tac','bayrak:mavi','ev:pagoda','ev:fici-han']};
-        await pe.click('.ov.custom .evler button:has-text("Pagoda")');await pe.waitForFunction(()=>{const g=scene&&scene.houses[myId]&&scene.houses[myId].g;return P.lobby.find(x=>x.id===myId).ev==='pagoda'&&g&&g.getAttribute('data-ev')==='pagoda'},null,{timeout:5000});
+        await pe.click('.ov.custom button.ev-sec');await pe.waitForSelector('.ov.ev-galeri',{timeout:3000});
+        assert.strictEqual(await pe.evaluate(()=>document.querySelectorAll('.ev-galeri .ev-kart svg').length),3,'galeride varsayılan + 2 ev, resimleriyle');
+        await pe.click('.ev-galeri .ev-kart[data-key="pagoda"]');await pe.waitForFunction(()=>{const g=scene&&scene.houses[myId]&&scene.houses[myId].g;return P.lobby.find(x=>x.id===myId).ev==='pagoda'&&g&&g.getAttribute('data-ev')==='pagoda'},null,{timeout:5000});
         assert.strictEqual(await pe.evaluate(()=>scene.houses[myId].door.childElementCount),0,'modelli evde genel kapı çizilmez (kendi kapısı)');
-        await pe.click('.ov.custom .evler button:has-text("Fıçı han")');await pe.waitForFunction(()=>{const g=scene.houses[myId].g;return g.getAttribute('data-ev')==='fici-han'&&!!g.querySelector('image')},null,{timeout:5000});
+        await pe.click('.ov.custom button.ev-sec');await pe.click('.ev-galeri .ev-kart[data-key="fici-han"]');await pe.waitForFunction(()=>{const g=scene.houses[myId].g;return g.getAttribute('data-ev')==='fici-han'&&!!g.querySelector('image')},null,{timeout:5000});
         const yuklendi=await pe.evaluate(()=>new Promise(res=>{const im=new Image();im.onload=()=>res(im.naturalWidth);im.onerror=()=>res(0);im.src=scene.houses[myId].g.querySelector('image').getAttribute('href')}));assert.ok(yuklendi>0,'ev resmi yüklenir');
         assert.ok(await pe.evaluate(()=>{const g=scene.winLights[myId];return !!g&&!!g.querySelector('image')&&/fici-han-isik\.webp/.test(g.querySelector('image').getAttribute('href'))}),'resimli evde gece ışık katmanı');
-        await pe.click('.ov.custom .evler button:has-text("Varsayılan")');await pe.waitForFunction(()=>scene.houses[myId].g.getAttribute('data-ev')==='none',null,{timeout:5000})}
+        // iPhone yatay: karakter paneli, galeri ve ayarlar menüsü ekrana sığar (taşan kısım panelin içinde kaydırılır)
+        await pe.setViewportSize({width:844,height:390});await pe.waitForTimeout(200);
+        const sig=s=>pe.evaluate(s=>{const r=document.querySelector(s).getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight+1&&r.left>=0&&r.right<=innerWidth+1},s);
+        assert.ok(await sig('.ov.custom'),'karakter paneli 844×390 sığar');await pe.click('.ov.custom button.ev-sec');assert.ok(await sig('.ov.ev-galeri'),'galeri sığar');
+        await pe.click('.ev-galeri .ev-kart[data-key="none"]');await pe.waitForFunction(()=>!document.querySelector('.ov.ev-galeri'));
+        await pe.evaluate(()=>{ui.custom=false;ui.menu=true;render()});await pe.waitForSelector('.ov.menu');assert.ok(await sig('.ov.menu'),'ayarlar menüsü sığar');await pe.evaluate(()=>{ui.menu=false;render()});
+        await pe.setViewportSize({width:900,height:520});await pe.evaluate(()=>{ui.custom=true;render()});await pe.waitForFunction(()=>scene.houses[myId].g.getAttribute('data-ev')==='none',null,{timeout:5000})}
       await pe.evaluate(()=>{ui.custom=false;render()});
       // bayrak çizimi: drawHouse bayrak rengini taşır
       assert.strictEqual(await pe.evaluate(()=>{const s=document.createElementNS('http://www.w3.org/2000/svg','g');const h=drawHouse(s,0,0,'x',1,'mavi');return !!s.querySelector('[fill="#3b7bff"]')}),true,'bayrak çizilir');
