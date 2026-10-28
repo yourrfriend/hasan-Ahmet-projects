@@ -212,7 +212,8 @@ select set_config('request.jwt.claims', '{"sub":"33333333-3333-3333-3333-3333333
 do $$ begin
   if (select adet from public.esyalar where key = 'iksir') <> 1 then raise exception 'BAŞARISIZ 14: eşya yazılmadı'; end if;
   if (select yildiz from public.cuzdan) <> 2 then raise exception 'BAŞARISIZ 14: bonus yıldız yok (eski çağrı günün ilkini almaz)'; end if;
-  if (select count(*) from public.rozetler where key in ('kurtarici','ilk_mac')) <> 2 then raise exception 'BAŞARISIZ 14: rozetler (kurtarici + ilk_mac)'; end if;
+  if (select count(*) from public.rozetler where key = 'ilk_mac') <> 1 or (select count(*) from public.rozetler where key = 'kurtarici') <> 0 then raise exception 'BAŞARISIZ 14: rozetler (yalnız ilk_mac; kurtarici göç 012 ile başarı)'; end if;
+  if (select sayac from public.basarilar where uye = '33333333-3333-3333-3333-333333333333' and key = 'kurtarici') <> 1 then raise exception 'BAŞARISIZ 14: eski çağrı kurtarici sayacı +1'; end if;
   if (select count(*) from public.kasalar) <> 1 then raise exception 'BAŞARISIZ 14: kasa kaydı'; end if;
   begin insert into public.esyalar (uye, key, adet) values ('33333333-3333-3333-3333-333333333333', 'fener', 5); raise exception 'BAŞARISIZ 14: istemci eşya yazabildi';
   exception when insufficient_privilege then null; end;
@@ -221,7 +222,7 @@ do $$ begin
 end $$;
 select set_config('request.jwt.claims', '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}', true);
 do $$ begin
-  if (select count(*) from public.esyalar) + (select count(*) from public.cuzdan) + (select count(*) from public.rozetler) + (select count(*) from public.kasalar) + (select count(*) from public.kozmetikler) <> 0 then raise exception 'BAŞARISIZ 14: başkasının ilerlemesi görünüyor'; end if;
+  if (select count(*) from public.esyalar) + (select count(*) from public.cuzdan) + (select count(*) from public.rozetler) + (select count(*) from public.basarilar) + (select count(*) from public.kasalar) + (select count(*) from public.kozmetikler) <> 0 then raise exception 'BAŞARISIZ 14: başkasının ilerlemesi görünüyor'; end if;
   begin perform public.mac_sonu('11111111-1111-1111-1111-111111111111', gen_random_uuid(), null, null, null, 0); raise exception 'BAŞARISIZ 14: istemci mac_sonu çağırabildi';
   exception when insufficient_privilege then null; end;
   raise notice 'GEÇTİ 14: ilerleme yalnız kendine görünür, yalnız sunucu yazar';
@@ -245,7 +246,7 @@ do $$ declare r jsonb; u uuid := '33333333-3333-3333-3333-333333333333'; n int :
     if coalesce((r->>'tavan')::boolean, false) then n := n + 1; end if;
   end loop;
   if n = 0 then raise exception 'BAŞARISIZ 15: günlük kasa tavanı işlemedi'; end if;
-  if position('for update' in pg_get_functiondef('public.mac_sonu(uuid, uuid, jsonb, text[], text, int, int)'::regprocedure)) = 0 then raise exception 'BAŞARISIZ 15: göç 009 — mac_sonu cüzdan kilidi (for update) yok'; end if;
+  if position('for update' in pg_get_functiondef('public.mac_sonu(uuid, uuid, jsonb, text[], text, int, int, jsonb)'::regprocedure)) = 0 then raise exception 'BAŞARISIZ 15: göç 009 — mac_sonu cüzdan kilidi (for update) yok'; end if;
   if (select adet from public.esyalar where uye = u and key = 'fener') > 20 then raise exception 'BAŞARISIZ 15: tavan sonrası ödül verildi'; end if;
   raise notice 'GEÇTİ 15: mac_sonu idempotent, dönüşüm, harcama, tavan';
 end $$;
@@ -269,7 +270,7 @@ do $$ declare u1 uuid := '11111111-1111-1111-1111-111111111111'; u3 uuid := '333
   if (select adet from public.esyalar where uye = u1 and key = 'fener') <> f3 + 1 then raise exception 'BAŞARISIZ 17: eşya adetleri toplanmadı'; end if;
   if (select yildiz from public.cuzdan where uye = u1) <> 15 then raise exception 'BAŞARISIZ 17: yıldız toplanmadı (10+5)'; end if;
   if not exists (select 1 from public.kozmetikler where uye = u1 and key = 'sapka:tac') then raise exception 'BAŞARISIZ 17: kozmetik taşınmadı'; end if;
-  if (select count(*) from public.esyalar where uye = u3) + (select count(*) from public.cuzdan where uye = u3) + (select count(*) from public.kasalar where uye = u3) + (select count(*) from public.rozetler where uye = u3) + (select count(*) from public.kozmetikler where uye = u3) <> 0 then raise exception 'BAŞARISIZ 17: eski hesapta kalıntı'; end if;
+  if (select count(*) from public.esyalar where uye = u3) + (select count(*) from public.cuzdan where uye = u3) + (select count(*) from public.kasalar where uye = u3) + (select count(*) from public.rozetler where uye = u3) + (select count(*) from public.basarilar where uye = u3) + (select count(*) from public.kozmetikler where uye = u3) <> 0 then raise exception 'BAŞARISIZ 17: eski hesapta kalıntı'; end if;
   if (select count(*) from public.kasalar where uye = u1) < 30 then raise exception 'BAŞARISIZ 17: kasalar taşınmadı'; end if;
   raise notice 'GEÇTİ 17: birleştirme ilerlemeyi taşır';
 end $$;
@@ -394,6 +395,107 @@ do $$ declare r jsonb; u uuid := 'dddddddd-1111-1111-1111-111111111111';
   r := public.mac_sonu(u, gen_random_uuid(), '{"tur":"yildiz","adet":1}', null, null, 0, 5);
   if (r->>'gunun_ilki')::int <> 0 then raise exception 'BAŞARISIZ 23: bugün 00:00 kasası sayılmadı: %', r; end if;
   raise notice 'GEÇTİ 23: günün ilki gün sınırı';
+end $$;
+reset role;
+
+-- 24) kademeli başarılar (göç 012): iki eşik birden atlanır (her kademenin ödülü), tekrar sayaç artırmaz, mudavim = kasa sayısı,
+--     tavanda sayaç yine artar ve altın verilir (kasa/bonus yok), eski 7 parametreli çağrı dönüşen rozetleri sayaca +1 yazar (kademe yok, rozetler'e yazmaz)
+insert into auth.users (id, instance_id, aud, role, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, is_anonymous)
+values ('eeeeeeee-1111-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, '{}', '{}', now(), now(), true);
+set local role service_role;
+do $$ declare r jsonb; u uuid := 'eeeeeeee-1111-1111-1111-111111111111'; g uuid := gen_random_uuid(); b jsonb;
+  sifir jsonb := '{"artis":0,"esik":[100,200,300],"odul":[10,30,"bayrak:kurt"]}';
+begin
+  b := jsonb_build_object('mudavim', '{"artis":0,"esik":[2,50,150],"odul":[10,30,"ev:saat-kulesi"]}'::jsonb,
+        'kurtarici', '{"artis":2,"esik":[1,2,30],"odul":[10,30,"sapka:hemsire"]}'::jsonb,
+        'kalkan', sifir, 'golgeler', sifir, 'yalniz_kurt', sifir, 'son_isik', sifir, 'bekci', sifir, 'tuzak_ustasi', sifir, 'yildirim', sifir);
+  r := public.mac_sonu(u, g, '{"tur":"yildiz","adet":0}', null, null, 0, 0, b);
+  if r->'kademeler' <> '[{"key":"kurtarici","kademe":1,"odul":10},{"key":"kurtarici","kademe":2,"odul":30}]'::jsonb then raise exception 'BAŞARISIZ 24: iki kademe: %', r; end if;
+  if (select yildiz from public.cuzdan where uye = u) <> 40 then raise exception 'BAŞARISIZ 24: bronz+gümüş 40: %', (select yildiz from public.cuzdan where uye = u); end if;
+  if (select sayac from public.basarilar where uye = u and key = 'kurtarici') <> 2 or (select kademe from public.basarilar where uye = u and key = 'kurtarici') <> 2 then raise exception 'BAŞARISIZ 24: kurtarici 2/2'; end if;
+  if (select sayac from public.basarilar where uye = u and key = 'mudavim') <> 1 or (select kademe from public.basarilar where uye = u and key = 'mudavim') <> 0 then raise exception 'BAŞARISIZ 24: mudavim 1/0'; end if;
+  r := public.mac_sonu(u, g, '{"tur":"yildiz","adet":0}', null, null, 0, 0, b);
+  if not coalesce((r->>'tekrar')::boolean, false) or (select sayac from public.basarilar where uye = u and key = 'kurtarici') <> 2 then raise exception 'BAŞARISIZ 24: tekrar sayacı artırdı: %', r; end if;
+  b := b || jsonb_build_object('kurtarici', '{"artis":0,"esik":[1,2,30],"odul":[10,30,"sapka:hemsire"]}'::jsonb);
+  r := public.mac_sonu(u, gen_random_uuid(), '{"tur":"yildiz","adet":0}', null, null, 0, 0, b);
+  if (select sayac from public.basarilar where uye = u and key = 'mudavim') <> 2 or (select kademe from public.basarilar where uye = u and key = 'mudavim') <> 1
+     or (select yildiz from public.cuzdan where uye = u) <> 50 then raise exception 'BAŞARISIZ 24: mudavim bronz: %', r; end if;
+  insert into public.kasalar (uye, oyun_id, odul) select u, gen_random_uuid(), '{"tur":"yildiz","adet":1}' from generate_series(1, 20);
+  b := b || jsonb_build_object('kurtarici', '{"artis":28,"esik":[1,2,30],"odul":[10,30,"sapka:hemsire"]}'::jsonb);
+  r := public.mac_sonu(u, gen_random_uuid(), '{"tur":"yildiz","adet":9}', null, null, 5, 5, b);
+  if not (r->>'tavan')::boolean then raise exception 'BAŞARISIZ 24: tavan bekleniyor: %', r; end if;
+  if (select yildiz from public.cuzdan where uye = u) <> 50 then raise exception 'BAŞARISIZ 24: tavanda kasa/bonus verildi: %', (select yildiz from public.cuzdan where uye = u); end if;
+  if r->'kademeler' <> '[{"key":"kurtarici","kademe":3,"odul":"sapka:hemsire"}]'::jsonb then raise exception 'BAŞARISIZ 24: tavanda altın: %', r; end if;
+  if not exists (select 1 from public.kozmetikler where uye = u and key = 'sapka:hemsire') then raise exception 'BAŞARISIZ 24: altın kozmetik yazılmadı'; end if;
+  r := public.mac_sonu(u, gen_random_uuid(), '{"tur":"yildiz","adet":0}', array['kurtarici','hain_zafer','ilk_mac'], null, 0, 0);
+  if (select sayac from public.basarilar where uye = u and key = 'kurtarici') <> 31 then raise exception 'BAŞARISIZ 24: eski kod kurtarici +1'; end if;
+  if (select sayac from public.basarilar where uye = u and key = 'golgeler') <> 1 or (select kademe from public.basarilar where uye = u and key = 'golgeler') <> 0 then raise exception 'BAŞARISIZ 24: eski kod golgeler 1/0'; end if;
+  if (select array_agg(key order by key) from public.rozetler where uye = u) <> array['ilk_mac'] then raise exception 'BAŞARISIZ 24: rozetler: %', (select array_agg(key) from public.rozetler where uye = u); end if;
+  if r->'kademeler' <> '[]'::jsonb then raise exception 'BAŞARISIZ 24: eski kod kademeler: %', r; end if;
+  raise notice 'GEÇTİ 24: kademe atlama, tekrar, mudavim, tavan, eski çağrı';
+end $$;
+reset role;
+
+-- 25) rozet_donustur: eski rozetler bronz/gümüş kademeye taşınır (yıldız yok), mudavim sayacı kasa sayısı, ikinci çağrı boş
+insert into auth.users (id, instance_id, aud, role, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, is_anonymous)
+values ('ffffffff-1111-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, '{}', '{}', now(), now(), true);
+set local role service_role;
+do $$ declare u uuid := 'ffffffff-1111-1111-1111-111111111111'; n int; begin
+  insert into public.kasalar (uye, oyun_id, odul) select u, gen_random_uuid(), '{"tur":"yildiz","adet":1}' from generate_series(1, 25);
+  insert into public.rozetler (uye, key) values (u, 'ilk_mac'), (u, 'mac_10'), (u, 'kurtarici'), (u, 'masum_zafer');
+  n := public.rozet_donustur();
+  if n < 3 then raise exception 'BAŞARISIZ 25: en az 3 satır taşınmalı: %', n; end if;
+  if (select sayac from public.basarilar where uye = u and key = 'mudavim') <> 25 or (select kademe from public.basarilar where uye = u and key = 'mudavim') <> 1 then raise exception 'BAŞARISIZ 25: mudavim 25/1'; end if;
+  if (select sayac from public.basarilar where uye = u and key = 'kurtarici') <> 3 or (select kademe from public.basarilar where uye = u and key = 'kurtarici') <> 1 then raise exception 'BAŞARISIZ 25: kurtarici 3/1'; end if;
+  if (select sayac from public.basarilar where uye = u and key = 'kalkan') <> 5 or (select kademe from public.basarilar where uye = u and key = 'kalkan') <> 1 then raise exception 'BAŞARISIZ 25: kalkan 5/1'; end if;
+  if (select array_agg(key) from public.rozetler where uye = u) <> array['ilk_mac'] then raise exception 'BAŞARISIZ 25: rozetler temizlenmedi'; end if;
+  if coalesce((select yildiz from public.cuzdan where uye = u), 0) <> 0 then raise exception 'BAŞARISIZ 25: dönüşüm yıldız verdi'; end if;
+  if public.rozet_donustur() <> 0 then raise exception 'BAŞARISIZ 25: ikinci çağrı taşıdı'; end if;
+  raise notice 'GEÇTİ 25: rozet dönüşümü';
+end $$;
+reset role;
+
+-- 26) birleştirme: sayaçlar toplanır, kademe büyüğü, sıçrama yok; sonraki maç eşiği aşan sayacı yakalar
+insert into auth.users (id, instance_id, aud, role, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, is_anonymous)
+values ('abababab-1111-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, '{}', '{}', now(), now(), true),
+       ('acacacac-1111-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, '{}', '{}', now(), now(), true);
+set local role service_role;
+do $$ declare r jsonb; x uuid := 'abababab-1111-1111-1111-111111111111'; y uuid := 'acacacac-1111-1111-1111-111111111111'; b jsonb;
+  sifir jsonb := '{"artis":0,"esik":[100,200,300],"odul":[10,30,"bayrak:kurt"]}';
+begin
+  insert into public.basarilar (uye, key, sayac, kademe) values (x, 'kurtarici', 2, 1), (y, 'kurtarici', 2, 0);
+  perform public.hesap_birlestir(x, y);
+  if (select sayac from public.basarilar where uye = y and key = 'kurtarici') <> 4 or (select kademe from public.basarilar where uye = y and key = 'kurtarici') <> 1 then raise exception 'BAŞARISIZ 26: toplanmadı'; end if;
+  if exists (select 1 from public.basarilar where uye = x) then raise exception 'BAŞARISIZ 26: eski satır kaldı'; end if;
+  b := jsonb_build_object('mudavim', sifir, 'kurtarici', '{"artis":0,"esik":[1,3,30],"odul":[10,30,"sapka:hemsire"]}'::jsonb,
+        'kalkan', sifir, 'golgeler', sifir, 'yalniz_kurt', sifir, 'son_isik', sifir, 'bekci', sifir, 'tuzak_ustasi', sifir, 'yildirim', sifir);
+  r := public.mac_sonu(y, gen_random_uuid(), '{"tur":"yildiz","adet":0}', null, null, 0, 0, b);
+  if r->'kademeler' <> '[{"key":"kurtarici","kademe":2,"odul":30}]'::jsonb then raise exception 'BAŞARISIZ 26: sonraki maç gümüşü vermedi: %', r; end if;
+  if (select yildiz from public.cuzdan where uye = y) <> 30 then raise exception 'BAŞARISIZ 26: gümüş 30: %', (select yildiz from public.cuzdan where uye = y); end if;
+  raise notice 'GEÇTİ 26: birleştirme toplar, kademe sonraki maçta';
+end $$;
+reset role;
+
+-- 27) yetki: üye yalnız kendi başarılarını okur, yazamaz, dönüşümü çağıramaz; altın kozmetik satılmaz
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"acacacac-1111-1111-1111-111111111111","role":"authenticated"}', true);
+do $$ begin
+  if (select sayac from public.basarilar where uye = 'acacacac-1111-1111-1111-111111111111' and key = 'kurtarici') <> 4 then raise exception 'BAŞARISIZ 27: kendi satırını okuyamadı'; end if;
+  if (select count(*) from public.basarilar where uye = 'eeeeeeee-1111-1111-1111-111111111111') <> 0 then raise exception 'BAŞARISIZ 27: başkasının satırını okudu'; end if;
+  begin insert into public.basarilar (uye, key, sayac, kademe) values ('acacacac-1111-1111-1111-111111111111', 'bekci', 99, 3); raise exception 'BAŞARISIZ 27: istemci yazabildi';
+  exception when insufficient_privilege then null; end;
+  begin perform public.rozet_donustur(); raise exception 'BAŞARISIZ 27: istemci rozet_donustur çağırabildi';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+set local role service_role;
+do $$ declare r jsonb; y uuid := 'acacacac-1111-1111-1111-111111111111'; begin
+  update public.cuzdan set yildiz = 500 where uye = y;
+  r := public.kozmetik_al(y, 'sapka:hemsire', 180);
+  if r->>'hata' <> 'ozel' then raise exception 'BAŞARISIZ 27: altın satıldı: %', r; end if;
+  r := public.kozmetik_al(y, 'bayrak:mektup', 70);
+  if r->>'hata' <> 'ozel' then raise exception 'BAŞARISIZ 27: mektup satıldı: %', r; end if;
+  raise notice 'GEÇTİ 27: başarı yetkileri ve altın satılmaz';
 end $$;
 reset role;
 

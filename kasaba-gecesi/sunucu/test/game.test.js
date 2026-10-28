@@ -1091,6 +1091,16 @@ test('göç 010: bağlama miktarı game.js ile aynı; günün ilki parametreden'
   assert.ok(sql.includes("p_key = 'bayrak:mektup'")&&sql.includes("'bayrak:mektup') on conflict"),'mektup anahtarı göçte');
   assert.ok(Object.entries(G.KOZMETIK).every(([t,o])=>Object.entries(o).every(([k,v])=>v.ozel!=='bagla'||(t+':'+k)==='bayrak:mektup')),'bağlama öğesi yalnız mektup (göç bunu sabit tutar)');
 });
+test('göç 012: bronz eşikleri, rozet dönüşümü ve satılmayan altın listesi game.js ile aynı; p_basari varsayılanı null',()=>{
+  const sql=require('fs').readFileSync(require('path').join(__dirname,'../db/goc/012_basarilar.sql'),'utf8');
+  assert.ok(/p_gunluk int default 0, p_basari jsonb default null/.test(sql),'imza: p_basari sona, varsayılan null');
+  const bronz=JSON.parse((sql.match(/bronz_esik constant jsonb := '(\{[^']*\})'/)||[])[1]||'null');
+  assert.deepStrictEqual(bronz,Object.fromEntries(Object.entries(G.BASARILAR).filter(([k])=>k!=='mudavim').map(([k,b])=>[k,b.esik[0]])),'bronz eşikleri (mudavim hariç: kasa sayısı)');
+  const donusum=JSON.parse((sql.match(/donusum constant jsonb := '(\{[^']*\})'/)||[])[1]||'null');assert.deepStrictEqual(donusum,G.ROZET_DONUSUM);
+  const ozel=((sql.match(/basari_ozel constant text\[\] := array\[([^\]]*)\]/)||[])[1]||'').split(',').map(x=>x.trim().replace(/^'|'$/g,'')).filter(Boolean).sort();
+  assert.deepStrictEqual(ozel,Object.values(G.BASARILAR).map(b=>b.altin).sort(),'kozmetik_al özel listesi = altınlar');
+  assert.ok(sql.includes("p_key = 'bayrak:mektup' or p_key = any(basari_ozel)"),'mektup yine satılmaz');
+});
 test('yildizDokumu: bir gecede tek olay bir kez sayılır (tuzağa iki kişi, yıldırımla iki ölü); iki gece iki kez',()=>{
   const R=fixed(['hain','tuzakci','masum','masum','masum']);
   R.gameLog.push({tur:'gece_sonuc',gun:1,veri:{tuzak:[{kuran:'u1',hedef:'u2'},{kuran:'u1',hedef:'u3'}],olenler:[{id:'u2',sekil:'bolt',kimden:['u1']},{id:'u3',sekil:'bolt',kimden:['u1']}]}});
