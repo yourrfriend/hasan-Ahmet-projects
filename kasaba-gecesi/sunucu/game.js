@@ -133,7 +133,8 @@ function rolBasarilari(R,id){const g=R.g,out=[];if(!g)return out;
   return out}
 // yıldız kaynakları (tasarım 2026-10-27-kasaba-gecesi-yildiz-1): miktarlar tek kaynak; gunun_ilki ve bagla göç 010'da da aynı sayı (test denetler)
 const YILDIZ_KAYNAK={kazanma:{n:'Kazandın',adet:2},tek_kazanan:{n:'Tek başına kazandın',adet:4},rol_basari:{n:'Rol başarısı',adet:1},kalabalik:{n:'Kalabalık maç',adet:1},
-  hain_oyu:{n:'Asılan haine oy',adet:2},gunun_ilki:{n:'Günün ilk maçı',adet:5},bagla:{n:'E-posta bağlandı',adet:25}};
+  hain_oyu:{n:'Asılan haine oy',adet:2},gunun_ilki:{n:'Günün ilk maçı',adet:5},bagla:{n:'E-posta bağlandı',adet:25},
+  seri:{n:'Seri',adet:1,tavan:5}};
 const ROL_BASARI_TAVAN=3;
 // maç sonu yıldız dökümü (yalnız bu oyuncuya gösterilir; veritabanına yalnız toplam gider). Oy bilgisi yalnız R.g.hainOyu belleğinden.
 function yildizDokumu(R,id){const g=R.g,P=R.P;if(!g||!g.roles[id]||P.phase!=='end')return [];const out=[],r=g.roles[id];

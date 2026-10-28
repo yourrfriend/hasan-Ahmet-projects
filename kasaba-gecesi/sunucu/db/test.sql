@@ -246,7 +246,7 @@ do $$ declare r jsonb; u uuid := '33333333-3333-3333-3333-333333333333'; n int :
     if coalesce((r->>'tavan')::boolean, false) then n := n + 1; end if;
   end loop;
   if n = 0 then raise exception 'BAŞARISIZ 15: günlük kasa tavanı işlemedi'; end if;
-  if position('for update' in pg_get_functiondef('public.mac_sonu(uuid, uuid, jsonb, text[], text, int, int, jsonb)'::regprocedure)) = 0 then raise exception 'BAŞARISIZ 15: göç 009 — mac_sonu cüzdan kilidi (for update) yok'; end if;
+  if position('for update' in pg_get_functiondef('public.mac_sonu(uuid, uuid, jsonb, text[], text, int, int, jsonb, int, int)'::regprocedure)) = 0 then raise exception 'BAŞARISIZ 15: göç 009 — mac_sonu cüzdan kilidi (for update) yok'; end if;
   if (select adet from public.esyalar where uye = u and key = 'fener') > 20 then raise exception 'BAŞARISIZ 15: tavan sonrası ödül verildi'; end if;
   raise notice 'GEÇTİ 15: mac_sonu idempotent, dönüşüm, harcama, tavan';
 end $$;
@@ -500,6 +500,68 @@ do $$ declare r jsonb; y uuid := 'acacacac-1111-1111-1111-111111111111'; begin
   r := public.kozmetik_al(y, 'ev:saat-kulesi', 180);
   if not coalesce((r->>'ok')::boolean, false) then raise exception 'BAŞARISIZ 27: satılan Saat kulesi alınamadı (göç 013): %', r; end if;
   raise notice 'GEÇTİ 27: başarı yetkileri ve altın satılmaz';
+end $$;
+reset role;
+
+-- 28) seri (göç 014): dün → +1 ve günün ilki büyür; aynı gün ikinci maç değişmez; boş gün → 1; tavan 10; bağlı değilse +5 ama sayılır;
+--     tavana takılan maç seriyi işlemez; eski 8 parametreli çağrı seriyi işler, büyütmez
+insert into auth.users (id, instance_id, aud, role, email, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, is_anonymous)
+values ('5e5e5e5e-0001-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'seri1@ornek.com', now(), '{}', '{}', now(), now(), false),
+       ('5e5e5e5e-0002-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true),
+       ('5e5e5e5e-0003-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'seri3@ornek.com', now(), '{}', '{}', now(), now(), false),
+       ('5e5e5e5e-0004-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'seri4@ornek.com', now(), '{}', '{}', now(), now(), false);
+set local role service_role;
+do $$ declare r jsonb; a uuid := '5e5e5e5e-0001-1111-1111-111111111111'; b uuid := '5e5e5e5e-0002-1111-1111-111111111111';
+  c uuid := '5e5e5e5e-0003-1111-1111-111111111111'; d uuid := '5e5e5e5e-0004-1111-1111-111111111111';
+  bugun date := (now() at time zone 'Europe/Istanbul')::date; od jsonb := '{"tur":"yildiz","adet":0}';
+begin
+  insert into public.seriler (uye, son_gun, seri, en_uzun) values (a, bugun - 1, 2, 2);
+  r := public.mac_sonu(a, gen_random_uuid(), od, null, null, 0, 5, null, 1, 5);
+  if (r->>'gunun_ilki')::int <> 7 or (r->>'seri')::int <> 3 then raise exception 'BAŞARISIZ 28: dün → seri 3, +7: %', r; end if;
+  if (select en_uzun from public.seriler where uye = a) <> 3 or (select son_gun from public.seriler where uye = a) <> bugun then raise exception 'BAŞARISIZ 28: en_uzun/son_gun'; end if;
+  r := public.mac_sonu(a, gen_random_uuid(), od, null, null, 0, 5, null, 1, 5);
+  if (r->>'gunun_ilki')::int <> 0 or (r->>'seri')::int <> 3 then raise exception 'BAŞARISIZ 28: aynı gün ikinci maç: %', r; end if;
+  update public.seriler set son_gun = bugun - 2 where uye = a; delete from public.kasalar where uye = a;
+  r := public.mac_sonu(a, gen_random_uuid(), od, null, null, 0, 5, null, 1, 5);
+  if (r->>'gunun_ilki')::int <> 5 or (r->>'seri')::int <> 1 or (select en_uzun from public.seriler where uye = a) <> 3 then raise exception 'BAŞARISIZ 28: boş gün → 1: %', r; end if;
+  update public.seriler set son_gun = bugun - 1, seri = 9 where uye = a; delete from public.kasalar where uye = a;
+  r := public.mac_sonu(a, gen_random_uuid(), od, null, null, 0, 5, null, 1, 5);
+  if (r->>'gunun_ilki')::int <> 10 or (r->>'seri')::int <> 10 then raise exception 'BAŞARISIZ 28: tavan 10: %', r; end if;
+  insert into public.seriler (uye, son_gun, seri, en_uzun) values (b, bugun - 1, 4, 4);
+  r := public.mac_sonu(b, gen_random_uuid(), od, null, null, 0, 5, null, 1, 5);
+  if (r->>'gunun_ilki')::int <> 5 or (r->>'seri')::int <> 5 then raise exception 'BAŞARISIZ 28: bağlı değil: +5, seri sayılır: %', r; end if;
+  insert into public.kasalar (uye, oyun_id, odul) select c, gen_random_uuid(), '{"tavan":true}' from generate_series(1, 20);
+  r := public.mac_sonu(c, gen_random_uuid(), od, null, null, 0, 5, null, 1, 5);
+  if not (r->>'tavan')::boolean or exists (select 1 from public.seriler where uye = c) then raise exception 'BAŞARISIZ 28: tavanda seri işlendi: %', r; end if;
+  insert into public.seriler (uye, son_gun, seri, en_uzun) values (d, bugun - 1, 2, 2);
+  r := public.mac_sonu(d, gen_random_uuid(), od, null, null, 0, 5, null);
+  if (r->>'gunun_ilki')::int <> 5 or (r->>'seri')::int <> 3 then raise exception 'BAŞARISIZ 28: eski çağrı: %', r; end if;
+  if (public.envanter_oku(d)->'seri'->>'seri')::int <> 3 or public.envanter_oku(c)->'seri' <> 'null'::jsonb then raise exception 'BAŞARISIZ 28: envanter_oku seri'; end if;
+  raise notice 'GEÇTİ 28: seri ve günün ilki';
+end $$;
+reset role;
+
+-- 29) seri birleştirme (en yeni son_gun'un serisi, en_uzun büyüğü) ve yetki
+insert into auth.users (id, instance_id, aud, role, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, is_anonymous)
+values ('5e5e5e5e-0005-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, '{}', '{}', now(), now(), true),
+       ('5e5e5e5e-0006-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, '{}', '{}', now(), now(), true);
+set local role service_role;
+do $$ declare x uuid := '5e5e5e5e-0005-1111-1111-111111111111'; y uuid := '5e5e5e5e-0006-1111-1111-111111111111';
+  bugun date := (now() at time zone 'Europe/Istanbul')::date;
+begin
+  insert into public.seriler (uye, son_gun, seri, en_uzun) values (x, bugun - 3, 4, 6), (y, bugun - 1, 2, 2);
+  perform public.hesap_birlestir(x, y);
+  if (select (seri, en_uzun, son_gun) from public.seriler where uye = y) <> (2, 6, bugun - 1) then raise exception 'BAŞARISIZ 29: birleştirme: %', (select row(seri, en_uzun, son_gun) from public.seriler where uye = y); end if;
+  if exists (select 1 from public.seriler where uye = x) then raise exception 'BAŞARISIZ 29: eski satır kaldı'; end if;
+end $$;
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"5e5e5e5e-0006-1111-1111-111111111111","role":"authenticated"}', true);
+do $$ begin
+  if (select count(*) from public.seriler) <> 1 then raise exception 'BAŞARISIZ 29: yalnız kendi satırını görmeli'; end if;
+  begin update public.seriler set seri = 99; raise exception 'BAŞARISIZ 29: istemci yazabildi';
+  exception when insufficient_privilege then null; end;
+  raise notice 'GEÇTİ 29: seri birleştirme ve yetki';
 end $$;
 reset role;
 

@@ -1116,6 +1116,12 @@ test('katalog anahtarları kaynakta tekil: KOZMETIK.ev ve evler.js M aynı anaht
     const n=(ev.match(new RegExp("^M(\\['"+k+"'\\]|\\."+k.replace(/-/g,'\\-')+")=",'gm'))||[]).length;assert.ok(n<=1,'evler.js çift model: '+k)}
   assert.strictEqual(Object.keys(G.KOZMETIK.ev).length,102);
 });
+test('seri (göç 014): YILDIZ_KAYNAK.seri tek kaynak; SQL sayı bilmez, parametreyle büyür',()=>{
+  assert.deepStrictEqual(G.YILDIZ_KAYNAK.seri,{n:'Seri',adet:1,tavan:5});
+  const sql=require('fs').readFileSync(require('path').join(__dirname,'../db/goc/014_seri.sql'),'utf8');
+  assert.ok(/p_basari jsonb default null, p_seri_artis int default 0, p_seri_tavan int default 0/.test(sql),'imza');
+  assert.ok(/least\(greatest\(v_seri - 1, 0\) \* p_seri_artis, p_seri_tavan\)/.test(sql),'artış formülü parametreli');
+});
 test('göç 012: bronz eşikleri, rozet dönüşümü ve satılmayan altın listesi game.js ile aynı; p_basari varsayılanı null',()=>{
   const sql=require('fs').readFileSync(require('path').join(__dirname,'../db/goc/012_basarilar.sql'),'utf8');
   assert.ok(/p_gunluk int default 0, p_basari jsonb default null/.test(sql),'imza: p_basari sona, varsayılan null');
