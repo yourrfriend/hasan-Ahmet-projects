@@ -60,7 +60,7 @@ const step=t=>console.log('•',t);
         oturumVer=()=>oturum;let signupRota=0;let apiJsDurum=200;
         const g1='aaaaaaaa-0000-4000-8000-000000000001',g2='aaaaaaaa-0000-4000-8000-000000000002',g3='aaaaaaaa-0000-4000-8000-000000000003',k1='bbbbbbbb-0000-4000-8000-000000000001';
         const g4='aaaaaaaa-0000-4000-8000-000000000004',g9='aaaaaaaa-0000-4000-8000-000000000009';
-        const tablo={cuzdan:[{uye:'11111111-2222-4333-8444-555555555555',yildiz:33}],esyalar:[{uye:'11111111-2222-4333-8444-555555555555',key:'iksir',adet:2}],kozmetikler:[{uye:'11111111-2222-4333-8444-555555555555',key:'sapka:tac'}],rozetler:[{uye:'11111111-2222-4333-8444-555555555555',key:'kurtarici',kazanma:'2026-10-26T10:00:00Z'}],
+        const tablo={cuzdan:[{uye:'11111111-2222-4333-8444-555555555555',yildiz:33}],esyalar:[{uye:'11111111-2222-4333-8444-555555555555',key:'iksir',adet:2}],kozmetikler:[{uye:'11111111-2222-4333-8444-555555555555',key:'sapka:tac'}],rozetler:[{uye:'11111111-2222-4333-8444-555555555555',key:'ilk_mac',kazanma:'2026-10-26T10:00:00Z'}],basarilar:[{uye:'11111111-2222-4333-8444-555555555555',key:'kurtarici',sayac:12,kademe:2}],
           oyuncu_ozet:[{uye:ben,kurulum:'e2e',oyun:3,kazanma:2,en_cok_rol:'doktor',son_oyun:'2026-10-25T20:00:00Z'}],
           // g3: kasabamın maçı ama ben oynamadım → "son oyunların"da yok; g4: süren oyun (bitiş yok, roller gizli, olaylar RLS'de boş)
           oyunlar:[{id:g3,kasaba_id:k1,kurulum:'e2e',bitis:'2026-10-25T21:00:00Z',sonuc:'bitti',kazanan_takim:'inn',kazanan_metin:'Masumlar kazandı',oyuncu_sayisi:4,baslama:'2026-10-25T20:40:00Z'},
@@ -133,12 +133,16 @@ const step=t=>console.log('•',t);
         { const alimlar=[];await p5.route('**/ben/al',async route=>{const r=route.request();const g=JSON.parse(r.postData()||'{}');alimlar.push({key:g.key,auth:r.headers()['authorization']||''});
             tablo.kozmetikler.push({uye:ben,key:g.key});tablo.cuzdan[0].yildiz=8;return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,yildiz:8})})});
           await p5.goto(o3+'/ben');await p5.waitForFunction(()=>[...document.querySelectorAll('#icerik h2')].some(h=>/Koleksiyon/.test(h.textContent)),null,{timeout:8000});
-          const t=await p5.textContent('main');assert.match(t,/⭐ 33/);assert.match(t,/İksir ×2/);assert.match(t,/Rozetler \(1\//);
+          const t=await p5.textContent('main');assert.match(t,/⭐ 33/);assert.match(t,/İksir ×2/);assert.match(t,/Rozetler \(1\/4\)/);
           assert.strictEqual(await p5.evaluate(()=>document.querySelectorAll('.rozet:not(.kilitli)').length),1,'bir rozet kazanılmış');
+          assert.strictEqual(await p5.evaluate(()=>document.querySelectorAll('.basari').length),9,'dokuz başarı satırı');assert.match(await p5.textContent('.basari[data-key="kurtarici"]'),/12\/30 → altın/,'kurtarıcı ilerlemesi');
+          assert.strictEqual(await p5.evaluate(()=>document.querySelectorAll('.basari[data-key="kurtarici"] .madalya:not(.yok)').length),2,'iki madalya');assert.match(await p5.textContent('.basari[data-key="mudavim"]'),/0\/10 → bronz/,'sayaç yoksa 0');
+          assert.strictEqual(await p5.evaluate(()=>document.querySelectorAll('.basari[data-key="mudavim"] .madalya:not(.yok)').length),0);assert.ok(await p5.evaluate(()=>[...document.querySelectorAll('#icerik h2')].some(h=>/Başarılar/.test(h.textContent))),'Başarılar başlığı');
           assert.ok(await p5.evaluate(()=>[...document.querySelectorAll('#icerik h3')].some(h=>h.textContent==='Evler')),'Evler bölümü');assert.strictEqual(await p5.evaluate(()=>document.querySelectorAll('.urun svg.onizleme, .urun img.onizleme').length),Object.keys(G.KOZMETIK.ev).length,'her eve önizleme');
           assert.ok(await p5.evaluate(()=>[...document.querySelectorAll('.urun svg.onizleme')].filter(x=>x.firstChild).length<KG_EVLER.svg().length),'SVG önizlemeler tembel çizilir');
           assert.match(await p5.textContent('.guvenlik'),/E-posta bağla/,'hesap güvenliği kartı');assert.strictEqual(await p5.getAttribute('.guvenlik a','href'),'/?bagla=1');
           assert.match(await p5.textContent('.urun[data-key="bayrak:mektup"]'),/E-postanı bağlayınca/);assert.strictEqual(await p5.$('.urun[data-key="bayrak:mektup"] button'),null,'özel öğe satılmaz');
+          assert.match(await p5.textContent('.urun[data-key="sapka:hemsire"]'),/Kurtarıcı altınıyla/,'altın kozmetik etiketi');assert.strictEqual(await p5.$('.urun[data-key="sapka:hemsire"] button'),null,'altın satılmaz');
           assert.strictEqual((await p5.textContent('.urun[data-key="bayrak:yildiz"] button')).trim(),'Al · ⭐ 70');
           await p5.click('.urun[data-key="bayrak:mavi"] button');await p5.waitForFunction(()=>/⭐ 8/.test(document.querySelector('main').textContent),null,{timeout:8000});
           await p5.waitForSelector('.hatirlat-satin',{timeout:5000});assert.match(await p5.textContent('.hatirlat-satin'),/yalnız bu tarayıcıda/,'satın alma sonrası hatırlatma');
@@ -572,18 +576,20 @@ const step=t=>console.log('•',t);
       await pe.evaluate(()=>{kasaSonuc={odul:{tur:'kozmetik',key:'sapka:tac',nadir:'efsanevi'},donustu:false,yildiz:7,rozetler:['ilk_mac']};render()});
       await pe.waitForFunction(()=>document.querySelector('.endcard .kasa'),null,{timeout:12000});const kt=await pe.textContent('.endcard .kasa');
       assert.match(kt,/Taç/);assert.match(kt,/İlk maç/);assert.match(kt,/7/);
-      await pe.evaluate(()=>{ayar.eposta=true;kayitli=true;hesap.eposta=null;kasaSonuc={odul:{tur:'yildiz',adet:6},yildiz:37,dokum:[{key:'kazanma',adet:2},{key:'kurtarici',adet:1}],gununIlki:5,bagli:false};render()});
+      await pe.evaluate(()=>{ayar.eposta=true;kayitli=true;hesap.eposta=null;kasaSonuc={odul:{tur:'yildiz',adet:6},yildiz:37,dokum:[{key:'kazanma',adet:2},{key:'kurtarici',adet:1}],gununIlki:5,bagli:false,kademeler:[{key:'kurtarici',kademe:1,odul:10},{key:'golgeler',kademe:3,odul:'ev:karanlik-kule'}]};render()});
       await pe.waitForFunction(()=>/Günün ilk maçı/.test((document.querySelector('.endcard .kasa')||{}).textContent||''),null,{timeout:5000});
       { const kd=await pe.textContent('.endcard .kasa');assert.match(kd,/\+2 Kazandın/);assert.match(kd,/\+1 Kurtarıcı/);assert.match(kd,/\+5 Günün ilk maçı/);
+        assert.match(kd,/🥉 Kurtarıcı bronz · \+10 ⭐/,'bronz satırı');assert.match(kd,/🥇 Gölgelerin efendisi altın · 🏠 Karanlık kule/,'altın satırı');assert.strictEqual(await pe.evaluate(()=>document.querySelectorAll('.endcard .kasa .kademe').length),2);
         assert.match(await pe.textContent('.endcard .hesap-hatirlat'),/⭐ 37 yıldızın yalnız bu tarayıcıda\. E-postanı bağla, kaybolmasın \(\+25 ⭐ ve ✉️ bayrak\)/,'yıldızlı hatırlatma');
         assert.strictEqual(await pe.getAttribute('.endcard .hesap-hatirlat','href'),'/?bagla=1');
         await pe.evaluate(()=>{kasaSonuc={...kasaSonuc,bagli:true};render()});assert.strictEqual(await pe.$('.endcard .hesap-hatirlat'),null,'bağlıysa hatırlatma yok');
-        await pe.evaluate(()=>{kasaSonuc={odul:null,tavan:true,yildiz:37,dokum:[],gununIlki:0,bagli:true};render()});assert.ok(!/\+\d/.test(await pe.textContent('.endcard .kasa')),'tavanda + satırı yok');
+        await pe.evaluate(()=>{kasaSonuc={odul:null,tavan:true,yildiz:37,dokum:[],gununIlki:0,bagli:true,kademeler:[{key:'bekci',kademe:2,odul:30}]};render()});assert.ok(!/\+\d Kazandın/.test(await pe.textContent('.endcard .kasa')),'tavanda döküm satırı yok');
+        assert.match(await pe.textContent('.endcard .kasa .kademe'),/🥈 Bekçi gümüş · \+30 ⭐/,'tavanda da kademe satırı');
         await pe.evaluate(()=>{try{sessionStorage.removeItem('kg_bagla_kart')}catch(e){}onServerMsg({t:'baglaOdulu',d:{yildiz:30,kozmetik:'bayrak:mektup'}})});
         await pe.waitForSelector('.bagla-kart',{timeout:5000});await pe.click('.bagla-kart button');assert.strictEqual(await pe.$('.bagla-kart'),null);
         await pe.evaluate(()=>onServerMsg({t:'baglaOdulu',d:{yildiz:30}}));await pe.waitForTimeout(150);assert.strictEqual(await pe.$('.bagla-kart'),null,'kart oturumda bir kez'); }
       await pe.evaluate(()=>{kasaSonuc={tekrar:true};render()});await pe.waitForFunction(()=>/daha önce açıldı/.test((document.querySelector('.endcard .kasa')||{}).textContent||''),null,{timeout:5000});
-      assert.strictEqual(await pe.$('.endcard .kasa .odul'),null,'tekrar kasada ödül satırı yok');
+      assert.strictEqual(await pe.$('.endcard .kasa .odul'),null,'tekrar kasada ödül satırı yok');assert.strictEqual(await pe.$('.endcard .kasa .kademe'),null,'tekrarda kademe satırı yok');
       for(const w of botlar)w.close();await ce.close();
     }
 

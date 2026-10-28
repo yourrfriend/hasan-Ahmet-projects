@@ -1091,6 +1091,10 @@ test('göç 010: bağlama miktarı game.js ile aynı; günün ilki parametreden'
   assert.ok(sql.includes("p_key = 'bayrak:mektup'")&&sql.includes("'bayrak:mektup') on conflict"),'mektup anahtarı göçte');
   assert.ok(Object.entries(G.KOZMETIK).every(([t,o])=>Object.entries(o).every(([k,v])=>v.ozel!=='bagla'||(t+':'+k)==='bayrak:mektup')),'bağlama öğesi yalnız mektup (göç bunu sabit tutar)');
 });
+test('index.html: her premium şapkanın çizimi var (hat=== zinciri)',()=>{
+  const html=require('fs').readFileSync(require('path').join(__dirname,'../../index.html'),'utf8');
+  for(const k of Object.keys(G.KOZMETIK.sapka))assert.ok(html.includes("hat==='"+k+"'"),'şapka çizimi yok: '+k);
+});
 test('göç 012: bronz eşikleri, rozet dönüşümü ve satılmayan altın listesi game.js ile aynı; p_basari varsayılanı null',()=>{
   const sql=require('fs').readFileSync(require('path').join(__dirname,'../db/goc/012_basarilar.sql'),'utf8');
   assert.ok(/p_gunluk int default 0, p_basari jsonb default null/.test(sql),'imza: p_basari sona, varsayılan null');
