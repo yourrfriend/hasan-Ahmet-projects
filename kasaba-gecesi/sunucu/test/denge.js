@@ -52,6 +52,8 @@ function dayVote(R,id,alive,oluAdlar){
 
 // yıldız ekonomisi: kasa veren (en az bir oylamalı) maçlarda oyuncu başına döküm
 const YILDIZ={oyuncuMac:0,kaynak:{}};
+// kademeli başarılar: kasa veren maçlarda oyuncu başına artış (mudavim her oyuncu-maç 1); eşik ayarı için "10 maç/hafta → altın kaç hafta"
+const BASARI={};
 function play(n){
   // DAGILIM_ESYA=1: eşya modu (botlar eşyasını her gece/oylamada %30 kullanır)
   const R=G.createGame({night:15,talk:15,vote:15,esyaModu:ESYA_MODU});G.startGame(R,lobby(n),{dagilim:AYAR});
@@ -68,7 +70,8 @@ function play(n){
   }
   if(ESYA_MODU){for(const l of Object.values(R.g.esya||{}))for(const e of l){const s=ESYA_SAY[e.key]=ESYA_SAY[e.key]||{tasinan:0,kullanilan:0};s.tasinan++;if(e.kullanildi)s.kullanilan++} // e.key dönüşmüş zarın gerçek eşyası
     for(const e of R.gameLog)if(e.tur==='paket')PAKET_ALINAN+=e.veri.alan}
-  if(R.P.phase==='end'&&R.gameLog.some(e=>e.tur==='gunduz_sonuc'))for(const p of R.P.players){YILDIZ.oyuncuMac++;for(const x of G.yildizDokumu(R,p.id)){const k=G.YILDIZ_KAYNAK[x.key]?x.key:'rol_basari';YILDIZ.kaynak[k]=(YILDIZ.kaynak[k]||0)+x.adet}}
+  if(R.P.phase==='end'&&R.gameLog.some(e=>e.tur==='gunduz_sonuc'))for(const p of R.P.players){YILDIZ.oyuncuMac++;for(const x of G.yildizDokumu(R,p.id)){const k=G.YILDIZ_KAYNAK[x.key]?x.key:'rol_basari';YILDIZ.kaynak[k]=(YILDIZ.kaynak[k]||0)+x.adet}
+    BASARI.mudavim=(BASARI.mudavim||0)+1;for(const [k,v] of Object.entries(G.basariArtislari(R,p.id)))BASARI[k]=(BASARI[k]||0)+v}
   return{bitti:R.P.phase==='end',kazanan:R.P.winner?R.P.winner.team:null,gun:R.P.day,ilkGece:firstNightDeaths||0};
 }
 
@@ -88,3 +91,5 @@ if(ESYA_MODU){console.log('\neşya | taşınan | kullanılan');for(const [k,s] o
   console.log('\nyıldız / maç (kasa veren maçlar, oyuncu başı) | '+Object.entries(YILDIZ.kaynak).map(([k,v])=>k+' '+(v/m).toFixed(2)).join(' · ')+' · kasa ~'+kasa.toFixed(2)+' → '+(dokum+kasa).toFixed(2));
   const efs=G.NADIRLIK.efsanevi.fiyat;console.log('hafta senaryosu (günün ilki +'+G.YILDIZ_KAYNAK.gunun_ilki.adet+'/gün, kopya dönüşümü yok) | maç/hafta | gün | ⭐/hafta | efsanevi ('+efs+') hafta');
   for(const [mac,gun] of [[3,2],[10,4],[30,7]]){const h=mac*(dokum+kasa)+gun*G.YILDIZ_KAYNAK.gunun_ilki.adet;console.log(`  ${String(mac).padStart(2)} | ${gun} | ${h.toFixed(1).padStart(5)} | ${(efs/h).toFixed(1)}`)}}
+{const m=YILDIZ.oyuncuMac||1;console.log('\nbaşarı (kasa veren maçlar, oyuncu başı) | artış/maç | altın eşiği | 10 maç/hafta → hafta');
+  for(const [k,b] of Object.entries(G.BASARILAR)){const a=(BASARI[k]||0)/m;console.log(`  ${k.padEnd(13)} | ${a.toFixed(3).padStart(9)} | ${String(b.esik[2]).padStart(11)} | ${a>0?(b.esik[2]/(a*10)).toFixed(1):'∞'}`)}}

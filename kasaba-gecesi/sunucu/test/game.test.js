@@ -689,13 +689,13 @@ test('katalog: eşyalar, kozmetikler, nadirlik, kasa ağırlıkları, rozetler t
   assert.deepStrictEqual(G.ESYA_KATMAN('efsanevi'),['kilit']);assert.strictEqual(G.ESYA_YUVA,2);
   assert.deepStrictEqual(G.KASA_ESYA,{siradan:50,nadir:40,efsanevi:10});assert.deepStrictEqual(G.PAKET,{sans:0.6,sure:5000,nadirP:0.25,maxMac:3,uzat:30000});
   assert.deepStrictEqual(Object.keys(G.KOZMETIK).sort(),['bayrak','efekt','ev','sapka']);
-  assert.strictEqual(Object.keys(G.KOZMETIK.sapka).length,9);assert.strictEqual(Object.keys(G.KOZMETIK.bayrak).length,9);assert.strictEqual(Object.keys(G.KOZMETIK.efekt).length,4);
+  assert.strictEqual(Object.keys(G.KOZMETIK.sapka).length,12);assert.strictEqual(Object.keys(G.KOZMETIK.bayrak).length,12);assert.strictEqual(Object.keys(G.KOZMETIK.efekt).length,4);
   for(const tur of Object.values(G.KOZMETIK))for(const k of Object.values(tur))assert.ok(k.n&&G.NADIRLIK[k.nadir],JSON.stringify(k));
   for(const k of Object.keys(G.KOZMETIK.sapka))assert.ok(!G.HATS.includes(k),'premium şapka temel listede olmamalı: '+k);
   assert.deepStrictEqual(G.NADIRLIK,{siradan:{fiyat:25,donusum:6},nadir:{fiyat:70,donusum:18},efsanevi:{fiyat:180,donusum:45}});
   assert.deepStrictEqual(G.KASA,{esya:50,yildiz:12,siradan:25,nadir:10,efsanevi:3});
   for(const r of Object.values(G.ROZETLER))assert.ok(r.n&&r.ico&&r.desc);
-  for(const k of ['ilk_mac','mac_10','mac_50','kurtarici','bekci','tuzak_ustasi','hain_zafer','masum_zafer','sag_kalan','tek_kurt','hortlak_zafer','yildirim','iksir_kurtardi','fener_gordu'])assert.ok(G.ROZETLER[k],k);
+  for(const k of ['ilk_mac','hortlak_zafer','iksir_kurtardi','fener_gordu'])assert.ok(G.ROZETLER[k],k);
 });
 test('ev kozmetiği: en az 80 ev, adlar kısa, nadirlik geçerli; çizim dosyasıyla birebir; resimli evlerin dosyası var',()=>{
   const EV=G.KOZMETIK.ev,E=require('../../sayfa/evler.js'),fs=require('fs'),path=require('path');
@@ -712,7 +712,7 @@ test('ev kozmetiği: en az 80 ev, adlar kısa, nadirlik geçerli; çizim dosyas�
 test('kasaOdulu kozmetik: tür ağırlığı öğe sayısının karekökü (evler baskın, tek öğeli tür şişmez)',()=>{
   for(const nadir of ['siradan','nadir','efsanevi']){
     const say={};let n=0;for(let i=0;i<60000;i++){const o=G.kasaOdulu();if(o.tur!=='kozmetik'||o.nadir!==nadir)continue;n++;const t=o.key.split(':')[0];say[t]=(say[t]||0)+1}
-    const sayi=t=>Object.values(G.KOZMETIK[t]).filter(v=>v.nadir===nadir).length;const turler=Object.keys(G.KOZMETIK).filter(t=>sayi(t)>0);const top=turler.reduce((a,t)=>a+Math.sqrt(sayi(t)),0);
+    const sayi=t=>Object.values(G.KOZMETIK[t]).filter(v=>v.nadir===nadir&&!v.ozel).length;const turler=Object.keys(G.KOZMETIK).filter(t=>sayi(t)>0);const top=turler.reduce((a,t)=>a+Math.sqrt(sayi(t)),0);
     for(const t of turler)assert.ok(Math.abs(say[t]/n-Math.sqrt(sayi(t))/top)<0.035,nadir+' '+t+' %'+(100*say[t]/n).toFixed(1)+' beklenen %'+(100*Math.sqrt(sayi(t))/top).toFixed(1));
     if(nadir==='siradan')assert.ok(say.efekt/n<0.15,'tek sıradan efekt (Yaprak) şişmez: %'+(100*say.efekt/n).toFixed(1));
   }
@@ -725,7 +725,7 @@ test('kasaOdulu: her dal ve oranlar',()=>{
   assert.strictEqual(G.kasaOdulu(seq([0.90,0.1])).nadir,'nadir');assert.strictEqual(G.kasaOdulu(seq([0.99,0.1])).nadir,'efsanevi');
   const say={};for(let i=0;i<10000;i++){const o=G.kasaOdulu();const k=o.tur==='kozmetik'?o.nadir:o.tur;say[k]=(say[k]||0)+1}
   for(const [k,w] of Object.entries(G.KASA))assert.ok(Math.abs(say[k]/100-w)<2.5,k+' %'+say[k]/100);
-  for(let i=0;i<500;i++){const o=G.kasaOdulu();if(o.tur==='esya')assert.ok(G.ESYA[o.key]&&o.adet===1);if(o.tur==='kozmetik'){const [t,k]=o.key.split(':');assert.strictEqual(G.KOZMETIK[t][k].nadir,o.nadir)}}
+  for(let i=0;i<500;i++){const o=G.kasaOdulu();if(o.tur==='esya')assert.ok(G.ESYA[o.key]&&o.adet===1);if(o.tur==='kozmetik'){const [t,k]=o.key.split(':');assert.strictEqual(G.KOZMETIK[t][k].nadir,o.nadir);assert.ok(!G.KOZMETIK[t][k].ozel,'özel öğe kasadan çıkmaz: '+o.key)}}
 });
 test('eşya çekilişleri 2: bedava havuz sıradan+zar, paket %25 nadir, zar nadir verir, kasa katmanları 50/40/10, setRnd',()=>{
   const say=(f,n)=>{const c={};for(let i=0;i<n;i++){const k=f();c[k]=(c[k]||0)+1}return c};
@@ -751,16 +751,50 @@ test('rozetlerFor: günlükten — kurtarıcı, bekçi, tuzak ustası, zafer roz
   G.act(R,'u0',{kill:'u4'});G.act(R,'u1',{ab:'u4'});G.act(R,'u2',{ab:'u0'});G.act(R,'u3',{ab:'u5'});G.advance(R); // polis haini tutar → kimse ölmez
   G.advance(R);for(const id of ['u1','u2','u3','u4','u5'])G.vote(R,id,'u0');G.vote(R,'u0','skip');
   assert.strictEqual(R.P.phase,'end');
-  assert.ok(G.rozetlerFor(R,'u2').includes('bekci'),'polis haini tuttu');assert.ok(G.rozetlerFor(R,'u2').includes('masum_zafer'));assert.ok(G.rozetlerFor(R,'u2').includes('sag_kalan'));
-  assert.ok(!G.rozetlerFor(R,'u0').includes('hain_zafer'));
+  assert.ok(G.rolBasarilari(R,'u2').includes('bekci'),'polis haini tuttu');assert.strictEqual(G.basariArtislari(R,'u2').kalkan,1);assert.strictEqual(G.basariArtislari(R,'u2').son_isik,1);
+  assert.ok(!G.basariArtislari(R,'u0').golgeler);
   R=fixed(['hain','doktor','masum','masum','masum']);G.act(R,'u0',{kill:'u2'});G.act(R,'u1',{ab:'u2'});G.advance(R);
-  assert.ok(G.rozetlerFor(R,'u1').includes('kurtarici'));
+  assert.ok(G.rolBasarilari(R,'u1').includes('kurtarici'));
   R=fixed(['hain','tuzakci','masum','masum','masum']);G.act(R,'u1',{ab:'u2'});G.act(R,'u0',{kill:'u2'});G.advance(R);
-  assert.ok(G.rozetlerFor(R,'u1').includes('tuzak_ustasi'));
+  assert.ok(G.rolBasarilari(R,'u1').includes('tuzak_ustasi'));
   R=fixed(['hain','buyucu','doktor','masum','masum']);G.act(R,'u1',{ab:'u3',guess:'masum'});G.advance(R);
-  assert.ok(G.rozetlerFor(R,'u1').includes('yildirim'));assert.deepStrictEqual(G.rozetlerFor(R,'u3'),[],'ölen masum, oyun sürüyor: rozet yok');
+  assert.ok(G.rolBasarilari(R,'u1').includes('yildirim'));assert.deepStrictEqual(G.rozetlerFor(R,'u3'),[],'ölen masum, oyun sürüyor: rozet yok');
   R=fixed(['hain','masum','masum','masum']);G.act(R,'u0',{kill:'u1'});G.advance(R);G.advance(R);for(const id of ['u0','u2','u3'])G.vote(R,id,'skip');G.act(R,'u0',{kill:'u2'});G.advance(R);
-  assert.strictEqual(R.P.phase,'end');assert.ok(G.rozetlerFor(R,'u0').includes('hain_zafer'));
+  assert.strictEqual(R.P.phase,'end');assert.strictEqual(G.basariArtislari(R,'u0').golgeler,1);
+});
+const BASARI_SIRA=['mudavim','kalkan','golgeler','yalniz_kurt','son_isik','kurtarici','bekci','tuzak_ustasi','yildirim'];
+test('BASARILAR: 9 anahtar tablo sırasıyla, eşikler artan, altın KOZMETIK\'te ozel:basari efsanevi ve tekil; kademe ödülleri; ROZETLER yalnız tek seferlikler',()=>{
+  assert.deepStrictEqual(Object.keys(G.BASARILAR),BASARI_SIRA);assert.deepStrictEqual(G.BASARI_KADEME,{bronz:10,gumus:30});
+  assert.deepStrictEqual(G.KADEME_AD,['bronz','gümüş','altın']);assert.deepStrictEqual(G.KADEME_SIMGE,['🥉','🥈','🥇']);
+  const altinlar=new Set();
+  for(const [k,b] of Object.entries(G.BASARILAR)){assert.ok(b.n&&b.ico&&b.desc,k);assert.ok(b.esik.length===3&&b.esik[0]<b.esik[1]&&b.esik[1]<b.esik[2],k+' eşik');
+    const [t,a]=b.altin.split(':');assert.ok(G.KOZMETIK[t]&&G.KOZMETIK[t][a],k+' altın katalogda');assert.strictEqual(G.KOZMETIK[t][a].ozel,'basari',k);assert.strictEqual(G.KOZMETIK[t][a].nadir,'efsanevi',k);
+    assert.ok(!altinlar.has(b.altin),'altın tekil: '+b.altin);altinlar.add(b.altin)}
+  const ozelBasari=[];for(const [t,o] of Object.entries(G.KOZMETIK))for(const [k,v] of Object.entries(o)){if(v.ozel)assert.ok(v.ozel==='bagla'||v.ozel==='basari',t+':'+k);if(v.ozel==='basari')ozelBasari.push(t+':'+k)}
+  assert.deepStrictEqual(ozelBasari.sort(),[...altinlar].sort(),'ozel:basari kümesi = altın kümesi');
+  assert.deepStrictEqual(G.ROZET_DONUSUM,{kurtarici:'kurtarici',bekci:'bekci',tuzak_ustasi:'tuzak_ustasi',yildirim:'yildirim',hain_zafer:'golgeler',masum_zafer:'kalkan',sag_kalan:'son_isik',tek_kurt:'yalniz_kurt'});
+  assert.deepStrictEqual(Object.keys(G.ROZETLER).sort(),['fener_gordu','hortlak_zafer','iksir_kurtardi','ilk_mac']);
+});
+test('basariArtislari / basariParam: rozetlerFor dönüşen anahtarları vermez, başarı artışları olaylardan; param 9 anahtar, mudavim artis 0',()=>{
+  let R=fixed(['hain','doktor','polis','tuzakci','masum','masum']);
+  G.act(R,'u0',{kill:'u4'});G.act(R,'u1',{ab:'u4'});G.act(R,'u2',{ab:'u0'});G.act(R,'u3',{ab:'u5'});G.advance(R);
+  assert.deepStrictEqual(G.basariArtislari(R,'u2'),{},'oyun sürerken artış yok');
+  G.advance(R);for(const id of ['u1','u2','u3','u4','u5'])G.vote(R,id,'u0');G.vote(R,'u0','skip');
+  assert.strictEqual(R.P.phase,'end');
+  const r2=G.rozetlerFor(R,'u2');for(const k of ['bekci','masum_zafer','sag_kalan','kurtarici'])assert.ok(!r2.includes(k),'rozetlerFor artık vermez: '+k);
+  assert.deepStrictEqual(G.basariArtislari(R,'u2'),{kalkan:1,son_isik:1,bekci:1});assert.deepStrictEqual(G.basariArtislari(R,'u1'),{kalkan:1,son_isik:1},'saldırı olmadı: kurtarış yok');
+  assert.deepStrictEqual(G.basariArtislari(R,'u3'),{kalkan:1,son_isik:1},'tuzağa kimse gelmedi');assert.deepStrictEqual(G.basariArtislari(R,'u0'),{});
+  const p=G.basariParam(R,'u2');assert.deepStrictEqual(Object.keys(p),BASARI_SIRA);
+  assert.deepStrictEqual(p.mudavim,{artis:0,esik:[10,50,150],odul:[10,30,'ev:saat-kulesi']});assert.deepStrictEqual(p.bekci,{artis:1,esik:[3,12,30],odul:[10,30,'sapka:kasket']});
+  assert.strictEqual(p.golgeler.artis,0);assert.strictEqual(p.kalkan.artis,1);
+  R=fixed(['hain','doktor','masum','masum','masum']);G.act(R,'u0',{kill:'u2'});G.act(R,'u1',{ab:'u2'});G.advance(R);G.advance(R);for(const id of ['u0','u1','u2','u3','u4'])G.vote(R,id,'skip');
+  G.act(R,'u0',{kill:'u2'});G.act(R,'u1',{ab:'u2'});G.advance(R);G.advance(R);for(const id of ['u1','u2','u3','u4'])G.vote(R,id,'u0');G.vote(R,'u0','skip');
+  assert.strictEqual(R.P.phase,'end');assert.strictEqual(G.basariArtislari(R,'u1').kurtarici,2,'iki gece iki kurtarış');
+  R=fixed(['hain','masum','masum','masum']);G.act(R,'u0',{kill:'u1'});G.advance(R);G.advance(R);for(const id of ['u0','u2','u3'])G.vote(R,id,'skip');G.act(R,'u0',{kill:'u2'});G.advance(R);
+  assert.strictEqual(R.P.phase,'end');assert.deepStrictEqual(G.basariArtislari(R,'u0'),{golgeler:1,son_isik:1},'hain sağ kazandı');assert.deepStrictEqual(G.basariArtislari(R,'u1'),{},'ölen masum');
+  R=fixed(['hain','serikatil','masum','masum','masum']);G.act(R,'u0',{kill:'u2'});G.act(R,'u1',{ab:'u3'});G.advance(R);G.advance(R);for(const id of ['u0','u1','u4'])G.vote(R,id,'u0');
+  G.act(R,'u1',{ab:'u4'});G.advance(R);
+  if(R.P.phase==='end'&&R.P.winner&&(R.P.winner.kazananlar||[]).includes('u1'))assert.deepStrictEqual(G.basariArtislari(R,'u1'),{yalniz_kurt:1,son_isik:1},'seri katil tek kazanan');
 });
 
 // ---------- İlerleme (Task 2): eşya modu ----------
@@ -805,7 +839,7 @@ test('iksir pasif: saldırıda kendiliğinden harcanır ve haber; saldırısız 
   R=esyali(['hain','doktor','masum','masum','masum'],{u2:'iksir'});
   G.act(R,'u0',{kill:'u2'});G.act(R,'u1',{ab:'u2'});G.advance(R);
   assert.ok(G.pl(R,'u2').alive);assert.match(haber(R),/Doktor kurtardı/);assert.ok(!/iksir/.test(haber(R)),'Doktor kurtardıysa iksir kalır');assert.strictEqual(R.g.esya.u2[0].kullanildi,false);
-  assert.deepStrictEqual(gs(R).esyalar,[]);assert.ok(G.rozetlerFor(R,'u1').includes('kurtarici'));assert.ok(!G.rozetlerFor(R,'u2').includes('iksir_kurtardi'));
+  assert.deepStrictEqual(gs(R).esyalar,[]);assert.ok(G.rolBasarilari(R,'u1').includes('kurtarici'));assert.ok(!G.rozetlerFor(R,'u2').includes('iksir_kurtardi'));
   R=esyali(['hain','serikatil','masum','masum','masum','masum','masum','masum','masum'],{u2:'iksir'});
   G.act(R,'u0',{kill:'u2'});G.act(R,'u1',{ab:'u2'});G.advance(R);
   assert.ok(G.pl(R,'u2').alive,'iki saldırıdan da korur');assert.strictEqual(gs(R).esyalar.filter(e=>e.key==='iksir').length,1,'tek kayıt');assert.strictEqual((haber(R).match(/iksir içti/g)||[]).length,1);
@@ -1055,7 +1089,7 @@ test('göç 010: bağlama miktarı game.js ile aynı; günün ilki parametreden'
   assert.strictEqual(Number((sql.match(/yildiz = greatest\(0, yildiz - (\d+)\)/)||[])[1]),G.YILDIZ_KAYNAK.bagla.adet,'birleştirmede geri alınan ödül de aynı miktar');
   assert.strictEqual(Number((sql.match(/greatest\(0, yildiz - (\d+)\)/)||[])[1]),G.YILDIZ_KAYNAK.bagla.adet,'birleştirmede geri alınan ödül');
   assert.ok(sql.includes("p_key = 'bayrak:mektup'")&&sql.includes("'bayrak:mektup') on conflict"),'mektup anahtarı göçte');
-  assert.ok(Object.entries(G.KOZMETIK).every(([t,o])=>Object.entries(o).every(([k,v])=>!v.ozel||(t+':'+k)==='bayrak:mektup')),'özel öğe yalnız mektup (göç bunu sabit tutar)');
+  assert.ok(Object.entries(G.KOZMETIK).every(([t,o])=>Object.entries(o).every(([k,v])=>v.ozel!=='bagla'||(t+':'+k)==='bayrak:mektup')),'bağlama öğesi yalnız mektup (göç bunu sabit tutar)');
 });
 test('yildizDokumu: bir gecede tek olay bir kez sayılır (tuzağa iki kişi, yıldırımla iki ölü); iki gece iki kez',()=>{
   const R=fixed(['hain','tuzakci','masum','masum','masum']);
