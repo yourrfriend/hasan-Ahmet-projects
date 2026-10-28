@@ -1116,6 +1116,24 @@ test('katalog anahtarları kaynakta tekil: KOZMETIK.ev ve evler.js M aynı anaht
     const n=(ev.match(new RegExp("^M(\\['"+k+"'\\]|\\."+k.replace(/-/g,'\\-')+")=",'gm'))||[]).length;assert.ok(n<=1,'evler.js çift model: '+k)}
   assert.strictEqual(Object.keys(G.KOZMETIK.ev).length,102);
 });
+test('haftalık görev: pazartesi İstanbul gününe göre; seçim deterministik ve haftadan haftaya değişir; artışlar ve parametre',()=>{
+  assert.deepStrictEqual(G.HAFTALIK,{havuz:{mac:{n:'5 maç oyna',hedef:5},kazan:{n:'2 kez kazan',hedef:2},kalabalik:{n:'8+ kişilik 2 maç oyna',hedef:2},sag_kal:{n:'2 maçı hayatta bitir',hedef:2},gun:{n:'3 farklı gün oyna',hedef:3}},odul:15,bonus:20,adet:3});
+  assert.strictEqual(G.haftaPazartesi(Date.parse('2026-10-28T12:00:00+03:00')),'2026-10-26');
+  assert.strictEqual(G.haftaPazartesi(Date.parse('2026-11-01T23:30:00+03:00')),'2026-10-26','pazar gecesi aynı hafta');
+  assert.strictEqual(G.haftaPazartesi(Date.parse('2026-11-02T00:10:00+03:00')),'2026-11-02','pazartesi 00:10 İstanbul yeni hafta (UTC hâlâ pazar)');
+  const h=G.haftaGorevleri('2026-10-26');assert.deepStrictEqual(G.haftaGorevleri('2026-10-26'),h,'deterministik');assert.strictEqual(h.length,3);assert.strictEqual(new Set(h).size,3);
+  for(const k of h)assert.ok(G.HAFTALIK.havuz[k],k);
+  const kumeler=new Set();for(let i=0;i<20;i++){const d=new Date(Date.parse('2026-10-26T00:00:00Z')+i*7*864e5).toISOString().slice(0,10);kumeler.add(G.haftaGorevleri(d).slice().sort().join(','))}
+  assert.ok(kumeler.size>=4,'20 haftada en az 4 farklı küme: '+kumeler.size);
+  let R=fixed(['hain','masum','masum','masum','masum','masum','masum','masum']);assert.deepStrictEqual(G.gorevArtislari(R,'u1'),{},'maç sürerken yok');
+  R.P.phase='end';R.P.winner={team:'inn',kazananlar:['u1','u2']};G.pl(R,'u2').alive=false;
+  assert.deepStrictEqual(G.gorevArtislari(R,'u1'),{mac:1,kazan:1,kalabalik:1,sag_kal:1});assert.deepStrictEqual(G.gorevArtislari(R,'u0'),{mac:1,kazan:0,kalabalik:1,sag_kal:1});
+  R=fixed(['hain','masum','masum','masum','masum']);R.P.phase='end';R.P.winner={team:'imp',kazananlar:['u0']};G.pl(R,'u1').alive=false;
+  assert.deepStrictEqual(G.gorevArtislari(R,'u1'),{mac:1,kazan:0,kalabalik:0,sag_kal:0});
+  const ms=Date.parse('2026-10-28T12:00:00+03:00');const p=G.gorevParam(R,'u0',ms);assert.deepStrictEqual(Object.keys(p),G.haftaGorevleri('2026-10-26'));
+  for(const [k,v] of Object.entries(p)){assert.strictEqual(v.odul,15);assert.strictEqual(v.hedef,G.HAFTALIK.havuz[k].hedef);assert.strictEqual(v.artis,k==='gun'?0:G.gorevArtislari(R,'u0')[k])}
+  const sql=require('fs').readFileSync(require('path').join(__dirname,'../db/goc/016_haftalik.sql'),'utf8');assert.ok(sql.includes('p_gorev jsonb default null, p_gorev_bonus int default 0'),'imza');
+});
 test('seri (göç 014): YILDIZ_KAYNAK.seri tek kaynak; SQL sayı bilmez, parametreyle büyür',()=>{
   assert.deepStrictEqual(G.YILDIZ_KAYNAK.seri,{n:'Seri',adet:1,tavan:5});
   const sql=require('fs').readFileSync(require('path').join(__dirname,'../db/goc/014_seri.sql'),'utf8');

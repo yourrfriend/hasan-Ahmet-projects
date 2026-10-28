@@ -246,7 +246,7 @@ do $$ declare r jsonb; u uuid := '33333333-3333-3333-3333-333333333333'; n int :
     if coalesce((r->>'tavan')::boolean, false) then n := n + 1; end if;
   end loop;
   if n = 0 then raise exception 'BAŞARISIZ 15: günlük kasa tavanı işlemedi'; end if;
-  if position('for update' in pg_get_functiondef('public.mac_sonu(uuid, uuid, jsonb, text[], text, int, int, jsonb, int, int)'::regprocedure)) = 0 then raise exception 'BAŞARISIZ 15: göç 009 — mac_sonu cüzdan kilidi (for update) yok'; end if;
+  if position('for update' in pg_get_functiondef('public.mac_sonu(uuid, uuid, jsonb, text[], text, int, int, jsonb, int, int, jsonb, int)'::regprocedure)) = 0 then raise exception 'BAŞARISIZ 15: göç 009 — mac_sonu cüzdan kilidi (for update) yok'; end if;
   if (select adet from public.esyalar where uye = u and key = 'fener') > 20 then raise exception 'BAŞARISIZ 15: tavan sonrası ödül verildi'; end if;
   raise notice 'GEÇTİ 15: mac_sonu idempotent, dönüşüm, harcama, tavan';
 end $$;
@@ -575,6 +575,59 @@ do $$ begin
   begin update public.seriler set seri = 99; raise exception 'BAŞARISIZ 29: istemci yazabildi';
   exception when insufficient_privilege then null; end;
   raise notice 'GEÇTİ 29: seri birleştirme ve yetki';
+end $$;
+reset role;
+
+-- 30) haftalık görev (göç 016): tamamlanınca bir kez ödül, tekrar sayılmaz, gun görevi bugünün ilk kasasından, üçü bitince bonus bir kez; tavanda sayılmaz
+insert into auth.users (id, instance_id, aud, role, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, is_anonymous)
+values
+       ('6a6a6a6a-0001-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, '{}', '{}', now(), now(), true),
+       ('6a6a6a6a-0002-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, '{}', '{}', now(), now(), true),
+       ('6a6a6a6a-0003-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, '{}', '{}', now(), now(), true),
+       ('6a6a6a6a-0004-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, '{}', '{}', now(), now(), true);
+set local role service_role;
+do $$ declare r jsonb; u uuid := '6a6a6a6a-0001-1111-1111-111111111111'; t uuid := '6a6a6a6a-0002-1111-1111-111111111111'; g uuid := gen_random_uuid();
+  od jsonb := '{"tur":"yildiz","adet":0}'; gr jsonb := '{"mac":{"artis":1,"hedef":2,"odul":15},"kazan":{"artis":1,"hedef":1,"odul":15},"gun":{"artis":0,"hedef":2,"odul":15}}';
+begin
+  r := public.mac_sonu(u, g, od, null, null, 0, 0, null, 0, 0, gr, 20);
+  if r->'gorevler' <> '[{"key":"kazan","odul":15}]'::jsonb or (select yildiz from public.cuzdan where uye = u) <> 15 then raise exception 'BAŞARISIZ 30: ilk maç: %', r; end if;
+  r := public.mac_sonu(u, g, od, null, null, 0, 0, null, 0, 0, gr, 20);
+  if not coalesce((r->>'tekrar')::boolean, false) or (select sayac from public.haftalik_gorevler where uye = u and key = 'mac') <> 1 then raise exception 'BAŞARISIZ 30: tekrar saydı: %', r; end if;
+  r := public.mac_sonu(u, gen_random_uuid(), od, null, null, 0, 0, null, 0, 0, gr, 20);
+  if r->'gorevler' <> '[{"key":"mac","odul":15}]'::jsonb or (select yildiz from public.cuzdan where uye = u) <> 30 then raise exception 'BAŞARISIZ 30: ikinci maç (kazan yeniden ödül vermez): %', r; end if;
+  if (select sayac from public.haftalik_gorevler where uye = u and key = 'gun') <> 1 then raise exception 'BAŞARISIZ 30: aynı gün gun arttı'; end if;
+  delete from public.kasalar where uye = u;
+  r := public.mac_sonu(u, gen_random_uuid(), od, null, null, 0, 0, null, 0, 0, gr, 20);
+  if r->'gorevler' <> '[{"key":"gun","odul":15},{"key":"hepsi","odul":20}]'::jsonb or (select yildiz from public.cuzdan where uye = u) <> 65 then raise exception 'BAŞARISIZ 30: gun + bonus: %', r; end if;
+  r := public.mac_sonu(u, gen_random_uuid(), od, null, null, 0, 0, null, 0, 0, gr, 20);
+  if r->'gorevler' <> '[]'::jsonb or (select yildiz from public.cuzdan where uye = u) <> 65 then raise exception 'BAŞARISIZ 30: bonus ikinci kez: %', r; end if;
+  if (public.envanter_oku(u)->'hafta'->'gorevler'->'mac'->>'tamam')::boolean is not true then raise exception 'BAŞARISIZ 30: envanter_oku hafta'; end if;
+  insert into public.kasalar (uye, oyun_id, odul) select t, gen_random_uuid(), '{"tavan":true}' from generate_series(1, 20);
+  r := public.mac_sonu(t, gen_random_uuid(), od, null, null, 0, 0, null, 0, 0, gr, 20);
+  if not (r->>'tavan')::boolean or exists (select 1 from public.haftalik_gorevler where uye = t) then raise exception 'BAŞARISIZ 30: tavanda sayıldı: %', r; end if;
+  raise notice 'GEÇTİ 30: haftalık görev ve bonus';
+end $$;
+reset role;
+
+-- 31) haftalık görev birleştirme (sayaç toplanır, tamam OR, ödül yok) ve yetki
+set local role service_role;
+do $$ declare x uuid := '6a6a6a6a-0003-1111-1111-111111111111'; y uuid := '6a6a6a6a-0004-1111-1111-111111111111';
+  bugun date := (now() at time zone 'Europe/Istanbul')::date; h date;
+begin
+  h := bugun - (extract(isodow from bugun)::int - 1);
+  insert into public.haftalik_gorevler (uye, hafta, key, sayac, tamam) values (x, h, 'mac', 1, false), (y, h, 'mac', 1, true);
+  perform public.hesap_birlestir(x, y);
+  if (select (sayac, tamam) from public.haftalik_gorevler where uye = y and key = 'mac') <> (2, true) then raise exception 'BAŞARISIZ 31: birleştirme'; end if;
+  if exists (select 1 from public.haftalik_gorevler where uye = x) or coalesce((select yildiz from public.cuzdan where uye = y), 0) <> 0 then raise exception 'BAŞARISIZ 31: eski satır ya da ödül'; end if;
+end $$;
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"6a6a6a6a-0004-1111-1111-111111111111","role":"authenticated"}', true);
+do $$ begin
+  if (select count(*) from public.haftalik_gorevler) <> 1 then raise exception 'BAŞARISIZ 31: yalnız kendi satırı'; end if;
+  begin update public.haftalik_gorevler set sayac = 99; raise exception 'BAŞARISIZ 31: istemci yazabildi';
+  exception when insufficient_privilege then null; end;
+  raise notice 'GEÇTİ 31: haftalık görev birleştirme ve yetki';
 end $$;
 reset role;
 

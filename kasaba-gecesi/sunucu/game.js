@@ -135,6 +135,15 @@ function rolBasarilari(R,id){const g=R.g,out=[];if(!g)return out;
 const YILDIZ_KAYNAK={kazanma:{n:'Kazandın',adet:2},tek_kazanan:{n:'Tek başına kazandın',adet:4},rol_basari:{n:'Rol başarısı',adet:1},kalabalik:{n:'Kalabalık maç',adet:1},
   hain_oyu:{n:'Asılan haine oy',adet:2},gunun_ilki:{n:'Günün ilk maçı',adet:5},bagla:{n:'E-posta bağlandı',adet:25},
   seri:{n:'Seri',adet:1,tavan:5}};
+// haftalık görevler (tasarım 2026-10-28-kasaba-gecesi-yildiz-3-gorev): herkese aynı 3 görev, Europe/Istanbul pazartesisinden deterministik; ilerleme ve ödül mac_sonu'da (göç 016)
+// rolden, oydan ve eşyadan bağımsız; gun sayacını SQL tutar (bugünün ilk gerçek kasası)
+const HAFTALIK={havuz:{mac:{n:'5 maç oyna',hedef:5},kazan:{n:'2 kez kazan',hedef:2},kalabalik:{n:'8+ kişilik 2 maç oyna',hedef:2},sag_kal:{n:'2 maçı hayatta bitir',hedef:2},gun:{n:'3 farklı gün oyna',hedef:3}},odul:15,bonus:20,adet:3};
+function haftaPazartesi(ms){const ymd=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Istanbul'}).format(new Date(ms));const t=Date.parse(ymd+'T00:00:00Z');const gun=(new Date(t).getUTCDay()+6)%7;return new Date(t-gun*864e5).toISOString().slice(0,10)}
+function haftaGorevleri(pazartesi){let h=2166136261;for(const c of String(pazartesi)){h^=c.charCodeAt(0);h=Math.imul(h,16777619)>>>0}
+  const a=Object.keys(HAFTALIK.havuz);for(let i=a.length-1;i>0;i--){h=(Math.imul(h,1103515245)+12345)>>>0;const j=h%(i+1);[a[i],a[j]]=[a[j],a[i]]}return a.slice(0,HAFTALIK.adet)}
+function gorevArtislari(R,id){const g=R.g,P=R.P;if(!g||!g.roles[id]||P.phase!=='end')return {};const me=pl(R,id);
+  return {mac:1,kazan:P.winner&&(P.winner.kazananlar||[]).includes(id)?1:0,kalabalik:P.players.length>=8?1:0,sag_kal:me&&me.alive?1:0}}
+function gorevParam(R,id,ms){const a=gorevArtislari(R,id),out={};for(const k of haftaGorevleri(haftaPazartesi(ms)))out[k]={artis:k==='gun'?0:(a[k]||0),hedef:HAFTALIK.havuz[k].hedef,odul:HAFTALIK.odul};return out}
 const ROL_BASARI_TAVAN=3;
 // maç sonu yıldız dökümü (yalnız bu oyuncuya gösterilir; veritabanına yalnız toplam gider). Oy bilgisi yalnız R.g.hainOyu belleğinden.
 function yildizDokumu(R,id){const g=R.g,P=R.P;if(!g||!g.roles[id]||P.phase!=='end')return [];const out=[],r=g.roles[id];
@@ -707,7 +716,7 @@ function privFor(R,id){
 function esyaKullanimi(R){const out={};for(const [id,l] of Object.entries(R.g&&R.g.esya||{}))out[id]=l.map(e=>({key:e.kaynakKey||e.key,kaynak:e.kaynak,kullanildi:e.kullanildi}));return out
 }
 
-return{ROLES,SETUP,COLORS,HATS,DEFAULT_SETTINGS,ESYA,ESYA_YUVA,ESYA_KATMAN,KASA_ESYA,PAKET,setRnd,bedavaEsya,paketEsya,zarAt,NADIRLIK,KOZMETIK,KASA,ROZETLER,BASARILAR,BASARI_KADEME,KADEME_AD,KADEME_SIMGE,ROZET_DONUSUM,rolBasarilari,basariArtislari,basariParam,YILDIZ_KAYNAK,ROL_BASARI_TAVAN,yildizDokumu,yildizToplam,kasaOdulu,kozmetikGecerli,rozetlerFor,esyaKullan,esyaBul,DAGILIM,TEKRAR,tekrarCezasi,rolDagit,roleLabel,rolEtiketi,autoSetup,cleanSettings,setClock,
+return{ROLES,SETUP,COLORS,HATS,DEFAULT_SETTINGS,ESYA,ESYA_YUVA,ESYA_KATMAN,KASA_ESYA,PAKET,setRnd,bedavaEsya,paketEsya,zarAt,NADIRLIK,KOZMETIK,KASA,ROZETLER,BASARILAR,BASARI_KADEME,KADEME_AD,KADEME_SIMGE,ROZET_DONUSUM,rolBasarilari,basariArtislari,basariParam,HAFTALIK,haftaPazartesi,haftaGorevleri,gorevArtislari,gorevParam,YILDIZ_KAYNAK,ROL_BASARI_TAVAN,yildizDokumu,yildizToplam,kasaOdulu,kozmetikGecerli,rozetlerFor,esyaKullan,esyaBul,DAGILIM,TEKRAR,tekrarCezasi,rolDagit,roleLabel,rolEtiketi,autoSetup,cleanSettings,setClock,
   lobbyState,createGame,startGame,setPhase,advance,tick,kap,paketKapat,resolveNight,resolveVote,checkWin,kazananlar,gazeteFor,GAZETE_EN_COK,ek,endToLobby,olay,
   act,vote,chat,deadChat,esyaKullanimi,hizli,HIZLI_BEKLE_MS,HIZLI_GUN,HIZLI_TUR,privFor,pl,alivePlayers,inGame};
 });
