@@ -104,6 +104,26 @@ function kutu(o){
 }
 // ---------- özel siluetler ----------
 const M={};
+// --- başarı altınları (yıldız ekonomisi 2; KOZMETIK ozel:'basari'): satılmaz, kasadan çıkmaz ---
+M['saat-kulesi']={kapi:{x:-10,y:2,w:20,h:32,rx:10},pencere:{x:-13,y:-80,w:26,h:26,rx:13},silu:'M-28 34 L-28 -96 L0 -132 L28 -96 L28 34 Z',golge:{cx:0,rx:44},ust:-136,
+  ciz(b,SE){const d=yap(SE,b);d.r(-26,-96,52,130,'#d9d3c4');for(const y of [-80,-50,-20,10])d.l(`M-26 ${y} H26`,'#bfb8a6',1.4);for(const [x,y] of [[-8,-80],[8,-50],[-8,-20],[8,10]])d.l(`M${x} ${y} V${y+30}`,'#bfb8a6',1.4);
+    d.p('M-30 -96 L0 -132 L30 -96 Z','#6b4a2e');d.r(-30,-98,60,5,'#57391f',{rx:1});d.l('M0 -132 V-146','#3f3f48',2.2);d.p('M0 -146 L12 -141 L0 -136 Z','#e23b3b',{'stroke-width':1.2});
+    d.c(0,-67,16,'#fbf3dc');d.c(0,-67,13,'#ffffff',{'stroke-width':1.2});for(let i=0;i<12;i++){const a=i*Math.PI/6;d.l(`M${Math.cos(a)*10} ${-67+Math.sin(a)*10} L${Math.cos(a)*12} ${-67+Math.sin(a)*12}`,'#3f3f48',1.4)}
+    d.l('M0 -67 V-76 M0 -67 L7 -63','#1e1b2e',2);d.c(0,-67,1.6,'#1e1b2e',YOK);d.r(-7,-40,14,10,'#9fd6ff',{rx:1,'stroke-width':1.4});d.l('M0 -40 V-30','#f1e3c8',1.6);
+    kapiCiz(d,'kemer',-10,2,20,32,'#7d5236')}};
+M['surlu-konak']={kapi:{x:-11,y:4,w:22,h:30,rx:11},pencere:{x:-30,y:-56,w:14,h:20,rx:7},silu:'M-72 34 L-72 -6 L-44 -6 L-44 -70 L0 -102 L44 -70 L44 -6 L72 -6 L72 34 Z',golge:{cx:0,rx:78},ust:-106,
+  ciz(b,SE){const d=yap(SE,b);d.r(-44,-70,88,76,'#e8dcc3');for(const y of [-56,-40,-24,-8])d.l(`M-44 ${y} H44`,'#cdbf9f',1.3);
+    d.p('M-50 -70 L0 -102 L50 -70 Z','#8f3b2b');d.r(-50,-72,100,5,'#6e2d20',{rx:1});d.r(22,-96,10,20,'#b5523a');d.r(20,-100,14,5,'#9a4430');
+    pencere(d,'kemer',-30,-56,14,20,'#f1e3c8');pencere(d,'kemer',16,-56,14,20,'#f1e3c8');pencere(d,'kare',-8,-54,16,14,'#f1e3c8');
+    d.r(-72,-6,144,40,'#bfb8a6');for(const y of [6,20])d.l(`M-72 ${y} H72`,'#9e977f',1.3);for(let x=-66;x<=66;x+=12)d.l(`M${x} 6 V-6`,'#9e977f',1.3);
+    for(let x=-72;x<72;x+=16)d.r(x+2,-14,10,9,'#bfb8a6');d.r(-14,0,28,34,'#8a6a4a',{rx:2});kapiCiz(d,'kemer',-11,4,22,30,'#5b3a27');
+    d.l('M-13 10 L9 10','#c9a678',1.2);d.c(-5,24,1.8,'#f1e3c8',{'stroke-width':1})}};
+M['karanlik-kule']={kapi:{x:-9,y:4,w:18,h:30,rx:9},pencere:{x:-7,y:-74,w:14,h:22,rx:7},silu:'M-26 34 L-26 -98 L-32 -98 L-32 -112 L32 -112 L32 -98 L26 -98 L26 34 Z',golge:{cx:0,rx:42},ust:-116,
+  ciz(b,SE){const d=yap(SE,b);d.r(-24,-98,48,132,'#2b2b3a',{stroke:'#15151f'});for(const y of [-84,-56,-28,0,28])d.l(`M-24 ${y} H24`,'#3d3d4f',1.4);for(const [x,y] of [[-8,-84],[8,-56],[-8,-28],[8,0]])d.l(`M${x} ${y} V${y+28}`,'#3d3d4f',1.4);
+    for(let x=-32;x<32;x+=16)d.r(x+1,-112,10,14,'#2b2b3a',{stroke:'#15151f'});d.r(-32,-100,64,5,'#1c1c28',{stroke:'#15151f'});
+    pencere(d,'kemer',-7,-74,14,22,'#4a3a6b');d.r(-10,-40,4,14,'#6b4bff',{rx:1,'stroke-width':1,stroke:'#15151f'});d.r(6,-40,4,14,'#6b4bff',{rx:1,'stroke-width':1,stroke:'#15151f'});
+    d.p('M-40 -120 a9 9 0 1 0 8 -12 a7 7 0 1 1 -8 12 Z','#ffe27a',YOK);[[-38,-70],[36,-60]].forEach(([x,y])=>d.p(`M${x} ${y} q-4 -6 -8 0 q4 2 8 0 q4 2 8 0 q-4 -6 -8 0`,'#15151f',YOK));
+    kapiCiz(d,'kemer',-9,4,18,30,'#1c1c28');d.l('M-6 20 H5','#6b4bff',1.4)}};
 M.fici={kapi:{x:47,y:-4,w:20,h:36,rx:9},pencere:{x:-23,y:-9,w:18,h:18,rx:9},silu:'M-60 -36 L-30 -38 L-14 -62 L24 -62 L40 -40 L58 -38 Q76 0 58 36 L-60 36 Q-68 0 -60 -36 Z',golge:{cx:4,rx:74},ust:-80,
   ciz(b,SE){const d=yap(SE,b);d.p('M-56 -34 Q-66 0 -56 34 L52 34 Q60 0 52 -34 Z','#a8703f',{'stroke-width':3});for(const y of [-22,-8,6,20])d.l(`M-60 ${y} L54 ${y}`,'#7a4e2c',1.6);
     for(const x of [-34,24])d.l(`M${x} -36 Q${x-5} 0 ${x} 36`,'#3f3f48',5);d.p('M-30 -34 L-14 -60 L24 -60 L40 -34 Z','#6b3f2a');d.r(24,-76,12,24,'#b5523a');
