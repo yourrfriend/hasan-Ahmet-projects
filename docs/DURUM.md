@@ -1,9 +1,9 @@
 # İş durumu
 
-Son güncelleme: 2026-10-28 (yıldız ekonomisi 2 kasaba-test'te; 1 canlıda). Bu dosya oturumlar arası bağlam içindir; her plan bitişinde güncelle.
+Son güncelleme: 2026-10-28 (Turnstile düzeltmesi canlıda; yıldız ekonomisi 2 kasaba-test'te). Bu dosya oturumlar arası bağlam içindir; her plan bitişinde güncelle.
 
 ## Canlı
-- `kasaba.munupixi.com` ← **`main@ff3f915`**; `kasaba-test` ← **`yildiz-2@550f578`** (parça 2 deneme) (2026-10-28: yıldız ekonomisi 1 + inceleme düzeltmeleri; fiyat 25/70/180; öncesi ev galerisi, lobi düzeni, iPhone menü, eşya sistemi 2)
+- `kasaba.munupixi.com` ← **`main@f0ff9e6`** (2026-10-28: Turnstile kutusu düzeltmesi, dal `turnstile-kutu`: widget `render()` dışında `#turnstileKutu` sabit alt kutuda — etkileşim isteyen tarayıcılarda kutu hiç çıkmıyor, kod isteği gitmiyordu; öncesi ff3f915 yıldız ekonomisi 1); `kasaba-test` ← **`yildiz-2`** (parça 2 deneme, main ile birleşik, KG_VER 2026-11-06b) (2026-10-28: yıldız ekonomisi 1 + inceleme düzeltmeleri; fiyat 25/70/180; öncesi ev galerisi, lobi düzeni, iPhone menü, eşya sistemi 2)
 - Supabase: `kasaba-api.munupixi.com` (ionos `/root/supabase-kasaba`, v0.8.3), **şema 013'e kadar** (010 günün ilki + e-posta bağlama ödülü, 011 günün ilki aralık koşulu, 012 kademeli başarılar, 013 Müdavim altını `ev:meydan-saati` — 012 satılan Saat kulesi'nin anahtarını kullanmıştı — eski rozetler taşındı: 13 üye/33 satır; RLS 27/27). Canlıdaki eski kod (`main@ff3f915`) 012 ile uyumlu: dönüşen rozetler sayaca +1 yazılır. Önceki: 008 ilerleme, 009 `mac_sonu` cüzdan kilidi.
 
 ## Projeler
