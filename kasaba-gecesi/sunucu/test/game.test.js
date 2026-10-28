@@ -83,6 +83,21 @@ test('doktor saldırıyı engeller, oylama birini gönderir',()=>{
   assert.strictEqual(R.P.phase,'end');assert.strictEqual(R.P.winner.team,'inn');
 });
 
+test('çekimser çoğunluk: çekimserler en çok oyu alanın oyundan fazlaysa kimse asılmaz; eşitse asılır; kışkırtma karşılaştırmaya dahil',()=>{
+  // 2 oy – 3 çekimser → asılmaz
+  let R=fixed(['hain','masum','masum','masum','masum','masum']);G.act(R,'u0',{kill:'u5'});G.advance(R);G.advance(R);assert.strictEqual(R.P.phase,'vote');
+  G.vote(R,'u1','u0');G.vote(R,'u2','u0');for(const id of ['u0','u3','u4'])G.vote(R,id,'skip');
+  assert.strictEqual(R.P.phase,'night','çekimser çoğunluk: oyun sürer');assert.ok(G.pl(R,'u0').alive);assert.strictEqual(R.P.evening.out,null);assert.match(R.P.evening.summary,/Oyuncu0 2, çekimser 3/);
+  assert.strictEqual(R.gameLog.find(e=>e.tur==='gunduz_sonuc').veri.asilan,null);
+  // 3 oy – 3 çekimser → asılır (eşitlik çekimserin lehine değil)
+  R=fixed(['hain','masum','masum','masum','masum','masum','masum']);G.act(R,'u0',{kill:'u6'});G.advance(R);G.advance(R);
+  for(const id of ['u1','u2','u3'])G.vote(R,id,'u0');for(const id of ['u0','u4','u5'])G.vote(R,id,'skip');
+  assert.strictEqual(R.P.phase,'end','3–3: asılır, tek hain → biter');assert.strictEqual(R.P.winner.team,'inn');
+  // kışkırtma +2 dahil: 2 gerçek oy + 2 = 4, çekimser 4 → asılır (kışkırtmasız 2 < 4 asılmazdı)
+  R=fixed(['hain','provokator','masum','masum','masum','masum','masum']);G.act(R,'u0',{kill:'u6'});G.act(R,'u1',{ab:'u0'});G.advance(R);G.advance(R);assert.strictEqual(R.P.provoked,'u0');
+  G.vote(R,'u2','u0');G.vote(R,'u3','u0');for(const id of ['u0','u1','u4','u5'])G.vote(R,id,'skip');
+  assert.strictEqual(R.P.phase,'end','kışkırtma çekimser çoğunluğu aşar');assert.deepStrictEqual(R.gameLog.find(e=>e.tur==='gunduz_sonuc').veri.toplamlar,{u0:4});
+});
 test('kışkırtma tek başına astırmaz: herkes çekimserse kimse gönderilmez; bir gerçek oy varsa +2 sayılır',()=>{
   // u1 provokatör gece u0'ı (hain) kışkırtır; sabah 5 kişi sağ
   let R=fixed(['hain','provokator','doktor','masum','masum']);
@@ -92,12 +107,12 @@ test('kışkırtma tek başına astırmaz: herkes çekimserse kimse gönderilmez
   assert.strictEqual(R.P.phase,'night','oyun sürer');assert.ok(G.pl(R,'u0').alive,'yalnız kışkırtma oyuyla asılmaz');
   assert.strictEqual(R.P.evening.out,null);assert.match(R.P.evening.summary,/çekimser 5/);assert.doesNotMatch(R.P.evening.summary,/Oyuncu0 2/,'sayılmayan +2 özete girmez');
   const gs=R.gameLog.find(e=>e.tur==='gunduz_sonuc');assert.strictEqual(gs.veri.asilan,null);assert.deepStrictEqual(gs.veri.toplamlar,{});assert.strictEqual(gs.veri.provoke,'u0','günlükte kışkırtma yine yazılır');
-  // aynı kurgu, bir gerçek oy: u3 → u0; +2 ile 3 olur, asılır (tek hain → masumlar kazanır)
+  // aynı kurgu, iki gerçek oy: u3, u2 → u0; +2 ile 4 olur, çekimser 3 → asılır (tek hain → masumlar kazanır). (Tek gerçek oyla 3 < 4 çekimser: çekimser çoğunluk kuralı asmazdı)
   R=fixed(['hain','provokator','doktor','masum','masum']);
   G.act(R,'u0',{kill:'u4'});G.act(R,'u1',{ab:'u0'});G.act(R,'u2',{ab:'u4'});G.advance(R);G.advance(R);
-  G.vote(R,'u3','u0');for(const id of ['u0','u1','u2','u4'])G.vote(R,id,'skip');
+  G.vote(R,'u3','u0');G.vote(R,'u2','u0');for(const id of ['u0','u1','u4'])G.vote(R,id,'skip');
   assert.strictEqual(R.P.phase,'end');assert.strictEqual(R.P.winner.team,'inn');
-  const gs2=R.gameLog.find(e=>e.tur==='gunduz_sonuc');assert.deepStrictEqual(gs2.veri.toplamlar,{u0:3},'1 gerçek oy + 2 kışkırtma');
+  const gs2=R.gameLog.find(e=>e.tur==='gunduz_sonuc');assert.deepStrictEqual(gs2.veri.toplamlar,{u0:4},'2 gerçek oy + 2 kışkırtma');
   // kışkırtılan başkası (u3), gerçek oy u0'a tek: u0 1 oyla asılmaz, u3'e kışkırtma sayılmaz → kimse gitmez
   R=fixed(['hain','provokator','doktor','masum','masum']);
   G.act(R,'u0',{kill:'u4'});G.act(R,'u1',{ab:'u3'});G.act(R,'u2',{ab:'u4'});G.advance(R);G.advance(R);

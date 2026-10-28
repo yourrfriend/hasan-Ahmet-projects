@@ -240,7 +240,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 <div id="app"><div class="panel"><p class="muted">Yükleniyor…</p></div></div>
 <script>
 // Script daha başlamadan çökerse "Yükleniyor…" yerine hatayı göster (sürüm damgasıyla).
-window.KG_VER='2026-11-05b';
+window.KG_VER='2026-11-05c';
 window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ff6b6b"><p><b>Sayfa açılamadı.</b> Sürüm '+KG_VER+'</p><p class="small" style="word-break:break-all">'+String(e.message||e.error||e)+(e.filename?' @'+e.lineno:'')+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}});
 setTimeout(function(){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ffb347"><p><b>Sayfa yüklenemedi.</b> Sürüm '+KG_VER+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}},8000);
 </script>
@@ -1087,7 +1087,7 @@ function gecmisPanel(){
 }
 function rulesPanel(){
   const pn=el('div','panel');pn.append(el('h2',null,'Nasıl oynanır'));
-  pn.append(el('p','small','Küçük bir kasabada masumlar, hainler ve tarafsızlar birlikte yaşar. Gece herkes rolünü kullanır; gündüz olanlar konuşulur ve kasaba oylamayla birini gönderir. Masumlar bütün hainleri ve katilleri bulunca, hainler sayıca üstün gelince, tarafsız katiller tek kalınca kazanır. Oyun telefonda yatay oynanır.'));
+  pn.append(el('p','small','Küçük bir kasabada masumlar, hainler ve tarafsızlar birlikte yaşar. Gece herkes rolünü kullanır; gündüz olanlar konuşulur ve kasaba oylamayla birini gönderir: en az 2 oy alan ve tek başına önde olan asılır; çekimserler en çok oydan fazlaysa kimse asılmaz. Masumlar bütün hainleri ve katilleri bulunca, hainler sayıca üstün gelince, tarafsız katiller tek kalınca kazanır. Oyun telefonda yatay oynanır.'));
   const roles=el('div','setup');SETUP.filter(e=>!e.id.endsWith('_h')).forEach(e=>{const r=el('div','r');const left=el('div');const n=el('div','n');const d=el('span','dot '+e.team);d.style.display='inline-block';d.style.marginRight='6px';n.append(d,document.createTextNode(ROLES[e.key].ico+' '+ROLES[e.key].n+' · '+TEAMN[e.team]));left.append(n,el('div','d',ROLES[e.key].desc));r.append(left);roles.append(r)});
   pn.append(roles,el('p','small muted','Polis, Gözcü, İzci, Dedektif, Tuzakçı, İspiyoncu ve Provokatör hain sürümüyle de oyuna girebilir; o zaman gece ya yeteneğini kullanır ya öldürür.'));return pn;
 }

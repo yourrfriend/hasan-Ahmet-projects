@@ -462,6 +462,8 @@ function resolveVote(R){
   const tam={...tally};for(const id of fisli){tam[g.votes[id]]=(tam[g.votes[id]]||0)+1;esyaBul(R,id,'fis').kullanildi=true}
   const sorted=Object.keys(tam).sort((a,b)=>tam[b]-tam[a]);
   let out=null;if(sorted.length&&(sorted.length===1||tam[sorted[0]]>tam[sorted[1]])&&(tally[sorted[0]]||0)>=2)out=sorted[0];
+  // çekimser çoğunluk (kullanıcı kararı 2026-10-28): çekimserler en çok oyu alanın toplamından (kışkırtma ve fiş dahil) fazlaysa kimse asılmaz; eşitse asılır
+  if(out&&skip>tam[out])out=null;
   const E={out:null,summary:''};
   // vasiyet (pasif): asılanın o geceki notları oylama özetinde — Hortlak'ın "hayalet olarak gideceksin" notu yazılmadan önce toplanır (hedef sızmasın)
   let vasiyet=null;if(out){const e=esyaBul(R,out,'vasiyet');if(e){e.kullanildi=true;const n=geceNotlari(R,out);vasiyet={kim:out,metin:n.length?'📜 '+ek(nm(out),'in')+' vasiyeti: '+n.join(' · '):'📜 '+ek(nm(out),'in')+' vasiyeti boştu.'}}}
