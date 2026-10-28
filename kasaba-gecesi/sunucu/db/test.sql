@@ -544,15 +544,28 @@ reset role;
 -- 29) seri birleştirme (en yeni son_gun'un serisi, en_uzun büyüğü) ve yetki
 insert into auth.users (id, instance_id, aud, role, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, is_anonymous)
 values ('5e5e5e5e-0005-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, '{}', '{}', now(), now(), true),
-       ('5e5e5e5e-0006-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, '{}', '{}', now(), now(), true);
+       ('5e5e5e5e-0006-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, '{}', '{}', now(), now(), true),
+       ('5e5e5e5e-0007-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, '{}', '{}', now(), now(), true),
+       ('5e5e5e5e-0008-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, '{}', '{}', now(), now(), true),
+       ('5e5e5e5e-0009-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, '{}', '{}', now(), now(), true),
+       ('5e5e5e5e-000a-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, '{}', '{}', now(), now(), true);
 set local role service_role;
 do $$ declare x uuid := '5e5e5e5e-0005-1111-1111-111111111111'; y uuid := '5e5e5e5e-0006-1111-1111-111111111111';
   bugun date := (now() at time zone 'Europe/Istanbul')::date;
 begin
+  -- bitişik: x (eski) bugün-6..bugün-3, y (yeni) bugün-2..dün → tek seri 6
   insert into public.seriler (uye, son_gun, seri, en_uzun) values (x, bugun - 3, 4, 6), (y, bugun - 1, 2, 2);
   perform public.hesap_birlestir(x, y);
-  if (select (seri, en_uzun, son_gun) from public.seriler where uye = y) <> (2, 6, bugun - 1) then raise exception 'BAŞARISIZ 29: birleştirme: %', (select row(seri, en_uzun, son_gun) from public.seriler where uye = y); end if;
+  if (select (seri, en_uzun, son_gun) from public.seriler where uye = y) <> (6, 6, bugun - 1) then raise exception 'BAŞARISIZ 29: birleştirme: %', (select row(seri, en_uzun, son_gun) from public.seriler where uye = y); end if;
   if exists (select 1 from public.seriler where uye = x) then raise exception 'BAŞARISIZ 29: eski satır kaldı'; end if;
+  -- ikinci cihaz: eski (yeni telefon) bugün 1, yeni (hesap) dün 5 → bugün 6
+  insert into public.seriler (uye, son_gun, seri, en_uzun) values ('5e5e5e5e-0007-1111-1111-111111111111', bugun, 1, 1), ('5e5e5e5e-0008-1111-1111-111111111111', bugun - 1, 5, 5);
+  perform public.hesap_birlestir('5e5e5e5e-0007-1111-1111-111111111111', '5e5e5e5e-0008-1111-1111-111111111111');
+  if (select (seri, en_uzun, son_gun) from public.seriler where uye = '5e5e5e5e-0008-1111-1111-111111111111') <> (6, 6, bugun) then raise exception 'BAŞARISIZ 29: ikinci cihaz serisi: %', (select row(seri, en_uzun, son_gun) from public.seriler where uye = '5e5e5e5e-0008-1111-1111-111111111111'); end if;
+  -- kopuk: eski bugün-5'te bitmiş seri canlanmaz
+  insert into public.seriler (uye, son_gun, seri, en_uzun) values ('5e5e5e5e-0009-1111-1111-111111111111', bugun - 5, 3, 3), ('5e5e5e5e-000a-1111-1111-111111111111', bugun - 1, 1, 4);
+  perform public.hesap_birlestir('5e5e5e5e-0009-1111-1111-111111111111', '5e5e5e5e-000a-1111-1111-111111111111');
+  if (select (seri, en_uzun, son_gun) from public.seriler where uye = '5e5e5e5e-000a-1111-1111-111111111111') <> (1, 4, bugun - 1) then raise exception 'BAŞARISIZ 29: kopuk seri canlandı'; end if;
 end $$;
 reset role;
 set local role authenticated;
