@@ -10,7 +10,7 @@ Türkçe yazış; arayüz metinleri Türkçe ve kısa.
 
 ## Dallar
 - `main`: **canlı** (`kasaba.munupixi.com` ve `kasaba-test`; kurulu commit `/saglik` `surum` alanında, geçmişi `docs/DURUM.md` başında); `/yayinla` buradan kurar (`CANLI_SURUM=main`). Eski tek sayfalık sürüm `v0-tek-sayfa` etiketinde.
-- Bitmiş, `main`'e alınmış dallar (silinebilir): `sunucu`, `sahne`, `gecmis`, `rol-dagilimi`, `kucukler-1`, `kucukler-2`, `ilerleme`, `esya-2`, `kucukler-3`, `yildiz-1`, `turnstile-kutu`, `oylama-cekimser`, `yildiz-2`.
+- Bitmiş, `main`'e alınmış dallar (silinebilir): `sunucu`, `sahne`, `gecmis`, `rol-dagilimi`, `kucukler-1`, `kucukler-2`, `ilerleme`, `esya-2`, `kucukler-3`, `yildiz-1`, `turnstile-kutu`, `oylama-cekimser`, `yildiz-2`, `yildiz-3-seri`.
 Her iş `main`'den kendi dalında; bitince `main` o dala fast-forward edilir (`git merge --ff-only`; PR açılmıyor). Yeni özellik önce `kasaba-test.munupixi.com`'a (`/yayinla kasaba-test <dal>`), kullanıcı dener, sonra canlı.
 
 ## Komutlar
