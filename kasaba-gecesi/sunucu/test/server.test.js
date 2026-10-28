@@ -819,7 +819,7 @@ async function ilerlemeSunucu(env){ // env: uye → envanter; macSonu çağrıla
   const GIZLI='test-jwt-gizli';const cagri={mac:[],al:[],oku:0,bagla:[],baglanan:new Set(),ilk:5,tavan:false};
   const sahte={kuyrukla(){},profil(){},kapat(){},sayac:{kasa:3,ilerlemeHata:1},
     envanterOku:async u=>{cagri.oku++;return env[u]||{yildiz:0,esyalar:{},kozmetikler:[]}},
-    macSonu:async(u,o,x)=>{cagri.mac.push({u,o,x});if(cagri.bekle)await cagri.bekle;if(cagri.hataSay>0){cagri.hataSay--;return null}return cagri.tavan?{odul:null,donustu:false,yildiz:5,yeni_rozetler:[],tavan:true,gunun_ilki:0}:{odul:x.odul,donustu:false,yildiz:5,yeni_rozetler:x.rozetler,tavan:false,gunun_ilki:cagri.ilk}},
+    macSonu:async(u,o,x)=>{cagri.mac.push({u,o,x});if(cagri.bekle)await cagri.bekle;if(cagri.hataSay>0){cagri.hataSay--;return null}const kd=cagri.kademeYok?{}:{kademeler:[{key:'kurtarici',kademe:1,odul:10}]};return cagri.tavan?{odul:null,donustu:false,yildiz:5,yeni_rozetler:[],tavan:true,gunun_ilki:0,...kd}:{odul:x.odul,donustu:false,yildiz:5,yeni_rozetler:x.rozetler,tavan:false,gunun_ilki:cagri.ilk,...kd}},
     kozmetikAl:async(u,key,fiyat)=>{cagri.al.push({u,key,fiyat});return fiyat>50?{hata:'yildiz',yildiz:10}:{ok:true,yildiz:3}},
     baglaOdulu:async u=>{cagri.bagla.push(u);if(cagri.baglaBekle)await cagri.baglaBekle;if(u===cagri.bagliDegil)return {hata:'bagli_degil'};if(cagri.baglanan.has(u))return {tekrar:true};cagri.baglanan.add(u);return {ok:true,yildiz:30}}};
   const srv=createServer({quiet:true,tickMs:50,jwksAlma:false,kayit:sahte,ilerlemeDenemeMs:50,ayar:{url:'https://x.example',anonKey:'a',serviceKey:'s',jwtSecret:GIZLI,kurulum:'t'}});
@@ -832,7 +832,7 @@ test('ilerleme: kayıtlı join envanter alır; premium şapka yalnız sahibine, 
   const I=await ilerlemeSunucu({[SA]:{yildiz:4,esyalar:{iksir:1},kozmetikler:['sapka:tac','bayrak:mavi']}});const acik=[];
   try{
     const a=client('il0','A',{host:true,token:I.tok(SA),hat:'tac',bayrak:'mavi',efekt:'yildiz'},I.b);acik.push(a);await a.until(c=>c.P&&c.P.room);
-    await a.until(c=>c.diger.some(m=>m.t==='envanter'));const e=a.diger.find(m=>m.t==='envanter').d;assert.deepStrictEqual(e,{yildiz:4,esyalar:{iksir:1},kozmetikler:['sapka:tac','bayrak:mavi'],bagli:false,baglaOdulu:false});
+    await a.until(c=>c.diger.some(m=>m.t==='envanter'));const e=a.diger.find(m=>m.t==='envanter').d;assert.deepStrictEqual(e,{yildiz:4,esyalar:{iksir:1},kozmetikler:['sapka:tac','bayrak:mavi'],bagli:false,baglaOdulu:false,basarilar:{}});
     await a.until(c=>c.P.lobby.some(x=>x.id===c.me&&x.hat==='tac'&&x.bayrak==='mavi'));assert.strictEqual(a.P.lobby.find(x=>x.id===a.me).efekt,'none','sahip olunmayan efekt reddedilir');
     const b=client('il1','B',{room:a.P.room,token:I.tok(SB),hat:'tac',bayrak:'ejder'},I.b);acik.push(b);await b.until(c=>c.diger.some(m=>m.t==='envanter'));await a.until(c=>c.P.lobby.some(x=>x.id===b.me));
     const lb=a.P.lobby.find(x=>x.id===b.me);assert.strictEqual(lb.hat,'none','sahibi olmayan premium şapka kabul edilmez (varsayılanda kalır)');assert.strictEqual(lb.bayrak,'none');
@@ -921,7 +921,7 @@ test('ev kozmetiği: sahibi değilse varsayılana düşer, sahibiyse lobide ve m
   }finally{for(const c of acik)await c.close();await I.kapat()}
 });
 test('ilerleme: maç sonu kayıtlı her oyuncuya bir macSonu ve {t:kasa}; oylamasız maç kasa vermez; ikinci flush tekrar etmez',async()=>{
-  const I=await ilerlemeSunucu({});const acik=[];
+  const I=await ilerlemeSunucu({});const acik=[];I.cagri.kademeYok=true;
   try{
     const a=client('im0','A',{host:true,token:I.tok(SA)},I.b);acik.push(a);await a.until(c=>c.P&&c.P.room);const room=a.P.room;
     const b=client('im1','B',{room,token:I.tok(SB)},I.b);acik.push(b);for(const u of ['im2','im3']){acik.push(client(u,u,{room},I.b))}
@@ -929,7 +929,7 @@ test('ilerleme: maç sonu kayıtlı her oyuncuya bir macSonu ve {t:kasa}; oylama
     const R=I.srv.rooms.get(room).game;R.gameLog.push({sira:99,gun:1,faz:'vote',tur:'gunduz_sonuc',veri:{}});
     R.P.phase='end';R.P.winner={team:'inn',kazananlar:[a.me]};a.send({t:'look',name:'A1'}); // look → schedule → flush
     await a.until(c=>c.diger.some(m=>m.t==='kasa'));await b.until(c=>c.diger.some(m=>m.t==='kasa'));
-    assert.strictEqual(I.cagri.mac.length,2,'yalnız iki kayıtlı oyuncu');const ma=I.cagri.mac.find(x=>x.u===SA);
+    assert.strictEqual(I.cagri.mac.length,2,'yalnız iki kayıtlı oyuncu');const ma=I.cagri.mac.find(x=>x.u===SA);assert.deepStrictEqual(a.diger.find(m=>m.t==='kasa').d.kademeler,[],'RPC kademeler vermezse []');
     assert.strictEqual(ma.o,R.P.oyunId);assert.strictEqual(ma.x.bonus,2,'kazanan bonusu');assert.strictEqual(I.cagri.mac.find(x=>x.u===SB).x.bonus,0);assert.ok(ma.x.odul&&ma.x.odul.tur);
     if(ma.x.odul.tur==='kozmetik')assert.ok(ma.x.odul.donusum>0);
     a.send({t:'look',name:'A2'});await bekle(200);assert.strictEqual(I.cagri.mac.length,2,'ikinci flush tekrar etmez');
@@ -1018,7 +1018,7 @@ test('ilerleme: maç sonu kayıt bir kez başarısızsa bir kez yeniden denenir;
 
 // ---------- Yıldız ekonomisi 1 (Task 3) ----------
 test('yıldız: maç sonu dökümü yalnız oyuncunun kasasında; bonus döküm toplamı; günün ilki geçer; tavanda döküm boş',async()=>{
-  const I=await ilerlemeSunucu({});const acik=[];
+  const I=await ilerlemeSunucu({[SA]:{yildiz:0,esyalar:{},kozmetikler:[],basarilar:{kurtarici:{sayac:3,kademe:1}}}});const acik=[];
   try{
     const a=client('ys0','A',{host:true,token:I.tok(SA)},I.b);acik.push(a);await a.until(c=>c.P&&c.P.room);const room=a.P.room;
     const b=client('ys1','B',{room,token:I.tok(SB)},I.b);acik.push(b);for(const u of ['ys2','ys3'])acik.push(client(u,u,{room},I.b));
@@ -1029,10 +1029,12 @@ test('yıldız: maç sonu dökümü yalnız oyuncunun kasasında; bonus döküm 
     assert.deepStrictEqual(ka.dokum,G.yildizDokumu(R,a.me));assert.deepStrictEqual(kb.dokum,G.yildizDokumu(R,b.me));
     assert.ok(kb.dokum.some(x=>x.key==='hain_oyu'&&x.adet===2),'B haine oy');assert.ok(!ka.dokum.some(x=>x.key==='hain_oyu'),'A, B\'nin dökümünü görmez');
     assert.strictEqual(I.cagri.mac.find(x=>x.u===SA).x.bonus,G.yildizToplam(ka.dokum));assert.strictEqual(I.cagri.mac.find(x=>x.u===SB).x.bonus,G.yildizToplam(kb.dokum));
+    assert.deepStrictEqual(ka.kademeler,[{key:'kurtarici',kademe:1,odul:10}],'kasa mesajı kademeler');const bp=I.cagri.mac.find(x=>x.u===SA).x.basari;assert.deepStrictEqual(Object.keys(bp),Object.keys(G.BASARILAR),'9 anahtar');assert.strictEqual(bp.mudavim.artis,0);for(const v of Object.values(bp))assert.ok(v.esik.length===3&&v.odul.length===3&&typeof v.artis==='number',JSON.stringify(v));
+    await a.until(c=>c.diger.some(m=>m.t==='envanter'&&m.d.basarilar&&m.d.basarilar.kurtarici&&m.d.basarilar.kurtarici.sayac===3),3000);
     assert.strictEqual(ka.gununIlki,5);assert.strictEqual(I.cagri.mac.find(x=>x.u===SA).x.gunluk,G.YILDIZ_KAYNAK.gunun_ilki.adet,'günün ilki miktarı sunucudan');
     I.cagri.tavan=true;a.send({t:'cancel'});await a.until(c=>c.P.phase==='lobby');a.diger.length=0;a.send({t:'start'});await a.until(c=>c.P.phase==='night');
     const R2=I.srv.rooms.get(room).game;R2.gameLog.push({sira:99,gun:1,faz:'vote',tur:'gunduz_sonuc',veri:{}});R2.P.phase='end';R2.P.winner={team:'inn',kazananlar:[a.me]};a.send({t:'look',name:'A2'});
-    const k2=(await a.until(c=>c.diger.find(m=>m.t==='kasa'))).diger.find(m=>m.t==='kasa').d;assert.deepStrictEqual(k2.dokum,[],'tavanda döküm yok');assert.strictEqual(k2.gununIlki,0);assert.strictEqual(k2.tavan,true);
+    const k2=(await a.until(c=>c.diger.find(m=>m.t==='kasa'))).diger.find(m=>m.t==='kasa').d;assert.deepStrictEqual(k2.dokum,[],'tavanda döküm yok');assert.strictEqual(k2.gununIlki,0);assert.strictEqual(k2.tavan,true);assert.deepStrictEqual(k2.kademeler,[{key:'kurtarici',kademe:1,odul:10}],'tavanda da kademe');
   }finally{for(const c of acik)await c.close();await I.kapat()}
 });
 test('yıldız: envanter mesajı bağlılık bayraklarını taşır',async()=>{

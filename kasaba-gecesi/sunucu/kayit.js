@@ -121,7 +121,7 @@ function olustur(opts={}){
   async function rpcCagir(ad,govde){if(!acik||kapali)return null;try{return await istek('POST','rpc/'+ad,govde,null,true)}catch(e){sayac.ilerlemeHata++;log(ad+' başarısız',e.message);return null}}
   const envanterOku=uye=>uye?rpcCagir('envanter_oku',{p_uye:uye}):Promise.resolve(null);
   async function macSonu(uye,oyunId,o){if(!uye||!oyunId)return null;o=o||{};
-    const r=await rpcCagir('mac_sonu',{p_uye:uye,p_oyun:oyunId,p_odul:o.odul||null,p_rozetler:o.rozetler||[],p_harcanan:o.harcanan||null,p_bonus:o.bonus||0,p_gunluk:o.gunluk||0});if(r)sayac.kasa++;return r}
+    const r=await rpcCagir('mac_sonu',{p_uye:uye,p_oyun:oyunId,p_odul:o.odul||null,p_rozetler:o.rozetler||[],p_harcanan:o.harcanan||null,p_bonus:o.bonus||0,p_gunluk:o.gunluk||0,p_basari:o.basari||null});if(r)sayac.kasa++;return r}
   const kozmetikAl=(uye,key,fiyat)=>uye?rpcCagir('kozmetik_al',{p_uye:uye,p_key:key,p_fiyat:fiyat}):Promise.resolve(null);
   const baglaOdulu=uye=>uye?rpcCagir('bagla_odulu',{p_uye:uye}):Promise.resolve(null);
   return{

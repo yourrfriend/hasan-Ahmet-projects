@@ -372,7 +372,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
     schedule(room);
   }
   function envanterAyarla(room,uid,mem,e){
-    mem.envanter={yildiz:+e.yildiz||0,esyalar:{...(e.esyalar||{})},kozmetikler:Array.isArray(e.kozmetikler)?e.kozmetikler.slice():[],bagli:!!e.bagli,baglaOdulu:!!e.bagla_odulu};
+    mem.envanter={yildiz:+e.yildiz||0,esyalar:{...(e.esyalar||{})},kozmetikler:Array.isArray(e.kozmetikler)?e.kozmetikler.slice():[],bagli:!!e.bagli,baglaOdulu:!!e.bagla_odulu,basarilar:e.basarilar&&typeof e.basarilar==='object'?{...e.basarilar}:{}};
     for(const ws of mem.socks)send(ws,{t:'envanter',d:mem.envanter});
     if(mem.istenen)applyLook(room,uid,mem,{...mem.istenen});if(room.lobiEsya&&mem.esyaSecim)room.lobiEsya.delete(uid);schedule(room);
   }
@@ -389,7 +389,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
         room.lobiEsya.set(uid,s)}
       const str=JSON.stringify(s);if((mem.lobiEsyaGonderilen||'null')!==str){mem.lobiEsyaGonderilen=str;for(const ws of mem.socks)send(ws,{t:'lobiEsya',d:s})}}
   }
-  // maç sonu ilerleme (gameId başına bir kez): kayıtlı her oyuncuya kasa + rozetler + eşya harcama; yalnız en az bir oylama yaşanmış maçta
+  // maç sonu ilerleme (gameId başına bir kez): kayıtlı her oyuncuya kasa + rozetler + başarı sayaçları (p_basari, 9 anahtar) + eşya harcama; yalnız en az bir oylama yaşanmış maçta
   function ilerlemeIsle(room){const R=room.game,P=R.P;if(P.phase!=='end'||!P.gameId||!P.oyunId||typeof kayit.macSonu!=='function')return;
     room.ilerlemeIslenen=room.ilerlemeIslenen||new Set();if(room.ilerlemeIslenen.has(P.gameId))return;room.ilerlemeIslenen.add(P.gameId);
     const oyun=P.gameId;const birak=pid=>{room.ayirma=(room.ayirma||[]).filter(a=>!(a.pid===pid&&a.oyun===oyun))};
@@ -400,14 +400,14 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
       const odul=G.kasaOdulu();if(odul.tur==='kozmetik')odul.donusum=G.NADIRLIK[odul.nadir].donusum;
       const k=(kul[p.id]||[]).find(e=>e.kaynak==='envanter'&&e.kullanildi);const harcanan=k?k.key:null; // v2: dizi (envanterden en çok bir eşya gelir)
       const dokum=G.yildizDokumu(R,p.id);
-      const gonder=()=>kayit.macSonu(uye,P.oyunId,{odul,rozetler:G.rozetlerFor(R,p.id),harcanan,bonus:G.yildizToplam(dokum),gunluk:G.YILDIZ_KAYNAK.gunun_ilki.adet});
+      const gonder=()=>kayit.macSonu(uye,P.oyunId,{odul,rozetler:G.rozetlerFor(R,p.id),harcanan,bonus:G.yildizToplam(dokum),gunluk:G.YILDIZ_KAYNAK.gunun_ilki.adet,basari:G.basariParam(R,p.id)});
       // RPC idempotent: geçici hata (null) bir kez yeniden denenir; yine olmazsa ayırma kalkar, eşya düşülmez
       gonder().then(r=>r||new Promise(res=>setTimeout(res,ilerlemeDenemeMs)).then(gonder)).then(r=>{
         // ayırma, düşüm sonucu bellekteki bütün kopyalara işlendikten sonra kalkar (aradaki rövanş aynı eşyayı yeniden alamaz)
         if(r&&harcanan&&!r.tekrar)for(const oda of rooms.values())for(const m of oda.members.values())if(m.uye===uye&&m.envanter&&m.envanter.esyalar[harcanan]>0)m.envanter.esyalar[harcanan]--;
         birak(p.id);
         if(!r)return;const mem=room.members.get(p.id);if(!mem)return;
-        for(const ws of mem.socks)send(ws,{t:'kasa',d:{odul:r.odul||null,donustu:!!r.donustu,yildiz:r.yildiz,rozetler:r.yeni_rozetler||[],tavan:!!r.tavan,tekrar:!!r.tekrar,dokum:r.tavan||r.tekrar?[]:dokum,gununIlki:+r.gunun_ilki||0,bagli:!!(mem.envanter&&mem.envanter.bagli)}});
+        for(const ws of mem.socks)send(ws,{t:'kasa',d:{odul:r.odul||null,donustu:!!r.donustu,yildiz:r.yildiz,rozetler:r.yeni_rozetler||[],tavan:!!r.tavan,tekrar:!!r.tekrar,dokum:r.tavan||r.tekrar?[]:dokum,gununIlki:+r.gunun_ilki||0,bagli:!!(mem.envanter&&mem.envanter.bagli),kademeler:Array.isArray(r.kademeler)?r.kademeler:[]}});
         if(mem.uye&&typeof kayit.envanterOku==='function')kayit.envanterOku(mem.uye).then(e=>{if(e)envanterAyarla(room,p.id,mem,e)}).catch(()=>{})}).catch(()=>{birak(p.id)})}
     // kayıtsız oyuncunun ayırması olmaz; yine de işlenmeyen kalırsa bırak
     const islenen=new Set(P.players.map(p=>p.id));room.ayirma=(room.ayirma||[]).filter(a=>a.oyun!==oyun||islenen.has(a.pid));
