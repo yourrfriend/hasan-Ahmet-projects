@@ -199,8 +199,12 @@ const step=t=>console.log('•',t);
         await p7.waitForSelector('button.hesap-gir',{timeout:8000});await p7.click('button.hesap-gir');await p7.fill('#hesapEposta','ben@ornek.com');
         await p7.evaluate(()=>{window.__tsKutu=true});await p7.click('button.hesap-gonder'); // Cloudflare kutu gösterirse: düğme bunu söyler, kutu görünür alana gelir
         await p7.waitForFunction(()=>/işaretle/i.test((document.querySelector('button.hesap-gonder')||{}).textContent||''),null,{timeout:4000});
-        { const g=await p7.evaluate(()=>{const r=document.querySelector('.hesap-turnstile').getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight});assert.strictEqual(g,true,'doğrulama kutusu görünür alanda') }
-        await p7.evaluate(()=>{window.__tsKutu=false});
+        // Turnstile kutusu yeniden çizilen ağacın dışında (#turnstileKutu, sabit alt kutu): render() widget'ı silmemeli — aynı eleman (data-widget) hâlâ orada ve görünür
+        { const g=await p7.evaluate(()=>{const k=document.getElementById('turnstileKutu');const w=k&&k.querySelector('[data-widget]');if(!k||!w)return {k:!!k,w:!!w};const r=k.getBoundingClientRect();return {k:true,w:true,gorunur:k.offsetHeight>0&&r.top>=0&&r.bottom<=innerHeight,formda:!!document.querySelector('.hesap-form .hesap-turnstile')}});
+          assert.deepStrictEqual(g,{k:true,w:true,gorunur:true,formda:false},'Turnstile kutusu sayfa altında, widget render sonrası yaşıyor: '+JSON.stringify(g)) }
+        await p7.evaluate(()=>{window.__tsKutu=false});await p7.click('button.hesap-vazgec');await p7.waitForSelector('button.hesap-gir',{timeout:4000});
+        assert.strictEqual(await p7.evaluate(()=>{const k=document.getElementById('turnstileKutu');return k?k.offsetHeight:0}),0,'vazgeçince kutu gizlenir');
+        await p7.click('button.hesap-gir');await p7.fill('#hesapEposta','ben@ornek.com');await p7.click('button.hesap-gonder');
         await kodBekle(p7,'gir');await p7.fill('#hesapKod','123456');await p7.click('button.hesap-dogrula');
         await p7.waitForSelector('.hesap-birlestir',{timeout:8000});assert.match(await p7.textContent('.hesap-birlestir'),/2 oyunu/);
         await p7.click('.hesap-birlestir button.ekle');
