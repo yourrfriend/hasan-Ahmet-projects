@@ -80,7 +80,7 @@ const step=t=>console.log('•',t);
         const suz=(satir,sp)=>{let r=satir;for(const [k,v] of sp){const m=/^(eq|in)\.(.*)$/.exec(v);if(!m)continue;const vals=m[1]==='in'?m[2].replace(/^\(|\)$/g,'').split(','):[m[2]];r=r.filter(x=>vals.includes(String(x[k])))}return r};
         const istekler=[];
         const c5=await newCtx();
-        let restHata=null;const c5Rota={desen:u=>/\/(auth|rest)\/v1\//.test(u.pathname)||u.pathname==='/ayar.json'||u.hostname==='challenges.cloudflare.com',isle:async route=>{
+        let restHata=null,rpcBugun=null;const c5Rota={desen:u=>/\/(auth|rest)\/v1\//.test(u.pathname)||u.pathname==='/ayar.json'||u.hostname==='challenges.cloudflare.com',isle:async route=>{
           if(new URL(route.request().url()).hostname==='challenges.cloudflare.com'){if(apiJsDurum!==200)return route.fulfill({status:apiJsDurum,body:''});
             return route.fulfill({status:200,contentType:'application/javascript',body:"window.turnstile={_n:0,_o:{},render(el,o){const id='w'+(++this._n);this._o[id]=o;el.setAttribute('data-widget',id);return id},execute(id){const o=this._o[id];if(window.__tsKutu&&o['before-interactive-callback']){o['before-interactive-callback']();setTimeout(()=>{o['after-interactive-callback']&&o['after-interactive-callback']();o.callback('sahte-'+o.action+'-'+Date.now()+'-'+(++this._n))},600)}else setTimeout(()=>o.callback('sahte-'+o.action+'-'+Date.now()+'-'+(++this._n)),10)},reset(){},remove(){}}"})}
           const u=new URL(route.request().url());const json=(b,st)=>route.fulfill({status:st||200,contentType:'application/json',body:JSON.stringify(b)});
@@ -97,6 +97,7 @@ const step=t=>console.log('•',t);
           if(route.request().method()==='PATCH'){let g=null;try{g=JSON.parse(route.request().postData()||'null')}catch(e){}if(g&&typeof g.ad==='string'&&(g.ad.length>40||g.ad.startsWith('KISIT')))return json({code:'23514',message:'new row for relation "kasabalar" violates check constraint "kasabalar_ad_uzunluk"'},400);return route.fulfill({status:204,body:''})} // göç 007: ad uzunluk kısıtı
           const t=u.pathname.split('/').pop();istekler.push(t+'?'+u.searchParams.toString());
           if(restHata===t)return json({message:'taklit sunucu hatası'},500); // ağ/sunucu hatası dalı: sayfa "göremezsin" dememeli
+          if(t==='istanbul_bugun')return json(rpcBugun||new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Istanbul'}).format(new Date()));
           if(!tablo[t])return json({message:'yok: '+t},404);
           return json(suz(tablo[t],u.searchParams))}};
         await c5.route(c5Rota.desen,c5Rota.isle);
@@ -135,7 +136,11 @@ const step=t=>console.log('•',t);
           await p5.goto(o3+'/ben');await p5.waitForFunction(()=>[...document.querySelectorAll('#icerik h2')].some(h=>/Koleksiyon/.test(h.textContent)),null,{timeout:8000});
           const t=await p5.textContent('main');assert.match(t,/⭐ 33/);assert.match(t,/İksir ×2/);assert.match(t,/Rozetler \(1\/4\)/);assert.match(await p5.textContent('.seri-satir'),/🔥 Seri: 3 gün · en uzun 9/,'profil seri satırı');
           {const k=G.haftaGorevleri(G.haftaPazartesi(Date.now()));assert.match(await p5.textContent('.haftalik'),/Bu haftanın görevleri · \d gün kaldı/,'görev başlığı');assert.strictEqual(await p5.evaluate(()=>document.querySelectorAll('.haftalik .gorev').length),3);
-            assert.match(await p5.textContent('.gorev[data-key="'+k[0]+'"]'),new RegExp('1/'+G.HAFTALIK.havuz[k[0]].hedef),'ilerleme');assert.match(await p5.textContent('.gorev[data-key="'+k[1]+'"]'),/✓/,'tamam');assert.doesNotMatch(await p5.textContent('.gorev[data-key="'+k[2]+'"]'),/✓|9\//,'geçen haftanın satırı sayılmaz')}
+            assert.match(await p5.textContent('.gorev[data-key="'+k[0]+'"]'),new RegExp('1/'+G.HAFTALIK.havuz[k[0]].hedef),'ilerleme');assert.match(await p5.textContent('.gorev[data-key="'+k[1]+'"]'),/✓/,'tamam');assert.doesNotMatch(await p5.textContent('.gorev[data-key="'+k[2]+'"]'),/✓|9\//,'geçen haftanın satırı sayılmaz');assert.doesNotMatch(await p5.textContent('.haftalik'),/Hepsi tamam/)}
+          // hafta cihaz saatinden değil sunucudan (istanbul_bugun): sunucu gelecek haftayı derse o haftanın görevleri; üçü tamamsa (bonus satırı olmasa da) "Hepsi tamam"
+          {const sonraki=new Date(Date.parse(G.haftaPazartesi(Date.now())+'T00:00:00Z')+7*864e5).toISOString().slice(0,10);const k2=G.haftaGorevleri(sonraki);rpcBugun=sonraki;const eski=tablo.haftalik_gorevler;tablo.haftalik_gorevler=k2.map(key=>({uye:'11111111-2222-4333-8444-555555555555',hafta:sonraki,key,sayac:9,tamam:true}));
+            await p5.goto(o3+'/ben');await p5.waitForSelector('.haftalik .gorev',{timeout:8000});assert.deepStrictEqual(await p5.evaluate(()=>[...document.querySelectorAll('.haftalik .gorev')].map(x=>x.dataset.key)),k2,'sunucu haftası');assert.match(await p5.textContent('.haftalik'),/Hepsi tamam/,'üçü tamam');
+            rpcBugun=null;tablo.haftalik_gorevler=eski;await p5.goto(o3+'/ben');await p5.waitForSelector('.haftalik .gorev',{timeout:8000})}
           assert.strictEqual(await p5.evaluate(()=>document.querySelectorAll('.rozet:not(.kilitli)').length),1,'bir rozet kazanılmış');
           assert.strictEqual(await p5.evaluate(()=>document.querySelectorAll('.basari').length),9,'dokuz başarı satırı');assert.match(await p5.textContent('.basari[data-key="kurtarici"]'),/12\/30 → altın/,'kurtarıcı ilerlemesi');
           assert.strictEqual(await p5.evaluate(()=>document.querySelectorAll('.basari[data-key="kurtarici"] .madalya:not(.yok)').length),2,'iki madalya');assert.match(await p5.textContent('.basari[data-key="mudavim"]'),/0\/10 → bronz/,'sayaç yoksa 0');

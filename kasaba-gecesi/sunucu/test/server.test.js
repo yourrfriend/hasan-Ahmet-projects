@@ -819,7 +819,7 @@ async function ilerlemeSunucu(env){ // env: uye → envanter; macSonu çağrıla
   const GIZLI='test-jwt-gizli';const cagri={mac:[],al:[],oku:0,bagla:[],baglanan:new Set(),ilk:5,tavan:false};
   const sahte={kuyrukla(){},profil(){},kapat(){},sayac:{kasa:3,ilerlemeHata:1},
     envanterOku:async u=>{cagri.oku++;return env[u]||{yildiz:0,esyalar:{},kozmetikler:[]}},
-    macSonu:async(u,o,x)=>{cagri.mac.push({u,o,x});if(cagri.bekle)await cagri.bekle;if(cagri.hataSay>0){cagri.hataSay--;return null}const kd=cagri.kademeYok?{}:{kademeler:[{key:'kurtarici',kademe:1,odul:10}],seri:3,gorevler:[{key:'mac',odul:15}]};return cagri.tavan?{odul:null,donustu:false,yildiz:5,yeni_rozetler:[],tavan:true,gunun_ilki:0,...kd}:{odul:x.odul,donustu:false,yildiz:5,yeni_rozetler:x.rozetler,tavan:false,gunun_ilki:cagri.ilk,...kd}},
+    macSonu:async(u,o,x)=>{cagri.mac.push({u,o,x});if(cagri.bekle)await cagri.bekle;if(cagri.hataSay>0){cagri.hataSay--;return null}if(cagri.tekrarSonuc)return {tekrar:true,sonuc:{odul:x.odul,donustu:false,yildiz:9,yeni_rozetler:[],tavan:false,gunun_ilki:5,kademeler:[],seri:2,gorevler:[{key:'mac',odul:15}]}};const kd=cagri.kademeYok?{}:{kademeler:[{key:'kurtarici',kademe:1,odul:10}],seri:3,gorevler:[{key:'mac',odul:15}]};return cagri.tavan?{odul:null,donustu:false,yildiz:5,yeni_rozetler:[],tavan:true,gunun_ilki:0,...kd}:{odul:x.odul,donustu:false,yildiz:5,yeni_rozetler:x.rozetler,tavan:false,gunun_ilki:cagri.ilk,...kd}},
     kozmetikAl:async(u,key,fiyat)=>{cagri.al.push({u,key,fiyat});return fiyat>50?{hata:'yildiz',yildiz:10}:{ok:true,yildiz:3}},
     baglaOdulu:async u=>{cagri.bagla.push(u);if(cagri.baglaBekle)await cagri.baglaBekle;if(u===cagri.bagliDegil)return {hata:'bagli_degil'};if(cagri.baglanan.has(u))return {tekrar:true};cagri.baglanan.add(u);return {ok:true,yildiz:30}}};
   const srv=createServer({quiet:true,tickMs:50,jwksAlma:false,kayit:sahte,ilerlemeDenemeMs:50,ayar:{url:'https://x.example',anonKey:'a',serviceKey:'s',jwtSecret:GIZLI,kurulum:'t'}});
@@ -1013,6 +1013,17 @@ test('ilerleme: maç sonu kayıt bir kez başarısızsa bir kez yeniden denenir;
     await a.until(c=>c.P.lobby.length===4);a.send({t:'start'});await a.until(c=>c.P.phase==='night');const R=I.srv.rooms.get(room).game;
     R.gameLog.push({sira:99,gun:1,faz:'vote',tur:'gunduz_sonuc',veri:{}});R.P.phase='end';R.P.winner={team:'inn',kazananlar:[]};a.send({t:'look',name:'A1'});
     await a.until(c=>c.diger.some(m=>m.t==='kasa'),3000);assert.strictEqual(I.cagri.mac.length,2,'bir hata + bir yeniden deneme');
+  }finally{for(const c of acik)await c.close();await I.kapat()}
+});
+
+test('ilerleme: ilk yanıt kaybolup yeniden deneme tekrar dönerse, saklanan sonuçla tam kasa kartı gelir',async()=>{
+  const I=await ilerlemeSunucu({});I.cagri.tekrarSonuc=true;const acik=[];
+  try{
+    const a=client('ks0','A',{host:true,token:I.tok(SA)},I.b);acik.push(a);await a.until(c=>c.P&&c.P.room);const room=a.P.room;for(const u of ['ks1','ks2','ks3'])acik.push(client(u,u,{room},I.b));
+    await a.until(c=>c.P.lobby.length===4);a.send({t:'start'});await a.until(c=>c.P.phase==='night');const R=I.srv.rooms.get(room).game;
+    R.gameLog.push({sira:99,gun:1,faz:'vote',tur:'gunduz_sonuc',veri:{}});R.P.phase='end';R.P.winner={team:'inn',kazananlar:[a.me]};a.send({t:'look',name:'A1'});
+    const k=(await a.until(c=>c.diger.find(m=>m.t==='kasa'),3000)).diger.find(m=>m.t==='kasa').d;
+    assert.strictEqual(k.tekrar,false,'saklanan sonuç varsa tekrar kartı değil');assert.strictEqual(k.yildiz,9);assert.deepStrictEqual(k.gorevler,[{key:'mac',odul:15}]);assert.strictEqual(k.seri,2);assert.strictEqual(k.gununIlki,5);assert.deepStrictEqual(k.dokum,G.yildizDokumu(R,a.me));
   }finally{for(const c of acik)await c.close();await I.kapat()}
 });
 

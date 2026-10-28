@@ -594,6 +594,7 @@ begin
   r := public.mac_sonu(u, g, od, null, null, 0, 0, null, 0, 0, gr, 20);
   if not coalesce((r->>'tekrar')::boolean, false) or (select sayac from public.haftalik_gorevler where uye = u and key = 'mac') <> 1 then raise exception 'BAŞARISIZ 30: tekrar saydı: %', r; end if;
   r := public.mac_sonu(u, gen_random_uuid(), od, null, null, 0, 0, null, 0, 0, gr, 20);
+  if (select sayac from public.haftalik_gorevler where uye = u and key = 'kazan') <> 2 then raise exception 'BAŞARISIZ 30: kazan sayacı ilerlemedi'; end if;
   if r->'gorevler' <> '[{"key":"mac","odul":15}]'::jsonb or (select yildiz from public.cuzdan where uye = u) <> 30 then raise exception 'BAŞARISIZ 30: ikinci maç (kazan yeniden ödül vermez): %', r; end if;
   if (select sayac from public.haftalik_gorevler where uye = u and key = 'gun') <> 1 then raise exception 'BAŞARISIZ 30: aynı gün gun arttı'; end if;
   delete from public.kasalar where uye = u;
@@ -605,6 +606,9 @@ begin
   insert into public.kasalar (uye, oyun_id, odul) select t, gen_random_uuid(), '{"tavan":true}' from generate_series(1, 20);
   r := public.mac_sonu(t, gen_random_uuid(), od, null, null, 0, 0, null, 0, 0, gr, 20);
   if not (r->>'tavan')::boolean or exists (select 1 from public.haftalik_gorevler where uye = t) then raise exception 'BAŞARISIZ 30: tavanda sayıldı: %', r; end if;
+  delete from public.kasalar where uye = t;
+  r := public.mac_sonu(t, gen_random_uuid(), od, null, null, 0, 0, null, 0, 0);
+  if exists (select 1 from public.haftalik_gorevler where uye = t) or r->'gorevler' <> '[]'::jsonb then raise exception 'BAŞARISIZ 30: eski çağrı (p_gorev null) saydı: %', r; end if;
   raise notice 'GEÇTİ 30: haftalık görev ve bonus';
 end $$;
 reset role;
@@ -619,15 +623,38 @@ begin
   perform public.hesap_birlestir(x, y);
   if (select (sayac, tamam) from public.haftalik_gorevler where uye = y and key = 'mac') <> (2, true) then raise exception 'BAŞARISIZ 31: birleştirme'; end if;
   if exists (select 1 from public.haftalik_gorevler where uye = x) or coalesce((select yildiz from public.cuzdan where uye = y), 0) <> 0 then raise exception 'BAŞARISIZ 31: eski satır ya da ödül'; end if;
+  -- birleştirmeyle hedefi geçen (tamam olmamış) sayaç sonraki maçta bir kez ödül alır
+  insert into public.haftalik_gorevler (uye, hafta, key, sayac, tamam) values (x, h, 'kazan', 1, false), (y, h, 'kazan', 1, false);
+  perform public.hesap_birlestir(x, y);
+  if (select (sayac, tamam) from public.haftalik_gorevler where uye = y and key = 'kazan') <> (2, false) then raise exception 'BAŞARISIZ 31: kazan birleşimi'; end if;
+  if public.mac_sonu(y, gen_random_uuid(), '{"tur":"yildiz","adet":0}', null, null, 0, 0, null, 0, 0, '{"kazan":{"artis":0,"hedef":2,"odul":15}}', 20)->'gorevler' <> '[{"key":"kazan","odul":15},{"key":"hepsi","odul":20}]'::jsonb then raise exception 'BAŞARISIZ 31: birleştirme sonrası yakalama'; end if;
 end $$;
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"6a6a6a6a-0004-1111-1111-111111111111","role":"authenticated"}', true);
 do $$ begin
-  if (select count(*) from public.haftalik_gorevler) <> 1 then raise exception 'BAŞARISIZ 31: yalnız kendi satırı'; end if;
+  if (select count(*) from public.haftalik_gorevler where uye <> '6a6a6a6a-0004-1111-1111-111111111111') <> 0 or (select count(*) from public.haftalik_gorevler) = 0 then raise exception 'BAŞARISIZ 31: yalnız kendi satırı'; end if;
   begin update public.haftalik_gorevler set sayac = 99; raise exception 'BAŞARISIZ 31: istemci yazabildi';
   exception when insufficient_privilege then null; end;
   raise notice 'GEÇTİ 31: haftalık görev birleştirme ve yetki';
+end $$;
+reset role;
+
+-- 32) kayıp yanıt (göç 017): ikinci çağrı tekrar döner ama ilk sonucun kendisini de taşır (kasa kartı yeniden kurulabilir); istanbul_bugun
+insert into auth.users (id, instance_id, aud, role, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, is_anonymous)
+values ('6a6a6a6a-0005-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, '{}', '{}', now(), now(), true);
+set local role service_role;
+do $$ declare r1 jsonb; r2 jsonb; u uuid := '6a6a6a6a-0005-1111-1111-111111111111'; g uuid := gen_random_uuid(); begin
+  r1 := public.mac_sonu(u, g, '{"tur":"yildiz","adet":3}', null, null, 0, 5, null, 1, 5, '{"mac":{"artis":1,"hedef":1,"odul":15}}', 20);
+  r2 := public.mac_sonu(u, g, '{"tur":"yildiz","adet":3}', null, null, 0, 5, null, 1, 5, '{"mac":{"artis":1,"hedef":1,"odul":15}}', 20);
+  if not coalesce((r2->>'tekrar')::boolean, false) or r2->'sonuc' <> r1 then raise exception 'BAŞARISIZ 32: tekrar ilk sonucu taşımıyor: % / %', r1, r2; end if;
+  if (r1->'gorevler') <> '[{"key":"mac","odul":15},{"key":"hepsi","odul":20}]'::jsonb then raise exception 'BAŞARISIZ 32: ilk sonuç: %', r1; end if;
+end $$;
+reset role;
+set local role authenticated;
+do $$ begin
+  if public.istanbul_bugun() <> (now() at time zone 'Europe/Istanbul')::date then raise exception 'BAŞARISIZ 32: istanbul_bugun'; end if;
+  raise notice 'GEÇTİ 32: kayıp yanıt sonucu ve sunucu tarihi';
 end $$;
 reset role;
 

@@ -17,7 +17,9 @@
   const {ayar,sb,session,neden}=await KG_SAYFA.oturum();
   if(!sb||!session){not(neden==='kayit-kapali'?'Kayıt kapalı: bu kurulumda ilerleme tutulmuyor.':'Bu cihazda kimlik yok: önce oyun sayfasını aç, sonra buraya dön.',neden==='kayit-kapali'?'':'hata');icerik.textContent='';return}
   const oku=async(q)=>{const {data,error}=await q;if(error)throw new Error(error.message||error.code);return data||[]};
-  const hafta=G.haftaPazartesi(Date.now());
+  // bugün (Europe/Istanbul) sunucudan: cihaz saati kaymışsa hafta ve seri yanlış görünmesin; RPC yoksa cihaz saati
+  const cihazGun=d=>new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Istanbul'}).format(d);let bugunTR=null;try{const r=await sb.rpc('istanbul_bugun');if(!r.error&&typeof r.data==='string'&&/^\d{4}-\d\d-\d\d$/.test(r.data))bugunTR=r.data}catch(e){}
+  if(!bugunTR)bugunTR=cihazGun(new Date());const dunTR=new Date(Date.parse(bugunTR+'T00:00:00Z')-864e5).toISOString().slice(0,10);const hafta=G.haftaPazartesi(Date.parse(bugunTR+'T12:00:00+03:00'));
   let ozet,cuzdan,esyalar,kozmetikler,rozetler,basarilar,seriler,gorevler;
   try{[ozet,cuzdan,esyalar,kozmetikler,rozetler,basarilar,seriler,gorevler]=await Promise.all([
     oku(sb.from('oyuncu_ozet').select('oyun,kazanma,en_cok_rol').eq('kurulum',ayar.kurulum||'')),
@@ -47,15 +49,15 @@
   oz.append(kart(o.oyun,'maç'),kart(o.kazanma,'kazanma'),kart(o.en_cok_rol&&G.ROLES[o.en_cok_rol]?G.ROLES[o.en_cok_rol].n:'—','en çok rol'));
   const yk=kart('⭐ '+yildiz,'yıldız');yk.querySelector('b').id='yildiz';oz.append(yk);p1.append(oz);
   // seri (yıldız ekonomisi 3a): son_gun bugün ya da dün değilse seri kırılmıştır (Europe/Istanbul günü); yalnız sahibine
-  if(seriler[0]){const S=seriler[0];const gun=d=>new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Istanbul'}).format(d);const bugun=gun(new Date()),dun=gun(new Date(Date.now()-864e5));const n=(S.son_gun===bugun||S.son_gun===dun)?S.seri:0;
+  if(seriler[0]){const S=seriler[0];const n=(S.son_gun===bugunTR||S.son_gun===dunTR)?S.seri:0;
     p1.append(el('p','seri-satir',n>0?'🔥 Seri: '+n+' gün · en uzun '+S.en_uzun:'🔥 Seri yok · en uzun '+S.en_uzun))}
   icerik.append(p1);
   // haftalık görevler (yıldız ekonomisi 3b): herkese aynı 3 görev, bu haftanın satırları; kalan gün Europe/Istanbul pazartesisinden
-  {const gm=new Map(gorevler.filter(x=>x.hafta===hafta).map(x=>[x.key,x]));const bugun=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Istanbul'}).format(new Date());const kalan=7-Math.round((Date.parse(bugun)-Date.parse(hafta))/864e5);
+  {const gm=new Map(gorevler.filter(x=>x.hafta===hafta).map(x=>[x.key,x]));const kalan=7-Math.round((Date.parse(bugunTR)-Date.parse(hafta))/864e5);
     const ph=el('div','panel haftalik');ph.append(el('h2',null,'📅 Bu haftanın görevleri · '+kalan+' gün kaldı'));ph.append(el('p','small muted','Her görev +'+G.HAFTALIK.odul+' ⭐, üçü birden +'+G.HAFTALIK.bonus+' ⭐. Herkese aynı; pazartesi yenilenir.'));
     for(const k of G.haftaGorevleri(hafta)){const T=G.HAFTALIK.havuz[k];const x=gm.get(k)||{sayac:0,tamam:false};const r=el('div','gorev');r.dataset.key=k;r.append(el('span','ad',T.n),el('span','madalyalar',x.tamam?'✓':''));
       const c=el('div','cubuk');const d=el('div','dolu');d.style.width=(x.tamam?100:Math.min(100,Math.round(100*x.sayac/T.hedef)))+'%';c.append(d);r.append(c,el('span','ilerleme',x.tamam?'Tamam ✓':Math.min(x.sayac,T.hedef)+'/'+T.hedef));ph.append(r)}
-    if(gm.get('hepsi'))ph.append(el('p','small','🏆 Hepsi tamam'));icerik.append(ph)}
+    if(gm.get('hepsi')||G.haftaGorevleri(hafta).every(k=>(gm.get(k)||{}).tamam))ph.append(el('p','small','🏆 Hepsi tamam'));icerik.append(ph)}
   // eşyalar
   const p2=el('div','panel');p2.append(el('h2',null,'Eşyaların'));p2.append(el('p','small muted','Eşya modunda maç başında yanına bir tane alırsın; kullanırsan harcanır, kullanmadan ölürsen geri döner.'));
   const elde=esyalar.filter(e=>e.adet>0&&G.ESYA[e.key]);if(!elde.length)p2.append(el('p','muted','Henüz eşyan yok; maç sonu kasalarından çıkar.'));

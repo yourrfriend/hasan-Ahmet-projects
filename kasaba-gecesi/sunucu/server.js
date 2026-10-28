@@ -407,7 +407,9 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
         if(r&&harcanan&&!r.tekrar)for(const oda of rooms.values())for(const m of oda.members.values())if(m.uye===uye&&m.envanter&&m.envanter.esyalar[harcanan]>0)m.envanter.esyalar[harcanan]--;
         birak(p.id);
         if(!r)return;const mem=room.members.get(p.id);if(!mem)return;
-        for(const ws of mem.socks)send(ws,{t:'kasa',d:{odul:r.odul||null,donustu:!!r.donustu,yildiz:r.yildiz,rozetler:r.yeni_rozetler||[],tavan:!!r.tavan,tekrar:!!r.tekrar,dokum:r.tavan||r.tekrar?[]:dokum,gununIlki:+r.gunun_ilki||0,bagli:!!(mem.envanter&&mem.envanter.bagli),kademeler:Array.isArray(r.kademeler)?r.kademeler:[],seri:+r.seri||0,gorevler:Array.isArray(r.gorevler)?r.gorevler:[]}});
+        // tekrar ama saklanan sonuç varsa (göç 017: ilk yanıt kaybolmuş) kart o sonuçla kurulur
+        const s=r.tekrar&&r.sonuc&&typeof r.sonuc==='object'?r.sonuc:r;const tekrar=s===r&&!!r.tekrar;
+        for(const ws of mem.socks)send(ws,{t:'kasa',d:{odul:s.odul||null,donustu:!!s.donustu,yildiz:s.yildiz,rozetler:s.yeni_rozetler||[],tavan:!!s.tavan,tekrar,dokum:s.tavan||tekrar?[]:dokum,gununIlki:+s.gunun_ilki||0,bagli:!!(mem.envanter&&mem.envanter.bagli),kademeler:Array.isArray(s.kademeler)?s.kademeler:[],seri:+s.seri||0,gorevler:Array.isArray(s.gorevler)?s.gorevler:[]}});
         if(mem.uye&&typeof kayit.envanterOku==='function')kayit.envanterOku(mem.uye).then(e=>{if(e)envanterAyarla(room,p.id,mem,e)}).catch(()=>{})}).catch(()=>{birak(p.id)})}
     // kayıtsız oyuncunun ayırması olmaz; yine de işlenmeyen kalırsa bırak
     const islenen=new Set(P.players.map(p=>p.id));room.ayirma=(room.ayirma||[]).filter(a=>a.oyun!==oyun||islenen.has(a.pid));

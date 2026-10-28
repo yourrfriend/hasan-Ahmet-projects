@@ -137,7 +137,7 @@ const YILDIZ_KAYNAK={kazanma:{n:'Kazandın',adet:2},tek_kazanan:{n:'Tek başına
   seri:{n:'Seri',adet:1,tavan:5}};
 // haftalık görevler (tasarım 2026-10-28-kasaba-gecesi-yildiz-3-gorev): herkese aynı 3 görev, Europe/Istanbul pazartesisinden deterministik; ilerleme ve ödül mac_sonu'da (göç 016)
 // rolden, oydan ve eşyadan bağımsız; gun sayacını SQL tutar (bugünün ilk gerçek kasası)
-const HAFTALIK={havuz:{mac:{n:'5 maç oyna',hedef:5},kazan:{n:'2 kez kazan',hedef:2},kalabalik:{n:'8+ kişilik 2 maç oyna',hedef:2},sag_kal:{n:'2 maçı hayatta bitir',hedef:2},gun:{n:'3 farklı gün oyna',hedef:3}},odul:15,bonus:20,adet:3};
+const HAFTALIK={havuz:{mac:{n:'5 maç oyna',hedef:5},kazan:{n:'2 kez kazan',hedef:2},kalabalik:{n:'8+ kişilik 2 maç oyna',hedef:2},sag_kal:{n:'2 maçı hayatta bitir',hedef:2},gun:{n:'3 farklı gün oyna',hedef:3}},odul:5,bonus:10,adet:3};
 function haftaPazartesi(ms){const ymd=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Istanbul'}).format(new Date(ms));const t=Date.parse(ymd+'T00:00:00Z');const gun=(new Date(t).getUTCDay()+6)%7;return new Date(t-gun*864e5).toISOString().slice(0,10)}
 function haftaGorevleri(pazartesi){let h=2166136261;for(const c of String(pazartesi)){h^=c.charCodeAt(0);h=Math.imul(h,16777619)>>>0}
   const a=Object.keys(HAFTALIK.havuz);for(let i=a.length-1;i>0;i--){h=(Math.imul(h,1103515245)+12345)>>>0;const j=h%(i+1);[a[i],a[j]]=[a[j],a[i]]}return a.slice(0,HAFTALIK.adet)}
