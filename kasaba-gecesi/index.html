@@ -240,7 +240,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 <div id="app"><div class="panel"><p class="muted">Yükleniyor…</p></div></div>
 <script>
 // Script daha başlamadan çökerse "Yükleniyor…" yerine hatayı göster (sürüm damgasıyla).
-window.KG_VER='2026-11-06c';
+window.KG_VER='2026-11-07a';
 window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ff6b6b"><p><b>Sayfa açılamadı.</b> Sürüm '+KG_VER+'</p><p class="small" style="word-break:break-all">'+String(e.message||e.error||e)+(e.filename?' @'+e.lineno:'')+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}});
 setTimeout(function(){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ffb347"><p><b>Sayfa yüklenemedi.</b> Sürüm '+KG_VER+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}},8000);
 </script>
@@ -1294,7 +1294,7 @@ function kasaKarti(k){const c=el('div','kasa');c.append(el('b',null,'🎁 Kasa')
   if(k.tavan)c.append(el('div','small','Bugünlük kasa sınırına ulaştın; yarın yine açılır.'));
   else if(k.odul)c.append(el('div','odul',odulMetni(k.odul)+(k.donustu?' · zaten vardı → yıldıza döndü':'')));
   if(!k.tavan){for(const x of k.dokum||[]){const ad=sahipMi(YILDIZ_KAYNAK,x.key)?YILDIZ_KAYNAK[x.key].n:sahipMi(BASARILAR,x.key)?BASARILAR[x.key].n:sahipMi(ROZETLER,x.key)?ROZETLER[x.key].n:'';if(ad&&x.adet>0)c.append(el('div','dokum','+'+x.adet+' '+ad))}
-    if(k.gununIlki>0)c.append(el('div','dokum','+'+k.gununIlki+' '+YILDIZ_KAYNAK.gunun_ilki.n))}
+    if(k.gununIlki>0)c.append(el('div','dokum',(k.bagli&&k.seri>=2?'🔥 '+k.seri+'. gün üst üste · ':'')+'+'+k.gununIlki+' '+YILDIZ_KAYNAK.gunun_ilki.n))}
   for(const x of k.kademeler||[]){if(!sahipMi(BASARILAR,x.key)||!(x.kademe>=1&&x.kademe<=3))continue;let od='';if(typeof x.odul==='number')od='+'+x.odul+' ⭐';else{const [t,a]=String(x.odul||'').split(':');if(sahipMi(KOZMETIK,t)&&sahipMi(KOZMETIK[t],a))od=({ev:'🏠',sapka:'🎩',bayrak:'🚩',efekt:'✨'})[t]+' '+KOZMETIK[t][a].n}
     c.append(el('div','kademe',KADEME_SIMGE[x.kademe-1]+' '+BASARILAR[x.key].n+' '+KADEME_AD[x.kademe-1]+(od?' · '+od:'')))}
   if(k.yildiz!=null)c.append(el('div','small','Yıldızın: ⭐ '+k.yildiz));
@@ -1312,7 +1312,7 @@ function renderEndUI(stage){
   if(kasaSonuc)c.append(kasaKarti(kasaSonuc));
   if(P.settings&&P.settings.esyaModu&&lobiEsya&&sahipMi(ESYA,lobiEsya.key)){const E=ESYA[lobiEsya.key];c.append(el('div','lobi-esya small','🎒 Sonraki maçta eşyan: '+E.ico+' '+E.n+(lobiEsya.kaynak==='bedava'?' (rastgele)':' (kasandan)')))}
   // e-postasız kayıtlı oyuncuya hatırlatma (Plan 6): giriş sayfasına gider (odadan çıkar), form açık gelir
-  if(hatirlatGoster(ayar,kayitli,hesap.eposta)&&!(kasaSonuc&&kasaSonuc.bagli)){const y=kasaSonuc&&kasaSonuc.yildiz!=null;const a=el('a','hesap-hatirlat',y?'⭐ '+kasaSonuc.yildiz+' yıldızın yalnız bu tarayıcıda. E-postanı bağla, kaybolmasın (+'+YILDIZ_KAYNAK.bagla.adet+' ⭐ ve ✉️ bayrak)':'💾 Geçmişini kaybetme: e-postanı bağla (giriş sayfasına gider)');a.href='/?bagla=1';c.append(a)}
+  if(hatirlatGoster(ayar,kayitli,hesap.eposta)&&!(kasaSonuc&&kasaSonuc.bagli)){const y=kasaSonuc&&kasaSonuc.yildiz!=null;const a=el('a','hesap-hatirlat',y?'⭐ '+kasaSonuc.yildiz+' yıldızın yalnız bu tarayıcıda. E-postanı bağla, kaybolmasın (+'+YILDIZ_KAYNAK.bagla.adet+' ⭐ ve ✉️ bayrak)'+(kasaSonuc.seri>=2?' 🔥 Serin '+kasaSonuc.seri+' gün; bağlarsan günün ilki büyür.':''):'💾 Geçmişini kaybetme: e-postanı bağla (giriş sayfasına gider)');a.href='/?bagla=1';c.append(a)}
   // Kasabada Bu Gece: sunucunun gerçek olaylardan ürettiği en çok 3 kart (P.gazete; yalnız bitmiş oyun)
   if(P.gazete&&P.gazete.length){const gz=el('div','gazete');gz.append(el('b',null,'🗞️ KASABADA BU GECE'));P.gazete.forEach(k=>gz.append(el('div','kart',k.metin)));c.append(gz)}
   // maç özeti: her oyuncu bir satır (ad + rol / akıbet); özet sunucudan gelir (P.ozet), Supabase gerekmez

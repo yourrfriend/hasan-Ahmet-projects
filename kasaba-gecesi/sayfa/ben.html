@@ -17,11 +17,11 @@
   const {ayar,sb,session,neden}=await KG_SAYFA.oturum();
   if(!sb||!session){not(neden==='kayit-kapali'?'Kayıt kapalı: bu kurulumda ilerleme tutulmuyor.':'Bu cihazda kimlik yok: önce oyun sayfasını aç, sonra buraya dön.',neden==='kayit-kapali'?'':'hata');icerik.textContent='';return}
   const oku=async(q)=>{const {data,error}=await q;if(error)throw new Error(error.message||error.code);return data||[]};
-  let ozet,cuzdan,esyalar,kozmetikler,rozetler,basarilar;
-  try{[ozet,cuzdan,esyalar,kozmetikler,rozetler,basarilar]=await Promise.all([
+  let ozet,cuzdan,esyalar,kozmetikler,rozetler,basarilar,seriler;
+  try{[ozet,cuzdan,esyalar,kozmetikler,rozetler,basarilar,seriler]=await Promise.all([
     oku(sb.from('oyuncu_ozet').select('oyun,kazanma,en_cok_rol').eq('kurulum',ayar.kurulum||'')),
     oku(sb.from('cuzdan').select('yildiz')),oku(sb.from('esyalar').select('key,adet')),
-    oku(sb.from('kozmetikler').select('key')),oku(sb.from('rozetler').select('key,kazanma')),oku(sb.from('basarilar').select('key,sayac,kademe'))])}
+    oku(sb.from('kozmetikler').select('key')),oku(sb.from('rozetler').select('key,kazanma')),oku(sb.from('basarilar').select('key,sayac,kademe')),oku(sb.from('seriler').select('seri,en_uzun,son_gun'))])}
   catch(e){not('Bağlantı hatası, sayfayı yenile. ('+e.message+')','hata');icerik.textContent='';return}
   let yildiz=(cuzdan[0]&&cuzdan[0].yildiz)||0;const sahip=new Set(kozmetikler.map(k=>k.key));const kazanilan=new Set(rozetler.map(r=>r.key));const basari=new Map(basarilar.map(b=>[b.key,b]));
   const look=()=>{try{return JSON.parse(localStorage.getItem('kg_look'))||{}}catch(e){return {}}};
@@ -44,7 +44,11 @@
   const p1=el('div','panel');p1.append(el('h2',null,'Özet'));const oz=el('div','ozet');const o=ozet[0]||{oyun:0,kazanma:0};
   const kart=(b,t)=>{const k=el('div','kart');k.append(el('b',null,String(b)),el('span','small muted',t));return k};
   oz.append(kart(o.oyun,'maç'),kart(o.kazanma,'kazanma'),kart(o.en_cok_rol&&G.ROLES[o.en_cok_rol]?G.ROLES[o.en_cok_rol].n:'—','en çok rol'));
-  const yk=kart('⭐ '+yildiz,'yıldız');yk.querySelector('b').id='yildiz';oz.append(yk);p1.append(oz);icerik.append(p1);
+  const yk=kart('⭐ '+yildiz,'yıldız');yk.querySelector('b').id='yildiz';oz.append(yk);p1.append(oz);
+  // seri (yıldız ekonomisi 3a): son_gun bugün ya da dün değilse seri kırılmıştır (Europe/Istanbul günü); yalnız sahibine
+  if(seriler[0]){const S=seriler[0];const gun=d=>new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Istanbul'}).format(d);const bugun=gun(new Date()),dun=gun(new Date(Date.now()-864e5));const n=(S.son_gun===bugun||S.son_gun===dun)?S.seri:0;
+    p1.append(el('p','seri-satir',n>0?'🔥 Seri: '+n+' gün · en uzun '+S.en_uzun:'🔥 Seri yok · en uzun '+S.en_uzun))}
+  icerik.append(p1);
   // eşyalar
   const p2=el('div','panel');p2.append(el('h2',null,'Eşyaların'));p2.append(el('p','small muted','Eşya modunda maç başında yanına bir tane alırsın; kullanırsan harcanır, kullanmadan ölürsen geri döner.'));
   const elde=esyalar.filter(e=>e.adet>0&&G.ESYA[e.key]);if(!elde.length)p2.append(el('p','muted','Henüz eşyan yok; maç sonu kasalarından çıkar.'));
