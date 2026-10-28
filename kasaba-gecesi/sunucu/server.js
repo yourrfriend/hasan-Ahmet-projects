@@ -372,7 +372,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
     schedule(room);
   }
   function envanterAyarla(room,uid,mem,e){
-    mem.envanter={yildiz:+e.yildiz||0,esyalar:{...(e.esyalar||{})},kozmetikler:Array.isArray(e.kozmetikler)?e.kozmetikler.slice():[],bagli:!!e.bagli,baglaOdulu:!!e.bagla_odulu,basarilar:e.basarilar&&typeof e.basarilar==='object'?{...e.basarilar}:{},seri:e.seri&&typeof e.seri==='object'?{...e.seri}:null};
+    mem.envanter={yildiz:+e.yildiz||0,esyalar:{...(e.esyalar||{})},kozmetikler:Array.isArray(e.kozmetikler)?e.kozmetikler.slice():[],bagli:!!e.bagli,baglaOdulu:!!e.bagla_odulu,basarilar:e.basarilar&&typeof e.basarilar==='object'?{...e.basarilar}:{},seri:e.seri&&typeof e.seri==='object'?{...e.seri}:null,hafta:e.hafta&&typeof e.hafta==='object'?{...e.hafta}:null};
     for(const ws of mem.socks)send(ws,{t:'envanter',d:mem.envanter});
     if(mem.istenen)applyLook(room,uid,mem,{...mem.istenen});if(room.lobiEsya&&mem.esyaSecim)room.lobiEsya.delete(uid);schedule(room);
   }
@@ -400,14 +400,14 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
       const odul=G.kasaOdulu();if(odul.tur==='kozmetik')odul.donusum=G.NADIRLIK[odul.nadir].donusum;
       const k=(kul[p.id]||[]).find(e=>e.kaynak==='envanter'&&e.kullanildi);const harcanan=k?k.key:null; // v2: dizi (envanterden en çok bir eşya gelir)
       const dokum=G.yildizDokumu(R,p.id);
-      const gonder=()=>kayit.macSonu(uye,P.oyunId,{odul,rozetler:G.rozetlerFor(R,p.id),harcanan,bonus:G.yildizToplam(dokum),gunluk:G.YILDIZ_KAYNAK.gunun_ilki.adet,basari:G.basariParam(R,p.id),seriArtis:G.YILDIZ_KAYNAK.seri.adet,seriTavan:G.YILDIZ_KAYNAK.seri.tavan});
+      const gonder=()=>kayit.macSonu(uye,P.oyunId,{odul,rozetler:G.rozetlerFor(R,p.id),harcanan,bonus:G.yildizToplam(dokum),gunluk:G.YILDIZ_KAYNAK.gunun_ilki.adet,basari:G.basariParam(R,p.id),seriArtis:G.YILDIZ_KAYNAK.seri.adet,seriTavan:G.YILDIZ_KAYNAK.seri.tavan,gorev:G.gorevParam(R,p.id,Date.now()),gorevBonus:G.HAFTALIK.bonus});
       // RPC idempotent: geçici hata (null) bir kez yeniden denenir; yine olmazsa ayırma kalkar, eşya düşülmez
       gonder().then(r=>r||new Promise(res=>setTimeout(res,ilerlemeDenemeMs)).then(gonder)).then(r=>{
         // ayırma, düşüm sonucu bellekteki bütün kopyalara işlendikten sonra kalkar (aradaki rövanş aynı eşyayı yeniden alamaz)
         if(r&&harcanan&&!r.tekrar)for(const oda of rooms.values())for(const m of oda.members.values())if(m.uye===uye&&m.envanter&&m.envanter.esyalar[harcanan]>0)m.envanter.esyalar[harcanan]--;
         birak(p.id);
         if(!r)return;const mem=room.members.get(p.id);if(!mem)return;
-        for(const ws of mem.socks)send(ws,{t:'kasa',d:{odul:r.odul||null,donustu:!!r.donustu,yildiz:r.yildiz,rozetler:r.yeni_rozetler||[],tavan:!!r.tavan,tekrar:!!r.tekrar,dokum:r.tavan||r.tekrar?[]:dokum,gununIlki:+r.gunun_ilki||0,bagli:!!(mem.envanter&&mem.envanter.bagli),kademeler:Array.isArray(r.kademeler)?r.kademeler:[],seri:+r.seri||0}});
+        for(const ws of mem.socks)send(ws,{t:'kasa',d:{odul:r.odul||null,donustu:!!r.donustu,yildiz:r.yildiz,rozetler:r.yeni_rozetler||[],tavan:!!r.tavan,tekrar:!!r.tekrar,dokum:r.tavan||r.tekrar?[]:dokum,gununIlki:+r.gunun_ilki||0,bagli:!!(mem.envanter&&mem.envanter.bagli),kademeler:Array.isArray(r.kademeler)?r.kademeler:[],seri:+r.seri||0,gorevler:Array.isArray(r.gorevler)?r.gorevler:[]}});
         if(mem.uye&&typeof kayit.envanterOku==='function')kayit.envanterOku(mem.uye).then(e=>{if(e)envanterAyarla(room,p.id,mem,e)}).catch(()=>{})}).catch(()=>{birak(p.id)})}
     // kayıtsız oyuncunun ayırması olmaz; yine de işlenmeyen kalırsa bırak
     const islenen=new Set(P.players.map(p=>p.id));room.ayirma=(room.ayirma||[]).filter(a=>a.oyun!==oyun||islenen.has(a.pid));

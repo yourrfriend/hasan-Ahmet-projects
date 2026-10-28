@@ -3,7 +3,7 @@
 <style>
 .ozet{display:flex;gap:10px;flex-wrap:wrap}.ozet .kart{flex:1;min-width:110px;text-align:center;padding:8px;border-radius:10px;background:#f6f1e6}.ozet .kart b{display:block;font-size:22px}
 .rozet{display:inline-flex;align-items:center;gap:6px;margin:3px;padding:4px 10px;border-radius:999px;background:#fff3c4;font-size:13px}.rozet.kilitli{background:#eee;color:#999;filter:grayscale(1)}
-.basari{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center;padding:6px 0;border-bottom:1px solid #eee}.basari .ad{font-weight:700}.basari .madalyalar{font-size:15px;letter-spacing:2px}.madalya.yok{filter:grayscale(1);opacity:.3}.cubuk{grid-column:1/-1;height:8px;border-radius:4px;background:#eee;overflow:hidden}.cubuk .dolu{height:100%;background:linear-gradient(90deg,#f0b429,#ffd56b);border-radius:4px}.basari .ilerleme{grid-column:1/-1;font-size:12px;color:#666}
+.basari{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center;padding:6px 0;border-bottom:1px solid #eee}.basari .ad{font-weight:700}.basari .madalyalar{font-size:15px;letter-spacing:2px}.madalya.yok{filter:grayscale(1);opacity:.3}.cubuk{grid-column:1/-1;height:8px;border-radius:4px;background:#eee;overflow:hidden}.cubuk .dolu{height:100%;background:linear-gradient(90deg,#f0b429,#ffd56b);border-radius:4px}.basari .ilerleme{grid-column:1/-1;font-size:12px;color:#666}.gorev{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center;padding:6px 0;border-bottom:1px solid #eee}.gorev .ad{font-weight:700}.gorev .ilerleme{grid-column:1/-1;font-size:12px;color:#666}
 .urun{display:flex;align-items:center;gap:8px;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee}.urun .ad{flex:1}.urun .nadir{font-size:11px;color:#8a7a5a}
 .urun svg.onizleme,.urun img.onizleme{width:58px;height:46px;flex:none}.urun.efsanevi .nadir{color:#b8860b;font-weight:800}.urun.nadir .nadir{color:#4b2299}.urun button{padding:4px 10px;border-radius:8px;border:0;background:#1e3a8a;color:#fff;font-weight:700}
 .urun button.giyili{background:#2fb55a}.urun button:disabled{opacity:.5}.yildiz{font-size:20px;font-weight:800}
@@ -17,11 +17,12 @@
   const {ayar,sb,session,neden}=await KG_SAYFA.oturum();
   if(!sb||!session){not(neden==='kayit-kapali'?'Kayıt kapalı: bu kurulumda ilerleme tutulmuyor.':'Bu cihazda kimlik yok: önce oyun sayfasını aç, sonra buraya dön.',neden==='kayit-kapali'?'':'hata');icerik.textContent='';return}
   const oku=async(q)=>{const {data,error}=await q;if(error)throw new Error(error.message||error.code);return data||[]};
-  let ozet,cuzdan,esyalar,kozmetikler,rozetler,basarilar,seriler;
-  try{[ozet,cuzdan,esyalar,kozmetikler,rozetler,basarilar,seriler]=await Promise.all([
+  const hafta=G.haftaPazartesi(Date.now());
+  let ozet,cuzdan,esyalar,kozmetikler,rozetler,basarilar,seriler,gorevler;
+  try{[ozet,cuzdan,esyalar,kozmetikler,rozetler,basarilar,seriler,gorevler]=await Promise.all([
     oku(sb.from('oyuncu_ozet').select('oyun,kazanma,en_cok_rol').eq('kurulum',ayar.kurulum||'')),
     oku(sb.from('cuzdan').select('yildiz')),oku(sb.from('esyalar').select('key,adet')),
-    oku(sb.from('kozmetikler').select('key')),oku(sb.from('rozetler').select('key,kazanma')),oku(sb.from('basarilar').select('key,sayac,kademe')),oku(sb.from('seriler').select('seri,en_uzun,son_gun'))])}
+    oku(sb.from('kozmetikler').select('key')),oku(sb.from('rozetler').select('key,kazanma')),oku(sb.from('basarilar').select('key,sayac,kademe')),oku(sb.from('seriler').select('seri,en_uzun,son_gun')),oku(sb.from('haftalik_gorevler').select('key,sayac,tamam,hafta').eq('hafta',hafta))])}
   catch(e){not('Bağlantı hatası, sayfayı yenile. ('+e.message+')','hata');icerik.textContent='';return}
   let yildiz=(cuzdan[0]&&cuzdan[0].yildiz)||0;const sahip=new Set(kozmetikler.map(k=>k.key));const kazanilan=new Set(rozetler.map(r=>r.key));const basari=new Map(basarilar.map(b=>[b.key,b]));
   const look=()=>{try{return JSON.parse(localStorage.getItem('kg_look'))||{}}catch(e){return {}}};
@@ -49,6 +50,12 @@
   if(seriler[0]){const S=seriler[0];const gun=d=>new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Istanbul'}).format(d);const bugun=gun(new Date()),dun=gun(new Date(Date.now()-864e5));const n=(S.son_gun===bugun||S.son_gun===dun)?S.seri:0;
     p1.append(el('p','seri-satir',n>0?'🔥 Seri: '+n+' gün · en uzun '+S.en_uzun:'🔥 Seri yok · en uzun '+S.en_uzun))}
   icerik.append(p1);
+  // haftalık görevler (yıldız ekonomisi 3b): herkese aynı 3 görev, bu haftanın satırları; kalan gün Europe/Istanbul pazartesisinden
+  {const gm=new Map(gorevler.filter(x=>x.hafta===hafta).map(x=>[x.key,x]));const bugun=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Istanbul'}).format(new Date());const kalan=7-Math.round((Date.parse(bugun)-Date.parse(hafta))/864e5);
+    const ph=el('div','panel haftalik');ph.append(el('h2',null,'📅 Bu haftanın görevleri · '+kalan+' gün kaldı'));ph.append(el('p','small muted','Her görev +'+G.HAFTALIK.odul+' ⭐, üçü birden +'+G.HAFTALIK.bonus+' ⭐. Herkese aynı; pazartesi yenilenir.'));
+    for(const k of G.haftaGorevleri(hafta)){const T=G.HAFTALIK.havuz[k];const x=gm.get(k)||{sayac:0,tamam:false};const r=el('div','gorev');r.dataset.key=k;r.append(el('span','ad',T.n),el('span','madalyalar',x.tamam?'✓':''));
+      const c=el('div','cubuk');const d=el('div','dolu');d.style.width=(x.tamam?100:Math.min(100,Math.round(100*x.sayac/T.hedef)))+'%';c.append(d);r.append(c,el('span','ilerleme',x.tamam?'Tamam ✓':Math.min(x.sayac,T.hedef)+'/'+T.hedef));ph.append(r)}
+    if(gm.get('hepsi'))ph.append(el('p','small','🏆 Hepsi tamam'));icerik.append(ph)}
   // eşyalar
   const p2=el('div','panel');p2.append(el('h2',null,'Eşyaların'));p2.append(el('p','small muted','Eşya modunda maç başında yanına bir tane alırsın; kullanırsan harcanır, kullanmadan ölürsen geri döner.'));
   const elde=esyalar.filter(e=>e.adet>0&&G.ESYA[e.key]);if(!elde.length)p2.append(el('p','muted','Henüz eşyan yok; maç sonu kasalarından çıkar.'));
