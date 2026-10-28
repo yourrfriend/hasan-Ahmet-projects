@@ -105,7 +105,7 @@ function kutu(o){
 // ---------- özel siluetler ----------
 const M={};
 // --- başarı altınları (yıldız ekonomisi 2; KOZMETIK ozel:'basari'): satılmaz, kasadan çıkmaz ---
-M['saat-kulesi']={kapi:{x:-10,y:2,w:20,h:32,rx:10},pencere:{x:-13,y:-80,w:26,h:26,rx:13},silu:'M-28 34 L-28 -96 L0 -132 L28 -96 L28 34 Z',golge:{cx:0,rx:44},ust:-136,
+M['meydan-saati']={kapi:{x:-10,y:2,w:20,h:32,rx:10},pencere:{x:-13,y:-80,w:26,h:26,rx:13},silu:'M-28 34 L-28 -96 L0 -132 L28 -96 L28 34 Z',golge:{cx:0,rx:44},ust:-136,
   ciz(b,SE){const d=yap(SE,b);d.r(-26,-96,52,130,'#d9d3c4');for(const y of [-80,-50,-20,10])d.l(`M-26 ${y} H26`,'#bfb8a6',1.4);for(const [x,y] of [[-8,-80],[8,-50],[-8,-20],[8,10]])d.l(`M${x} ${y} V${y+30}`,'#bfb8a6',1.4);
     d.p('M-30 -96 L0 -132 L30 -96 Z','#6b4a2e');d.r(-30,-98,60,5,'#57391f',{rx:1});d.l('M0 -132 V-146','#3f3f48',2.2);d.p('M0 -146 L12 -141 L0 -136 Z','#e23b3b',{'stroke-width':1.2});
     d.c(0,-67,16,'#fbf3dc');d.c(0,-67,13,'#ffffff',{'stroke-width':1.2});for(let i=0;i<12;i++){const a=i*Math.PI/6;d.l(`M${Math.cos(a)*10} ${-67+Math.sin(a)*10} L${Math.cos(a)*12} ${-67+Math.sin(a)*12}`,'#3f3f48',1.4)}

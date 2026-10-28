@@ -68,7 +68,7 @@
   const BASLIK={sapka:'Şapkalar',bayrak:'Ev bayrakları',efekt:'Ölüm efektleri',ev:'Evler'},ALAN={sapka:'hat',bayrak:'bayrak',efekt:'efekt',ev:'ev'};
   // ev önizlemesi: oyundaki çizimin küçüğü (SVG) ya da kullanıcı resmi
   const NS='http://www.w3.org/2000/svg';const SE=(t,a,p)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e};
-  // SVG önizleme ekrana gelince çizilir (99 evin hepsini açılışta çizmek zayıf telefonda yavaş)
+  // SVG önizleme ekrana gelince çizilir (102 evin hepsini açılışta çizmek zayıf telefonda yavaş)
   const gozcu='IntersectionObserver' in window?new IntersectionObserver(es=>{for(const e of es)if(e.isIntersecting){gozcu.unobserve(e.target);e.target._ciz()}},{rootMargin:'200px'}):null;
   const onizleme=k=>{const m=window.KG_EVLER&&KG_EVLER.model(k,'__V__');if(!m)return null;if(m.resim){const i=el('img','onizleme');i.src=m.resim;i.alt='';i.loading='lazy';return i}
     const svg=SE('svg',{class:'onizleme',viewBox:'-90 -140 190 190'});svg._ciz=()=>{if(!svg.firstChild)m.ciz(SE('g',{},svg),SE)};if(gozcu)gozcu.observe(svg);else svg._ciz();return svg};

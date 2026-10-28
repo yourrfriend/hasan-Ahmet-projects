@@ -406,7 +406,7 @@ set local role service_role;
 do $$ declare r jsonb; u uuid := 'eeeeeeee-1111-1111-1111-111111111111'; g uuid := gen_random_uuid(); b jsonb;
   sifir jsonb := '{"artis":0,"esik":[100,200,300],"odul":[10,30,"bayrak:kurt"]}';
 begin
-  b := jsonb_build_object('mudavim', '{"artis":0,"esik":[2,50,150],"odul":[10,30,"ev:saat-kulesi"]}'::jsonb,
+  b := jsonb_build_object('mudavim', '{"artis":0,"esik":[2,50,150],"odul":[10,30,"ev:meydan-saati"]}'::jsonb,
         'kurtarici', '{"artis":2,"esik":[1,2,30],"odul":[10,30,"sapka:hemsire"]}'::jsonb,
         'kalkan', sifir, 'golgeler', sifir, 'yalniz_kurt', sifir, 'son_isik', sifir, 'bekci', sifir, 'tuzak_ustasi', sifir, 'yildirim', sifir);
   r := public.mac_sonu(u, g, '{"tur":"yildiz","adet":0}', null, null, 0, 0, b);
@@ -495,6 +495,10 @@ do $$ declare r jsonb; y uuid := 'acacacac-1111-1111-1111-111111111111'; begin
   if r->>'hata' <> 'ozel' then raise exception 'BAŞARISIZ 27: altın satıldı: %', r; end if;
   r := public.kozmetik_al(y, 'bayrak:mektup', 70);
   if r->>'hata' <> 'ozel' then raise exception 'BAŞARISIZ 27: mektup satıldı: %', r; end if;
+  r := public.kozmetik_al(y, 'ev:meydan-saati', 180);
+  if r->>'hata' <> 'ozel' then raise exception 'BAŞARISIZ 27: mudavim altını satıldı: %', r; end if;
+  r := public.kozmetik_al(y, 'ev:saat-kulesi', 180);
+  if not coalesce((r->>'ok')::boolean, false) then raise exception 'BAŞARISIZ 27: satılan Saat kulesi alınamadı (göç 013): %', r; end if;
   raise notice 'GEÇTİ 27: başarı yetkileri ve altın satılmaz';
 end $$;
 reset role;

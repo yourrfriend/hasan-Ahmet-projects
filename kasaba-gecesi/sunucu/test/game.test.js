@@ -785,7 +785,7 @@ test('basariArtislari / basariParam: rozetlerFor dönüşen anahtarları vermez,
   assert.deepStrictEqual(G.basariArtislari(R,'u2'),{kalkan:1,son_isik:1,bekci:1});assert.deepStrictEqual(G.basariArtislari(R,'u1'),{kalkan:1,son_isik:1},'saldırı olmadı: kurtarış yok');
   assert.deepStrictEqual(G.basariArtislari(R,'u3'),{kalkan:1,son_isik:1},'tuzağa kimse gelmedi');assert.deepStrictEqual(G.basariArtislari(R,'u0'),{});
   const p=G.basariParam(R,'u2');assert.deepStrictEqual(Object.keys(p),BASARI_SIRA);
-  assert.deepStrictEqual(p.mudavim,{artis:0,esik:[10,50,150],odul:[10,30,'ev:saat-kulesi']});assert.deepStrictEqual(p.bekci,{artis:1,esik:[3,12,30],odul:[10,30,'sapka:kasket']});
+  assert.deepStrictEqual(p.mudavim,{artis:0,esik:[10,50,150],odul:[10,30,'ev:meydan-saati']});assert.deepStrictEqual(p.bekci,{artis:1,esik:[3,12,30],odul:[10,30,'sapka:kasket']});
   assert.strictEqual(p.golgeler.artis,0);assert.strictEqual(p.kalkan.artis,1);
   R=fixed(['hain','doktor','masum','masum','masum']);G.act(R,'u0',{kill:'u2'});G.act(R,'u1',{ab:'u2'});G.advance(R);G.advance(R);for(const id of ['u0','u1','u2','u3','u4'])G.vote(R,id,'skip');
   G.act(R,'u0',{kill:'u2'});G.act(R,'u1',{ab:'u2'});G.advance(R);G.advance(R);for(const id of ['u1','u2','u3','u4'])G.vote(R,id,'u0');G.vote(R,'u0','skip');
@@ -1095,15 +1095,22 @@ test('index.html: her premium şapkanın çizimi var (hat=== zinciri)',()=>{
   const html=require('fs').readFileSync(require('path').join(__dirname,'../../index.html'),'utf8');
   for(const k of Object.keys(G.KOZMETIK.sapka))assert.ok(html.includes("hat==='"+k+"'"),'şapka çizimi yok: '+k);
 });
+test('katalog anahtarları kaynakta tekil: KOZMETIK.ev ve evler.js M aynı anahtarı iki kez tanımlamaz (sonraki öncekini ezer); ev sayısı 102',()=>{
+  const fs=require('fs'),path=require('path');const src=fs.readFileSync(path.join(__dirname,'../game.js'),'utf8'),ev=fs.readFileSync(path.join(__dirname,'../../sayfa/evler.js'),'utf8');
+  for(const k of Object.keys(G.KOZMETIK.ev)){assert.strictEqual((src.match(new RegExp("'"+k+"':\\{",'g'))||[]).length,1,'game.js ev anahtarı tek tanım: '+k);
+    const n=(ev.match(new RegExp("^M(\\['"+k+"'\\]|\\."+k.replace(/-/g,'\\-')+")=",'gm'))||[]).length;assert.ok(n<=1,'evler.js çift model: '+k)}
+  assert.strictEqual(Object.keys(G.KOZMETIK.ev).length,102);
+});
 test('göç 012: bronz eşikleri, rozet dönüşümü ve satılmayan altın listesi game.js ile aynı; p_basari varsayılanı null',()=>{
   const sql=require('fs').readFileSync(require('path').join(__dirname,'../db/goc/012_basarilar.sql'),'utf8');
   assert.ok(/p_gunluk int default 0, p_basari jsonb default null/.test(sql),'imza: p_basari sona, varsayılan null');
   const bronz=JSON.parse((sql.match(/bronz_esik constant jsonb := '(\{[^']*\})'/)||[])[1]||'null');
   assert.deepStrictEqual(bronz,Object.fromEntries(Object.entries(G.BASARILAR).filter(([k])=>k!=='mudavim').map(([k,b])=>[k,b.esik[0]])),'bronz eşikleri (mudavim hariç: kasa sayısı)');
   const donusum=JSON.parse((sql.match(/donusum constant jsonb := '(\{[^']*\})'/)||[])[1]||'null');assert.deepStrictEqual(donusum,G.ROZET_DONUSUM);
-  const ozel=((sql.match(/basari_ozel constant text\[\] := array\[([^\]]*)\]/)||[])[1]||'').split(',').map(x=>x.trim().replace(/^'|'$/g,'')).filter(Boolean).sort();
-  assert.deepStrictEqual(ozel,Object.values(G.BASARILAR).map(b=>b.altin).sort(),'kozmetik_al özel listesi = altınlar');
-  assert.ok(sql.includes("p_key = 'bayrak:mektup' or p_key = any(basari_ozel)"),'mektup yine satılmaz');
+  const sql13=require('fs').readFileSync(require('path').join(__dirname,'../db/goc/013_mudavim_altini.sql'),'utf8');
+  const ozel=((sql13.match(/basari_ozel constant text\[\] := array\[([^\]]*)\]/)||[])[1]||'').split(',').map(x=>x.trim().replace(/^'|'$/g,'')).filter(Boolean).sort();
+  assert.deepStrictEqual(ozel,Object.values(G.BASARILAR).map(b=>b.altin).sort(),'kozmetik_al özel listesi (göç 013) = altınlar');assert.ok(!ozel.includes('ev:saat-kulesi'),'satılan Saat kulesi listede değil');
+  assert.ok(sql13.includes("p_key = 'bayrak:mektup' or p_key = any(basari_ozel)"),'mektup yine satılmaz');
 });
 test('yildizDokumu: bir gecede tek olay bir kez sayılır (tuzağa iki kişi, yıldırımla iki ölü); iki gece iki kez',()=>{
   const R=fixed(['hain','tuzakci','masum','masum','masum']);
