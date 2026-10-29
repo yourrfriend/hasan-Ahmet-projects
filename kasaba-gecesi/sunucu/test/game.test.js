@@ -704,7 +704,7 @@ test('katalog: eşyalar, kozmetikler, nadirlik, kasa ağırlıkları, rozetler t
   assert.deepStrictEqual(G.ESYA_KATMAN('efsanevi'),['kilit']);assert.strictEqual(G.ESYA_YUVA,2);
   assert.deepStrictEqual(G.KASA_ESYA,{siradan:50,nadir:40,efsanevi:10});assert.deepStrictEqual(G.PAKET,{sans:0.6,sure:5000,nadirP:0.25,maxMac:3,uzat:30000});
   assert.deepStrictEqual(Object.keys(G.KOZMETIK).sort(),['bayrak','efekt','ev','sapka']);
-  assert.strictEqual(Object.keys(G.KOZMETIK.sapka).length,12);assert.strictEqual(Object.keys(G.KOZMETIK.bayrak).length,12);assert.strictEqual(Object.keys(G.KOZMETIK.efekt).length,4);
+  assert.strictEqual(Object.keys(G.KOZMETIK.sapka).length,12);assert.strictEqual(Object.keys(G.KOZMETIK.bayrak).length,13);assert.strictEqual(Object.keys(G.KOZMETIK.efekt).length,4);
   for(const tur of Object.values(G.KOZMETIK))for(const k of Object.values(tur))assert.ok(k.n&&G.NADIRLIK[k.nadir],JSON.stringify(k));
   for(const k of Object.keys(G.KOZMETIK.sapka))assert.ok(!G.HATS.includes(k),'premium şapka temel listede olmamalı: '+k);
   assert.deepStrictEqual(G.NADIRLIK,{siradan:{fiyat:25,donusum:6},nadir:{fiyat:70,donusum:18},efsanevi:{fiyat:180,donusum:45}});
@@ -785,7 +785,7 @@ test('BASARILAR: 9 anahtar tablo sırasıyla, eşikler artan, altın KOZMETIK\'t
   for(const [k,b] of Object.entries(G.BASARILAR)){assert.ok(b.n&&b.ico&&b.desc,k);assert.ok(b.esik.length===3&&b.esik[0]<b.esik[1]&&b.esik[1]<b.esik[2],k+' eşik');
     const [t,a]=b.altin.split(':');assert.ok(G.KOZMETIK[t]&&G.KOZMETIK[t][a],k+' altın katalogda');assert.strictEqual(G.KOZMETIK[t][a].ozel,'basari',k);assert.strictEqual(G.KOZMETIK[t][a].nadir,'efsanevi',k);
     assert.ok(!altinlar.has(b.altin),'altın tekil: '+b.altin);altinlar.add(b.altin)}
-  const ozelBasari=[];for(const [t,o] of Object.entries(G.KOZMETIK))for(const [k,v] of Object.entries(o)){if(v.ozel)assert.ok(v.ozel==='bagla'||v.ozel==='basari',t+':'+k);if(v.ozel==='basari')ozelBasari.push(t+':'+k)}
+  const ozelBasari=[];for(const [t,o] of Object.entries(G.KOZMETIK))for(const [k,v] of Object.entries(o)){if(v.ozel)assert.ok(v.ozel==='bagla'||v.ozel==='basari'||v.ozel==='davet',t+':'+k);if(v.ozel==='basari')ozelBasari.push(t+':'+k)}
   assert.deepStrictEqual(ozelBasari.sort(),[...altinlar].sort(),'ozel:basari kümesi = altın kümesi');
   assert.deepStrictEqual(G.ROZET_DONUSUM,{kurtarici:'kurtarici',bekci:'bekci',tuzak_ustasi:'tuzak_ustasi',yildirim:'yildirim',hain_zafer:'golgeler',masum_zafer:'kalkan',sag_kalan:'son_isik',tek_kurt:'yalniz_kurt'});
   assert.deepStrictEqual(Object.keys(G.ROZETLER).sort(),['fener_gordu','hortlak_zafer','iksir_kurtardi','ilk_mac']);
@@ -1115,6 +1115,15 @@ test('katalog anahtarları kaynakta tekil: KOZMETIK.ev ve evler.js M aynı anaht
   for(const k of Object.keys(G.KOZMETIK.ev)){assert.strictEqual((src.match(new RegExp("'"+k+"':\\{",'g'))||[]).length,1,'game.js ev anahtarı tek tanım: '+k);
     const n=(ev.match(new RegExp("^M(\\['"+k+"'\\]|\\."+k.replace(/-/g,'\\-')+")=",'gm'))||[]).length;assert.ok(n<=1,'evler.js çift model: '+k)}
   assert.strictEqual(Object.keys(G.KOZMETIK.ev).length,102);
+});
+test('davet (göç 019): miktarlar tek kaynak, Dostluk bayrağı satılmaz ve kasadan çıkmaz',()=>{
+  assert.deepStrictEqual(G.YILDIZ_KAYNAK.davet,{n:'Arkadaş getirdin',adet:30,gelen:10,tavan:10,kozmetik:3});
+  const d=G.KOZMETIK.bayrak.dostluk;assert.strictEqual(d.n,'Dostluk bayrağı');assert.strictEqual(d.ozel,'davet');assert.strictEqual(d.ico,'🤝');
+  const sql=require('fs').readFileSync(require('path').join(__dirname,'../db/goc/019_davet.sql'),'utf8');const sabit=a=>Number((sql.match(new RegExp(a+' constant int := (\\d+)'))||[])[1]);
+  assert.strictEqual(sabit('davet_eden_miktar'),30);assert.strictEqual(sabit('davet_gelen_miktar'),10);assert.strictEqual(sabit('davet_tavan'),10);assert.strictEqual(sabit('davet_kozmetik_esik'),3);
+  for(const [k,v] of Object.entries({davet_eden_miktar:'adet',davet_gelen_miktar:'gelen',davet_tavan:'tavan',davet_kozmetik_esik:'kozmetik'}))assert.strictEqual(sabit(k),G.YILDIZ_KAYNAK.davet[v],k);
+  assert.ok(sql.includes("p_key = 'bayrak:dostluk'"),'kozmetik_al reddeder');assert.ok(sql.includes("'bayrak:dostluk') on conflict"),'3. davette verilir');
+  for(let i=0;i<2000;i++)assert.notStrictEqual(G.kasaOdulu().key,'bayrak:dostluk');
 });
 test('haftalık görev: pazartesi İstanbul gününe göre; seçim deterministik ve haftadan haftaya değişir; artışlar ve parametre',()=>{
   assert.deepStrictEqual(G.HAFTALIK,{havuz:{mac:{n:'5 maç oyna',hedef:5},kazan:{n:'2 kez kazan',hedef:2},kalabalik:{n:'8+ kişilik 2 maç oyna',hedef:2},sag_kal:{n:'2 maçı hayatta bitir',hedef:2},gun:{n:'3 farklı gün oyna',hedef:3}},odul:5,bonus:10,adet:3});

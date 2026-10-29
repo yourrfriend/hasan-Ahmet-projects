@@ -659,4 +659,96 @@ do $$ begin
 end $$;
 reset role;
 
+-- 33) davet (göç 019): kod bağlamada üretilir; kendine/bilinmeyen kod yazılmaz; ödül gelen bağlı + 1 gerçek maç olunca bir kez (iki sırada da);
+--     tavan kasası sayılmaz; 3. ödülde Dostluk bayrağı; davet edene en çok 10 ödül, gelen yine alır
+insert into auth.users (id, instance_id, aud, role, email, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, is_anonymous)
+values ('7d7d7d7d-0001-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'davetci@ornek.com', now(), '{}', '{}', now(), now(), false),
+       ('7d7d7d7d-0002-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true),
+       ('7d7d7d7d-0003-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true),
+       ('7d7d7d7d-0004-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true),
+       ('7d7d7d7d-0005-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true),
+       ('7d7d7d7d-0006-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true),
+       ('7d7d7d7d-0007-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true);
+-- testte e-posta bağlama: auth.users'a service_role yazamaz, yetkili geçici yardımcı
+create function pg_temp.test_bagla(u uuid, e text) returns void language sql security definer as $f$ update auth.users set email = e, email_confirmed_at = now() where id = u $f$;
+insert into auth.users (id, instance_id, aud, role, email, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, is_anonymous)
+values ('7e7e7e7e-0001-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true),
+       ('7e7e7e7e-0002-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true),
+       ('7e7e7e7e-0003-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true),
+       ('7e7e7e7e-0004-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true),
+       ('7e7e7e7e-0005-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true),
+       ('7e7e7e7e-0006-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true),
+       ('7e7e7e7e-0007-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true);
+set local role service_role;
+do $$ declare r jsonb; a uuid := '7d7d7d7d-0001-1111-1111-111111111111'; b uuid := '7d7d7d7d-0002-1111-1111-111111111111'; c uuid := '7d7d7d7d-0003-1111-1111-111111111111';
+  d uuid := '7d7d7d7d-0004-1111-1111-111111111111'; e uuid := '7d7d7d7d-0005-1111-1111-111111111111'; kod text; od jsonb := '{"tur":"yildiz","adet":0}';
+begin
+  perform public.bagla_odulu(a);
+  select k.kod into kod from public.davet_kodlari k where k.uye = a;
+  if kod is null or kod !~ '^[A-HJKMNP-Z2-9]{8}$' then raise exception 'BAŞARISIZ 33: kod biçimi: %', kod; end if;
+  if public.davet_kaydet(kod, a) then raise exception 'BAŞARISIZ 33: kendine davet'; end if;
+  if public.davet_kaydet('ZZZZZZZZ', b) and kod <> 'ZZZZZZZZ' then raise exception 'BAŞARISIZ 33: bilinmeyen kod'; end if;
+  if not public.davet_kaydet(lower(kod), b) then raise exception 'BAŞARISIZ 33: kayıt (küçük harf kabul)'; end if;
+  if public.davet_kaydet(kod, b) then raise exception 'BAŞARISIZ 33: ikinci kayıt'; end if;
+  r := public.mac_sonu(b, gen_random_uuid(), od, null, null, 0, 0);
+  if (r->>'davet')::int <> 0 then raise exception 'BAŞARISIZ 33: bağlı değilken ödül: %', r; end if;
+  perform pg_temp.test_bagla(b, 'gelen-b@ornek.com');
+  r := public.bagla_odulu(b);
+  if (r->>'davet')::int <> 10 then raise exception 'BAŞARISIZ 33: maç sonra bağlama → ödül: %', r; end if;
+  if (select yildiz from public.cuzdan where uye = a) <> 55 or (select yildiz from public.cuzdan where uye = b) <> 35 then raise exception 'BAŞARISIZ 33: cüzdanlar a=% b=%', (select yildiz from public.cuzdan where uye = a), (select yildiz from public.cuzdan where uye = b); end if;
+  r := public.mac_sonu(b, gen_random_uuid(), od, null, null, 0, 0);
+  if (r->>'davet')::int <> 0 or (select yildiz from public.cuzdan where uye = a) <> 55 then raise exception 'BAŞARISIZ 33: ikinci ödül: %', r; end if;
+  perform public.davet_kaydet(kod, c);
+  perform pg_temp.test_bagla(c, 'gelen-c@ornek.com');
+  insert into public.kasalar (uye, oyun_id, odul) values (c, gen_random_uuid(), '{"tavan":true}');
+  r := public.bagla_odulu(c);
+  if (r->>'davet')::int <> 0 then raise exception 'BAŞARISIZ 33: tavan kasası sayıldı: %', r; end if;
+  r := public.mac_sonu(c, gen_random_uuid(), od, null, null, 0, 0);
+  if (r->>'davet')::int <> 10 or (select yildiz from public.cuzdan where uye = a) <> 85 then raise exception 'BAŞARISIZ 33: bağlama sonra maç → ödül: %', r; end if;
+  if exists (select 1 from public.kozmetikler where uye = a and key = 'bayrak:dostluk') then raise exception 'BAŞARISIZ 33: kozmetik erken'; end if;
+  perform public.davet_kaydet(kod, d);
+  perform pg_temp.test_bagla(d, 'gelen-d@ornek.com');
+  perform public.bagla_odulu(d); r := public.mac_sonu(d, gen_random_uuid(), od, null, null, 0, 0);
+  if not exists (select 1 from public.kozmetikler where uye = a and key = 'bayrak:dostluk') or (select yildiz from public.cuzdan where uye = a) <> 115 then raise exception 'BAŞARISIZ 33: 3. davet kozmetik'; end if;
+  insert into public.davetler (davet_edilen, davet_eden, odul_zaman)
+    select ('7e7e7e7e-' || lpad(n::text, 4, '0') || '-1111-1111-111111111111')::uuid, a, now() from generate_series(1, 7) n;
+  if (select count(*) from public.davetler where davet_eden = a and odul_zaman is not null) <> 10 then raise exception 'BAŞARISIZ 33: hazırlık 10'; end if;
+  perform public.davet_kaydet(kod, e);
+  perform pg_temp.test_bagla(e, 'gelen-e@ornek.com');
+  perform public.bagla_odulu(e); r := public.mac_sonu(e, gen_random_uuid(), od, null, null, 0, 0);
+  if (r->>'davet')::int <> 10 or (select yildiz from public.cuzdan where uye = a) <> 115 then raise exception 'BAŞARISIZ 33: tavan sonrası: gelen alır, davet eden almaz: %', r; end if;
+  if (public.envanter_oku(a)->'davet'->>'odullu')::int <> 10 or public.envanter_oku(a)->'davet'->>'kod' <> kod then raise exception 'BAŞARISIZ 33: envanter_oku davet: %', public.envanter_oku(a)->'davet'; end if;
+  raise notice 'GEÇTİ 33: davet kaydı ve ödül';
+end $$;
+reset role;
+
+-- 34) davet birleştirme (davetçinin gizli sekme hesabı kendine katılırsa davet düşer; davet ettikleri yeniye geçer) ve yetki
+set local role service_role;
+do $$ declare a uuid := '7d7d7d7d-0001-1111-1111-111111111111'; s uuid := '7d7d7d7d-0006-1111-1111-111111111111'; x uuid := '7d7d7d7d-0007-1111-1111-111111111111'; kod text;
+begin
+  select k.kod into kod from public.davet_kodlari k where k.uye = a;
+  if not public.davet_kaydet(kod, s) then raise exception 'BAŞARISIZ 34: kayıt'; end if;
+  perform public.hesap_birlestir(s, a);
+  if exists (select 1 from public.davetler where davet_edilen in (s, a)) then raise exception 'BAŞARISIZ 34: kendine davet birleştirmeyle kaldı'; end if;
+  insert into public.davet_kodlari (uye, kod) values (x, 'XXXXXXX2');
+  update public.davetler set davet_eden = x where davet_edilen = '7d7d7d7d-0002-1111-1111-111111111111';
+  perform public.hesap_birlestir(x, a);
+  if (select davet_eden from public.davetler where davet_edilen = '7d7d7d7d-0002-1111-1111-111111111111') <> a then raise exception 'BAŞARISIZ 34: davet eden yeniye geçmedi'; end if;
+  if exists (select 1 from public.davet_kodlari dk where dk.uye = x or dk.kod = 'XXXXXXX2') then raise exception 'BAŞARISIZ 34: eski kod kaldı'; end if;
+end $$;
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"7d7d7d7d-0001-1111-1111-111111111111","role":"authenticated"}', true);
+do $$ declare j jsonb; begin
+  begin perform count(*) from public.davetler; raise exception 'BAŞARISIZ 34: istemci davetler okudu';
+  exception when insufficient_privilege then null; end;
+  begin perform public.davet_kaydet('AAAAAAAA', '7d7d7d7d-0001-1111-1111-111111111111'); raise exception 'BAŞARISIZ 34: istemci davet_kaydet çağırdı';
+  exception when insufficient_privilege then null; end;
+  if (select count(*) from public.davet_kodlari where uye <> '7d7d7d7d-0001-1111-1111-111111111111') <> 0 then raise exception 'BAŞARISIZ 34: başkasının kodu görünüyor'; end if;
+  j := public.davet_benim();
+  if (j->>'odullu')::int <> 10 or (j->>'gelen')::int < 11 or j->>'kod' is null then raise exception 'BAŞARISIZ 34: davet_benim: %', j; end if;
+  raise notice 'GEÇTİ 34: davet birleştirme ve yetki';
+end $$;
+reset role;
+
 rollback;
