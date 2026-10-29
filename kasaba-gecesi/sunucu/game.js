@@ -136,7 +136,21 @@ function rolBasarilari(R,id){const g=R.g,out=[];if(!g)return out;
 const YILDIZ_KAYNAK={kazanma:{n:'Kazandın',adet:2},tek_kazanan:{n:'Tek başına kazandın',adet:4},rol_basari:{n:'Rol başarısı',adet:1},kalabalik:{n:'Kalabalık maç',adet:1},
   hain_oyu:{n:'Asılan haine oy',adet:2},gunun_ilki:{n:'Günün ilk maçı',adet:5},bagla:{n:'E-posta bağlandı',adet:25},
   seri:{n:'Seri',adet:1,tavan:5},
-  davet:{n:'Arkadaş getirdin',adet:30,gelen:10,tavan:10,kozmetik:3}};
+  davet:{n:'Arkadaş getirdin',adet:30,gelen:10,tavan:10,kozmetik:3},
+  set:{n:'Set tamamlandı',adet:40}};
+// setler (tasarım 2026-10-29-kasaba-gecesi-yildiz-3-set): mevcut (satılan/kasadan çıkan) kozmetiklerden temalı setler; tamamlayana bir kez +40 ⭐ ve amblem.
+// Karar veritabanında (set_odul, göç 024); öğe listesi ve ödül buradan parametreyle gider.
+const SETLER={
+  korsan:{n:'Korsan',ico:'🏴‍☠️',ogeler:['sapka:korsan','ev:ters-kayik','ev:fici-han','bayrak:kirmizi']},
+  anadolu:{n:'Anadolu',ico:'🏛️',ogeler:['ev:kapadokya','ev:safranbolu','ev:mardin','ev:karadeniz','ev:yoruk-cadiri']},
+  tatli:{n:'Tatlı köşe',ico:'🍰',ogeler:['ev:kurabiye','ev:caydanlik','ev:porselen-demlik','ev:balkabagi','sapka:sef']},
+  masal:{n:'Masal ormanı',ico:'🍄',ogeler:['ev:mantar','ev:mantar-kosk','ev:agac-ev','sapka:cicek','efekt:yaprak']},
+  buyu:{n:'Büyü',ico:'🧙',ogeler:['sapka:cadi','ev:cadi','ev:buyucu-evi','bayrak:ay','efekt:yildiz']},
+  kuzey:{n:'Kuzey',ico:'❄️',ogeler:['ev:igloo','ev:karli-kulube','ev:kutup-istasyonu','ev:kar-kuresi','bayrak:mavi']},
+  ejder:{n:'Ejder',ico:'🐉',ogeler:['ev:ejder-yumurtasi','ev:ejderli-ev','bayrak:ejder','efekt:duman']},
+  gelecek:{n:'Gelecek',ico:'🚀',ogeler:['ev:roket','ev:ucan-daire','bayrak:simsek','sapka:kask']}
+};
+function setParam(){const out={};for(const [k,S] of Object.entries(SETLER))out[k]={ogeler:S.ogeler.slice(),odul:YILDIZ_KAYNAK.set.adet};return out}
 // haftalık görevler (tasarım 2026-10-28-kasaba-gecesi-yildiz-3-gorev): herkese aynı 3 görev, Europe/Istanbul pazartesisinden deterministik; ilerleme ve ödül mac_sonu'da (göç 016)
 // rolden, oydan ve eşyadan bağımsız; gun sayacını SQL tutar (bugünün ilk gerçek kasası)
 const HAFTALIK={havuz:{mac:{n:'5 maç oyna',hedef:5},kazan:{n:'2 kez kazan',hedef:2},kalabalik:{n:'8+ kişilik 2 maç oyna',hedef:2},sag_kal:{n:'2 maçı hayatta bitir',hedef:2},gun:{n:'3 farklı gün oyna',hedef:3}},odul:5,bonus:10,adet:3};
@@ -718,7 +732,7 @@ function privFor(R,id){
 function esyaKullanimi(R){const out={};for(const [id,l] of Object.entries(R.g&&R.g.esya||{}))out[id]=l.map(e=>({key:e.kaynakKey||e.key,kaynak:e.kaynak,kullanildi:e.kullanildi}));return out
 }
 
-return{ROLES,SETUP,COLORS,HATS,DEFAULT_SETTINGS,ESYA,ESYA_YUVA,ESYA_KATMAN,KASA_ESYA,PAKET,setRnd,bedavaEsya,paketEsya,zarAt,NADIRLIK,KOZMETIK,KASA,ROZETLER,BASARILAR,BASARI_KADEME,KADEME_AD,KADEME_SIMGE,ROZET_DONUSUM,rolBasarilari,basariArtislari,basariParam,HAFTALIK,haftaPazartesi,haftaGorevleri,gorevArtislari,gorevParam,YILDIZ_KAYNAK,ROL_BASARI_TAVAN,yildizDokumu,yildizToplam,kasaOdulu,kozmetikGecerli,rozetlerFor,esyaKullan,esyaBul,DAGILIM,TEKRAR,tekrarCezasi,rolDagit,roleLabel,rolEtiketi,autoSetup,cleanSettings,setClock,
+return{ROLES,SETUP,COLORS,HATS,DEFAULT_SETTINGS,ESYA,ESYA_YUVA,ESYA_KATMAN,KASA_ESYA,PAKET,setRnd,bedavaEsya,paketEsya,zarAt,NADIRLIK,KOZMETIK,KASA,ROZETLER,BASARILAR,BASARI_KADEME,KADEME_AD,KADEME_SIMGE,ROZET_DONUSUM,rolBasarilari,basariArtislari,basariParam,SETLER,setParam,HAFTALIK,haftaPazartesi,haftaGorevleri,gorevArtislari,gorevParam,YILDIZ_KAYNAK,ROL_BASARI_TAVAN,yildizDokumu,yildizToplam,kasaOdulu,kozmetikGecerli,rozetlerFor,esyaKullan,esyaBul,DAGILIM,TEKRAR,tekrarCezasi,rolDagit,roleLabel,rolEtiketi,autoSetup,cleanSettings,setClock,
   lobbyState,createGame,startGame,setPhase,advance,tick,kap,paketKapat,resolveNight,resolveVote,checkWin,kazananlar,gazeteFor,GAZETE_EN_COK,ek,endToLobby,olay,
   act,vote,chat,deadChat,esyaKullanimi,hizli,HIZLI_BEKLE_MS,HIZLI_GUN,HIZLI_TUR,privFor,pl,alivePlayers,inGame};
 });

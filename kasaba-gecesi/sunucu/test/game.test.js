@@ -1116,6 +1116,14 @@ test('katalog anahtarları kaynakta tekil: KOZMETIK.ev ve evler.js M aynı anaht
     const n=(ev.match(new RegExp("^M(\\['"+k+"'\\]|\\."+k.replace(/-/g,'\\-')+")=",'gm'))||[]).length;assert.ok(n<=1,'evler.js çift model: '+k)}
   assert.strictEqual(Object.keys(G.KOZMETIK.ev).length,102);
 });
+test('setler: 8 temalı set, öğeler katalogda ve satılmayan değil, ödül tek kaynak, setParam',()=>{
+  assert.deepStrictEqual(Object.keys(G.SETLER),['korsan','anadolu','tatli','masal','buyu','kuzey','ejder','gelecek']);
+  assert.deepStrictEqual(G.YILDIZ_KAYNAK.set,{n:'Set tamamlandı',adet:40});
+  for(const [k,S] of Object.entries(G.SETLER)){assert.ok(S.n&&S.ico,k);assert.ok(S.ogeler.length>=4,k);
+    for(const o of S.ogeler){const [t,a]=o.split(':');assert.ok(G.KOZMETIK[t]&&G.KOZMETIK[t][a],k+' '+o);assert.ok(!G.KOZMETIK[t][a].ozel,'satılmayan öğe sette: '+o)}}
+  assert.deepStrictEqual(G.setParam().korsan,{ogeler:['sapka:korsan','ev:ters-kayik','ev:fici-han','bayrak:kirmizi'],odul:40});
+  assert.deepStrictEqual(Object.keys(G.setParam()),Object.keys(G.SETLER));
+});
 test('göç 023: aynı (normalleştirilmiş) adres için bağlama ve davet ödülü kararı danışma kilidi altında (iki takma ad aynı anda bağlansa da tek ödül)',()=>{
   const sql=require('fs').readFileSync(require('path').join(__dirname,'../db/goc/023_odul_kilit.sql'),'utf8');
   for(const f of ['bagla_odulu','davet_odul']){const i=sql.indexOf('function public.'+f+'(');assert.ok(i>=0,f);const govde=sql.slice(i,sql.indexOf('$$;',i));

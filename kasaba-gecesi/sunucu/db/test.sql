@@ -811,4 +811,43 @@ do $$ declare r jsonb; begin
 end $$;
 reset role;
 
+-- 36) setler (göç 024): eksik set ödül vermez; tamamlanınca bir kez +40; iki set aynı çağrıda; bozuk parametre güvenli; birleştirme taşır; yetki
+insert into auth.users (id, instance_id, aud, role, email, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, is_anonymous)
+values ('5e75e75e-0001-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true),
+       ('5e75e75e-0002-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true);
+set local role service_role;
+do $$ declare r jsonb; u uuid := '5e75e75e-0001-1111-1111-111111111111'; v uuid := '5e75e75e-0002-1111-1111-111111111111';
+  p jsonb := '{"korsan":{"ogeler":["sapka:korsan","ev:ters-kayik","ev:fici-han","bayrak:kirmizi"],"odul":40},"ejder":{"ogeler":["bayrak:ejder","efekt:duman"],"odul":40}}';
+begin
+  insert into public.kozmetikler (uye, key) values (u, 'sapka:korsan'), (u, 'ev:ters-kayik'), (u, 'ev:fici-han');
+  r := public.set_odul(u, p);
+  if r->'setler' <> '[]'::jsonb or coalesce((select yildiz from public.cuzdan where uye = u), 0) <> 0 then raise exception 'BAŞARISIZ 36: eksik set ödül verdi: %', r; end if;
+  insert into public.kozmetikler (uye, key) values (u, 'bayrak:kirmizi'), (u, 'bayrak:ejder'), (u, 'efekt:duman');
+  r := public.set_odul(u, p);
+  if r->'setler' <> '[{"key":"korsan","odul":40},{"key":"ejder","odul":40}]'::jsonb and r->'setler' <> '[{"key":"ejder","odul":40},{"key":"korsan","odul":40}]'::jsonb then raise exception 'BAŞARISIZ 36: iki set: %', r; end if;
+  if (r->>'yildiz')::int <> 80 or (select yildiz from public.cuzdan where uye = u) <> 80 then raise exception 'BAŞARISIZ 36: cüzdan 80: %', r; end if;
+  r := public.set_odul(u, p);
+  if r->'setler' <> '[]'::jsonb or (select yildiz from public.cuzdan where uye = u) <> 80 then raise exception 'BAŞARISIZ 36: ikinci kez ödül: %', r; end if;
+  r := public.set_odul(u, '{"x":{"ogeler":[],"odul":40},"y":{"ogeler":["sapka:korsan"],"odul":"z"},"z":5}');
+  if r->'setler' <> '[]'::jsonb or (select yildiz from public.cuzdan where uye = u) <> 80 then raise exception 'BAŞARISIZ 36: bozuk parametre: %', r; end if;
+  r := public.set_odul(u, null);
+  if r->'setler' <> '[]'::jsonb then raise exception 'BAŞARISIZ 36: null'; end if;
+  perform public.hesap_birlestir(u, v);
+  if (select count(*) from public.setler where uye = v) <> 2 or exists (select 1 from public.setler where uye = u) then raise exception 'BAŞARISIZ 36: birleştirme'; end if;
+  r := public.set_odul(v, p);
+  if r->'setler' <> '[]'::jsonb then raise exception 'BAŞARISIZ 36: birleştirme sonrası tekrar ödül: %', r; end if;
+end $$;
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"5e75e75e-0002-1111-1111-111111111111","role":"authenticated"}', true);
+do $$ begin
+  if (select count(*) from public.setler) <> 2 then raise exception 'BAŞARISIZ 36: kendi setlerini okumalı'; end if;
+  begin insert into public.setler (uye, key) values ('5e75e75e-0002-1111-1111-111111111111', 'gelecek'); raise exception 'BAŞARISIZ 36: istemci yazdı';
+  exception when insufficient_privilege then null; end;
+  begin perform public.set_odul('5e75e75e-0002-1111-1111-111111111111', '{}'); raise exception 'BAŞARISIZ 36: istemci set_odul çağırdı';
+  exception when insufficient_privilege then null; end;
+  raise notice 'GEÇTİ 36: setler';
+end $$;
+reset role;
+
 rollback;
