@@ -671,7 +671,8 @@ values ('7d7d7d7d-0001-1111-1111-111111111111', '00000000-0000-0000-0000-0000000
        ('7d7d7d7d-0007-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true),
        ('7d7d7d7d-0008-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true),
        ('7d7d7d7d-0009-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true),
-       ('7d7d7d7d-000a-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true);
+       ('7d7d7d7d-000a-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true),
+       ('7d7d7d7d-000b-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true);
 -- testte e-posta bağlama: auth.users'a service_role yazamaz, yetkili geçici yardımcı
 create function pg_temp.test_bagla(u uuid, e text) returns void language sql security definer as $f$ update auth.users set email = e, email_confirmed_at = now() where id = u $f$;
 create function pg_temp.test_sil(u uuid) returns void language sql security definer as $f$ delete from auth.users where id = u $f$;
@@ -719,6 +720,12 @@ begin
   perform pg_temp.test_bagla('7d7d7d7d-000a-1111-1111-111111111111', 'eski-oyuncu@ornek.com');
   r := public.mac_sonu('7d7d7d7d-000a-1111-1111-111111111111', gen_random_uuid(), od, null, null, 0, 0);
   if (r->>'davet')::int <> 0 or (select yildiz from public.cuzdan where uye = a) <> 55 then raise exception 'BAŞARISIZ 33: eski oyuncunun adresi yeni kişi sayıldı: %', r; end if;
+  -- göç 021: bağlı bir oyuncunun takma adı (davet edenin kendisi) yeni kişi sayılmaz
+  perform public.davet_kaydet(kod, '7d7d7d7d-000b-1111-1111-111111111111'::uuid);
+  perform pg_temp.test_bagla('7d7d7d7d-000b-1111-1111-111111111111', 'davetci+gizli@ornek.com');
+  perform public.bagla_odulu('7d7d7d7d-000b-1111-1111-111111111111');
+  r := public.mac_sonu('7d7d7d7d-000b-1111-1111-111111111111', gen_random_uuid(), od, null, null, 0, 0);
+  if (r->>'davet')::int <> 0 or (select yildiz from public.cuzdan where uye = a) <> 55 then raise exception 'BAŞARISIZ 33: bağlı oyuncunun takma adı davet sayıldı: %', r; end if;
   perform public.davet_kaydet(kod, c);
   perform pg_temp.test_bagla(c, 'gelen-c@ornek.com');
   insert into public.kasalar (uye, oyun_id, odul) values (c, gen_random_uuid(), '{"tavan":true}');
