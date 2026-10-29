@@ -64,8 +64,8 @@
     const ps=el('div','panel setler');ps.append(el('h2',null,'🧩 Setler'));ps.append(el('p','small muted','Bir setin bütün öğelerine sahip ol: +'+G.YILDIZ_KAYNAK.set.adet+' ⭐ ve amblemi.'));
     const ad=o=>{const [t,a]=o.split(':');return G.KOZMETIK[t]&&G.KOZMETIK[t][a]?G.KOZMETIK[t][a].n:o};
     for(const [k,S] of Object.entries(G.SETLER)){const var_=S.ogeler.filter(o=>sahip.has(o)).length,eksik=S.ogeler.filter(o=>!sahip.has(o));const r=el('div','gorev set');r.dataset.key=k;
-      r.append(el('span','ad',S.ico+' '+S.n),el('span','madalyalar',tamam.has(k)||!eksik.length?'✓':var_+'/'+S.ogeler.length));
-      const c=el('div','cubuk');const d=el('div','dolu');d.style.width=Math.round(100*var_/S.ogeler.length)+'%';c.append(d);r.append(c,el('span','ilerleme',eksik.length?'Eksik: '+eksik.map(ad).join(', '):'Tamam ✓'));ps.append(r)}
+      const odendi=tamam.has(k);r.append(el('span','ad',S.ico+' '+S.n),el('span','madalyalar',odendi?'✓':var_+'/'+S.ogeler.length));
+      const c=el('div','cubuk');const d=el('div','dolu');d.style.width=Math.round(100*var_/S.ogeler.length)+'%';c.append(d);r.append(c,el('span','ilerleme',odendi?'Tamam ✓':eksik.length?'Eksik: '+eksik.map(ad).join(', '):'Hepsi sende: ödül sıradaki maç sonunda'));ps.append(r)}
     icerik.append(ps)}
   // davet (yıldız ekonomisi 3c): yalnız bağlı hesap; kimlerin geldiği değil yalnız sayılar (davet_benim RPC)
   {const D=G.YILDIZ_KAYNAK.davet;const pd=el('div','panel davet');pd.append(el('h2',null,'👥 Davet'));

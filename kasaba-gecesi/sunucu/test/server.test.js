@@ -1034,15 +1034,16 @@ test('ilerleme: ilk yanıt kaybolup yeniden deneme tekrar dönerse, saklanan son
   }finally{for(const c of acik)await c.close();await I.kapat()}
 });
 
-test('setler: kasadan yeni kozmetik çıkınca set denetimi, kasa mesajı setler ve güncel yıldız; kopya kozmetikte denetim yok',async()=>{
+test('setler: her gerçek kasadan sonra set denetimi (yeni ya da kopya kozmetik), kasa mesajı setler ve güncel yıldız; tavanda denetim yok',async()=>{
   for(const kopya of [false,true]){const I=await ilerlemeSunucu({});I.cagri.kozVer=true;I.cagri.kozDonustu=kopya;I.cagri.setVer=true;const acik=[];
     try{
       const a=client('st0'+kopya,'A',{host:true,token:I.tok(SA)},I.b);acik.push(a);await a.until(c=>c.P&&c.P.room);const room=a.P.room;for(const u of ['st1','st2','st3'])acik.push(client(u+kopya,u,{room},I.b));
       await a.until(c=>c.P.lobby.length===4);a.send({t:'start'});await a.until(c=>c.P.phase==='night');const R=I.srv.rooms.get(room).game;
       R.gameLog.push({sira:99,gun:1,faz:'vote',tur:'gunduz_sonuc',veri:{}});R.P.phase='end';R.P.winner={team:'inn',kazananlar:[a.me]};a.send({t:'look',name:'A1'});
       const k=(await a.until(c=>c.diger.find(m=>m.t==='kasa'),3000)).diger.find(m=>m.t==='kasa').d;
-      if(kopya){assert.strictEqual(I.cagri.set.length,0,'kopya kozmetik set denetimi yapmaz');assert.deepStrictEqual(k.setler,[]);assert.strictEqual(k.yildiz,5)}
-      else{assert.strictEqual(I.cagri.set.length,1);assert.deepStrictEqual(Object.keys(I.cagri.set[0].st),Object.keys(G.SETLER));assert.deepStrictEqual(k.setler,[{key:'korsan',odul:40}]);assert.strictEqual(k.yildiz,45,'yıldız set sonrası')}
+      {assert.strictEqual(I.cagri.set.length,1,'her gerçek kasada denetim (bugünden tamamlanmış setler de ödenir)');assert.deepStrictEqual(Object.keys(I.cagri.set[0].st),Object.keys(G.SETLER));assert.deepStrictEqual(k.setler,[{key:'korsan',odul:40}]);assert.strictEqual(k.yildiz,45,'yıldız set sonrası')}
+      if(!kopya){I.cagri.tavan=true;I.cagri.kozVer=false;I.cagri.set.length=0;a.send({t:'cancel'});await a.until(c=>c.P.phase==='lobby');a.diger.length=0;a.send({t:'start'});await a.until(c=>c.P.phase==='night');const R2=I.srv.rooms.get(room).game;R2.gameLog.push({sira:99,gun:1,faz:'vote',tur:'gunduz_sonuc',veri:{}});R2.P.phase='end';R2.P.winner={team:'inn',kazananlar:[a.me]};a.send({t:'look',name:'A2'});
+        await a.until(c=>c.diger.find(m=>m.t==='kasa'),3000);assert.strictEqual(I.cagri.set.length,0,'tavanda set denetimi yok')}
     }finally{for(const c of acik)await c.close();await I.kapat()}}
 });
 

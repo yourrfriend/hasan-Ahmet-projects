@@ -415,9 +415,10 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
         if(!r)return;
         // tekrar ama saklanan sonuç varsa (göç 017: ilk yanıt kaybolmuş) kart o sonuçla kurulur
         const s=r.tekrar&&r.sonuc&&typeof r.sonuc==='object'?r.sonuc:r;const tekrar=s===r&&!!r.tekrar;
-        // setler (göç 024): kasadan yeni kozmetik çıktıysa set denetimi (oyuncu odadan çıkmış olsa da; idempotent)
-        const yeniKoz=!tekrar&&!s.tavan&&s.odul&&s.odul.tur==='kozmetik'&&!s.donustu;
-        return (yeniKoz&&typeof kayit.setOdul==='function'?kayit.setOdul(uye,G.setParam()).catch(()=>null):Promise.resolve(null)).then(so=>{const mem=room.members.get(p.id);if(!mem)return;
+        // setler (göç 024): her gerçek kasadan sonra set denetimi (tavan/tekrar hariç; oyuncu odadan çıkmış olsa da; idempotent):
+        // bugünden tamamlanmış ya da başka yoldan tamamlanan setler de sıradaki maçta ödenir
+        const setDenetle=!tekrar&&!s.tavan;
+        return (setDenetle&&typeof kayit.setOdul==='function'?kayit.setOdul(uye,G.setParam()).catch(()=>null):Promise.resolve(null)).then(so=>{const mem=room.members.get(p.id);if(!mem)return;
         const setler=so&&Array.isArray(so.setler)?so.setler:[];const yildiz=so&&so.yildiz!=null?so.yildiz:s.yildiz;
         for(const ws of mem.socks)send(ws,{t:'kasa',d:{odul:s.odul||null,donustu:!!s.donustu,yildiz,setler,rozetler:s.yeni_rozetler||[],tavan:!!s.tavan,tekrar,dokum:s.tavan||tekrar?[]:dokum,gununIlki:+s.gunun_ilki||0,bagli:!!(mem.envanter&&mem.envanter.bagli),kademeler:Array.isArray(s.kademeler)?s.kademeler:[],seri:+s.seri||0,gorevler:Array.isArray(s.gorevler)?s.gorevler:[],davet:+s.davet||0}});
         if(mem.uye&&typeof kayit.envanterOku==='function')kayit.envanterOku(mem.uye).then(e=>{if(e)envanterAyarla(room,p.id,mem,e)}).catch(()=>{})})}).catch(()=>{birak(p.id)})}
