@@ -786,4 +786,29 @@ do $$ declare j jsonb; begin
 end $$;
 reset role;
 
+-- 35) bağlama ödülü takma adla tekrar alınmaz (göç 022): ad+etiket ve Gmail noktaları aynı adres sayılır
+insert into auth.users (id, instance_id, aud, role, email, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, is_anonymous)
+values ('8b8b8b8b-0001-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true),
+       ('8b8b8b8b-0002-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true),
+       ('8b8b8b8b-0003-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true),
+       ('8b8b8b8b-0004-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true);
+create function pg_temp.test_bagla2(u uuid, e text) returns void language sql security definer as $f$ update auth.users set email = e, email_confirmed_at = now() where id = u $f$;
+set local role service_role;
+do $$ declare r jsonb; begin
+  perform pg_temp.test_bagla2('8b8b8b8b-0001-1111-1111-111111111111', 'takma@ornek.com');
+  r := public.bagla_odulu('8b8b8b8b-0001-1111-1111-111111111111');
+  if not coalesce((r->>'ok')::boolean, false) then raise exception 'BAŞARISIZ 35: ilk bağlama: %', r; end if;
+  perform pg_temp.test_bagla2('8b8b8b8b-0002-1111-1111-111111111111', 'Takma+ikinci@ornek.com');
+  r := public.bagla_odulu('8b8b8b8b-0002-1111-1111-111111111111');
+  if not coalesce((r->>'tekrar')::boolean, false) or coalesce((select yildiz from public.cuzdan where uye = '8b8b8b8b-0002-1111-1111-111111111111'), 0) <> 0 then raise exception 'BAŞARISIZ 35: +etiket ikinci ödül: %', r; end if;
+  perform pg_temp.test_bagla2('8b8b8b8b-0003-1111-1111-111111111111', 'oyuncu@googlemail.com');
+  r := public.bagla_odulu('8b8b8b8b-0003-1111-1111-111111111111');
+  if not coalesce((r->>'ok')::boolean, false) then raise exception 'BAŞARISIZ 35: gmail ilk: %', r; end if;
+  perform pg_temp.test_bagla2('8b8b8b8b-0004-1111-1111-111111111111', 'o.yun.cu@gmail.com');
+  r := public.bagla_odulu('8b8b8b8b-0004-1111-1111-111111111111');
+  if not coalesce((r->>'tekrar')::boolean, false) then raise exception 'BAŞARISIZ 35: gmail noktalı ikinci ödül: %', r; end if;
+  raise notice 'GEÇTİ 35: bağlama ödülü takma adlara kapalı';
+end $$;
+reset role;
+
 rollback;
