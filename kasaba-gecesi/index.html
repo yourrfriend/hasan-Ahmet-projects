@@ -178,7 +178,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 .endcard .lobi-esya{justify-self:center;font-weight:700;color:#3a2f1c}.endcard .kasa{display:grid;gap:3px;justify-items:center;background:#fff7e0;border-radius:12px;padding:8px 12px;color:#3a2f1c}
 .kasa .dokum{font-size:12px;font-weight:700;color:#7a5a10}.kasa .kademe{font-size:12px;font-weight:700;color:#8a5a00}
 .bagla-kart{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:30;background:#fff;color:#2a2418;border-radius:14px;padding:16px 18px;box-shadow:0 12px 30px rgba(0,0,0,.45);text-align:center;display:grid;gap:8px;max-width:min(92vw,360px)}
-.bagla-kart button{justify-self:center}.endcard .kasa .odul{font-weight:800}
+.bagla-kart button{justify-self:center}.vitrin-kart{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:31;background:#fff;color:#2a2418;border-radius:14px;padding:14px 18px;box-shadow:0 12px 30px rgba(0,0,0,.45);display:grid;gap:6px;min-width:200px;max-width:min(92vw,320px);text-align:center}.vitrin-kart .vitrin-parca{font-weight:700}.vitrin-kart button{justify-self:center}.endcard .kasa .odul{font-weight:800}
 .efekt-parca{opacity:0;animation:efektYuksel 2.4s ease-out forwards}@keyframes efektYuksel{0%{opacity:0;transform:translateY(0)}20%{opacity:1}100%{opacity:0;transform:translateY(-60px)}}
 .top a.profil{margin-left:auto;font-weight:800;color:#ffd766;text-decoration:none}
 .lobbybar{top:10px;left:50%;transform:translateX(-50%);display:flex;gap:8px;align-items:center;background:rgba(255,255,255,.9);border-radius:14px;padding:6px 8px 6px 12px;font-size:clamp(11px,1.4vw,14px);box-shadow:0 2px 0 rgba(0,0,0,.12);max-width:min(92vw,560px)}
@@ -240,7 +240,7 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 <div id="app"><div class="panel"><p class="muted">Yükleniyor…</p></div></div>
 <script>
 // Script daha başlamadan çökerse "Yükleniyor…" yerine hatayı göster (sürüm damgasıyla).
-window.KG_VER='2026-11-10a';
+window.KG_VER='2026-11-11a';
 window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ff6b6b"><p><b>Sayfa açılamadı.</b> Sürüm '+KG_VER+'</p><p class="small" style="word-break:break-all">'+String(e.message||e.error||e)+(e.filename?' @'+e.lineno:'')+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}});
 setTimeout(function(){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ffb347"><p><b>Sayfa yüklenemedi.</b> Sürüm '+KG_VER+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}},8000);
 </script>
@@ -371,6 +371,10 @@ async function baglaOduluIste(){if(!hesap.eposta||!hesap.uuid||!token)return;try
   try{const r=await fetch('hesap/bagla-odulu',{method:'POST',headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(10000)});if(!r.ok)return;const j=await r.json();
     try{localStorage.setItem('kg_bagla_odul',hesap.uuid)}catch(e){}if(j&&j.ok)baglaKartGoster(j.davet)}catch(e){}}
 function baglaKartGoster(davet){try{if(sessionStorage.getItem('kg_bagla_kart'))return}catch(e){}ui.baglaKart=true;ui.baglaDavet=+davet||0;render()}
+// vitrin kartı (yıldız ekonomisi 3e): lobide başkasının karakterine dokununca; yalnız oyuncunun seçtiği parçalar (metin sunucudan)
+function vitrinKartEkle(hedef){if(!ui.vitrinKart)return;if(P.phase!=='lobby'){ui.vitrinKart=null;return}const x=(P.lobby||[]).find(e=>e.id===ui.vitrinKart);if(!x){ui.vitrinKart=null;return}
+  const c=el('div','ov vitrin-kart');c.append(el('b',null,x.name));const v=Array.isArray(x.vitrin)?x.vitrin:[];if(v.length)for(const p of v)c.append(el('div','vitrin-parca',(p.ico||'')+' '+(p.ad||'')));else c.append(el('div','small muted','Vitrini boş'));
+  const b=el('button','small','Kapat');b.onclick=()=>{ui.vitrinKart=null;render()};c.append(b);hedef.append(c)}
 function baglaKartEkle(hedef){if(!ui.baglaKart)return;const c=el('div','ov bagla-kart');c.append(el('b',null,'✉️ Hesabın güvende! +'+YILDIZ_KAYNAK.bagla.adet+' ⭐ ve Mühürlü mektup bayrağı'),el('div','small','Yıldızların, evlerin ve geçmişin artık e-postana bağlı.'));if(ui.baglaDavet>0)c.append(el('div','small','🤝 Arkadaşın davetiyle +'+ui.baglaDavet+' ⭐'));
   const b=el('button','primary','Tamam');b.onclick=()=>{try{sessionStorage.setItem('kg_bagla_kart','1')}catch(e){}ui.baglaKart=false;render()};c.append(b);hedef.append(c)}
 function hesapAc(tur){ui.hesap={tur,adim:'eposta',eposta:'',hata:'',bekleBitis:0,N:0,eski:null,yukleniyor:false,bilgi:'',dogrulama:false};render()}
@@ -506,7 +510,7 @@ function onServerMsg(m){
   }
 }
 function send(m){if(ws&&ws.readyState===1){try{ws.send(JSON.stringify(m))}catch(e){}}}
-function sendHello(){if(myName)send({t:'look',name:myName,color:myLook.color,hat:myLook.hat,bayrak:myLook.bayrak||'none',efekt:myLook.efekt||'none',ev:myLook.ev||'none',esya:myLook.esya||null})}
+function sendHello(){if(myName)send({t:'look',name:myName,color:myLook.color,hat:myLook.hat,bayrak:myLook.bayrak||'none',efekt:myLook.efekt||'none',ev:myLook.ev||'none',esya:myLook.esya||null,vitrin:Array.isArray(myLook.vitrin)?myLook.vitrin:[]})}
 
 // ---------- Oyuncu eylemleri ----------
 function castVoteFis(){if(local.vote)send({t:'vote',d:P.day,v:local.vote.t,g:P.gameId,esya:!!local.fis})}
@@ -920,7 +924,9 @@ function renderScene(){
       if(kopuk&&!(p.id===myId||myMates.has(p.id)))setBeanTag(b._tag,'📡 KOPUK','#555','#fff');
       setBeanTag(b._tag2,kopuk&&(p.id===myId||myMates.has(p.id))?'📡 KOPUK':null,'#555','#fff');
       if(P.phase==='vote'&&(P.voted||[]).includes(p.id)){const t=SE('g',{transform:`translate(${x+16},${y-28})`},S_.labels);SE('circle',{r:9,fill:'#3ddc5a',filter:'url(#s_sh)'},t);SE('path',{d:'M-4 0 L-1 3 L4 -3',fill:'none',stroke:'#fff','stroke-width':2.4,'stroke-linecap':'round','stroke-linejoin':'round'},t)}
+      b.g.setAttribute('data-oyuncu',p.id);
       if(lobbyMode&&p.id===myId){b.g.style.pointerEvents='auto';b.g.style.cursor='pointer';b.g.onclick=()=>{ui.custom=!ui.custom;render()}}
+      else if(lobbyMode){b.g.style.pointerEvents='auto';b.g.style.cursor='pointer';b.g.onclick=()=>{ui.vitrinKart=p.id;render()}}
       else if(pick&&P.phase==='vote'){b.g.style.pointerEvents='auto';b.g.style.cursor='pointer';b.g.onclick=e=>pickHouse(houseAt(e)||p.id)}
       else b.g.onclick=null;
     }
@@ -1059,7 +1065,7 @@ function renderInner(){
   else if(!everConnected)stage.append(connectingPanel());
   else if(!connected)stage.append(el('div','ov offline','📡 Bağlantı yok · yeniden bağlanılıyor…'));
   if(P.phase==='lobby')renderLobbyUI(stage);else if(P.phase==='end')renderEndUI(stage);else renderGameUI(stage);
-  baglaKartEkle(stage);
+  baglaKartEkle(stage);vitrinKartEkle(stage);
 }
 function renderLanding(){
   const top=el('div','top');const br=el('div','brand');br.append(el('div','moon'),el('h1',null,'Kasaba Gecesi'));top.append(br);

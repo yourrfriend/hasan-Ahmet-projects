@@ -66,7 +66,14 @@
     for(const [k,S] of Object.entries(G.SETLER)){const var_=S.ogeler.filter(o=>sahip.has(o)).length,eksik=S.ogeler.filter(o=>!sahip.has(o));const r=el('div','gorev set');r.dataset.key=k;
       const odendi=tamam.has(k);r.append(el('span','ad',S.ico+' '+S.n),el('span','madalyalar',odendi?'✓':var_+'/'+S.ogeler.length));
       const c=el('div','cubuk');const d=el('div','dolu');d.style.width=Math.round(100*var_/S.ogeler.length)+'%';c.append(d);r.append(c,el('span','ilerleme',odendi?'Tamam ✓':eksik.length?'Eksik: '+eksik.map(ad).join(', '):'Hepsi sende: ödül sıradaki maç sonunda'));ps.append(r)}
-    icerik.append(ps)}
+    icerik.append(ps)
+    // vitrin (yıldız ekonomisi 3e): kazanımlardan en çok 3 parça; bu cihazda (kg_look.vitrin, kozmetikler gibi); lobide başkaları görür
+    const env={setler:[...tamam],rozetler:[...kazanilan],basarilar:Object.fromEntries(basarilar.map(b=>[b.key,b]))};const adaylar=[...[...tamam].map(k=>'set:'+k),...Object.keys(G.BASARILAR).map(k=>'basari:'+k),...[...kazanilan].map(k=>'rozet:'+k)].filter(id=>G.vitrinGecerli([id],env).length);
+    const pv=el('div','panel vitrin');pv.append(el('h2',null,'🏆 Vitrin'));pv.append(el('p','small muted','En çok '+G.VITRIN_EN_COK+' parça seç; lobide karakterine dokunan görür. Bu cihazda saklanır.'));const secili=G.vitrinGecerli(look().vitrin||[],env);
+    if(!adaylar.length)pv.append(el('p','small muted','Henüz vitrine koyacak bir şeyin yok: bir set tamamla, bir başarıda bronz al ya da bir rozet kazan.'));
+    for(const id of adaylar){const P_=G.vitrinParca(id,env);const var_=secili.includes(id);const b=el('button','vitrin-sec'+(var_?' giyili':''),P_.ico+' '+P_.ad+' · '+(var_?'Vitrinde ✓':'Vitrine koy'));b.dataset.id=id;b.disabled=!var_&&secili.length>=G.VITRIN_EN_COK;
+      b.onclick=()=>{const l=look();const yeni=var_?secili.filter(x=>x!==id):[...secili,id];l.vitrin=yeni;try{localStorage.setItem('kg_look',JSON.stringify(l))}catch(e){}location.reload()};pv.append(b)}
+    if(secili.length>=G.VITRIN_EN_COK)pv.append(el('p','small muted','Vitrin dolu (en çok '+G.VITRIN_EN_COK+').'));icerik.append(pv)}
   // davet (yıldız ekonomisi 3c): yalnız bağlı hesap; kimlerin geldiği değil yalnız sayılar (davet_benim RPC)
   {const D=G.YILDIZ_KAYNAK.davet;const pd=el('div','panel davet');pd.append(el('h2',null,'👥 Davet'));
     if(!bagli)pd.append(el('p','small muted','E-postanı bağla, davet linkin açılsın.'));

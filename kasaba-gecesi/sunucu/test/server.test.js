@@ -838,7 +838,7 @@ test('ilerleme: kayıtlı join envanter alır; premium şapka yalnız sahibine, 
   const I=await ilerlemeSunucu({[SA]:{yildiz:4,esyalar:{iksir:1},kozmetikler:['sapka:tac','bayrak:mavi']}});const acik=[];
   try{
     const a=client('il0','A',{host:true,token:I.tok(SA),hat:'tac',bayrak:'mavi',efekt:'yildiz'},I.b);acik.push(a);await a.until(c=>c.P&&c.P.room);
-    await a.until(c=>c.diger.some(m=>m.t==='envanter'));const e=a.diger.find(m=>m.t==='envanter').d;assert.deepStrictEqual(e,{yildiz:4,esyalar:{iksir:1},kozmetikler:['sapka:tac','bayrak:mavi'],bagli:false,baglaOdulu:false,basarilar:{},seri:null,hafta:null,davet:null});
+    await a.until(c=>c.diger.some(m=>m.t==='envanter'));const e=a.diger.find(m=>m.t==='envanter').d;assert.deepStrictEqual(e,{yildiz:4,esyalar:{iksir:1},kozmetikler:['sapka:tac','bayrak:mavi'],bagli:false,baglaOdulu:false,basarilar:{},seri:null,hafta:null,davet:null,setler:[],rozetler:[]});
     await a.until(c=>c.P.lobby.some(x=>x.id===c.me&&x.hat==='tac'&&x.bayrak==='mavi'));assert.strictEqual(a.P.lobby.find(x=>x.id===a.me).efekt,'none','sahip olunmayan efekt reddedilir');
     const b=client('il1','B',{room:a.P.room,token:I.tok(SB),hat:'tac',bayrak:'ejder'},I.b);acik.push(b);await b.until(c=>c.diger.some(m=>m.t==='envanter'));await a.until(c=>c.P.lobby.some(x=>x.id===b.me));
     const lb=a.P.lobby.find(x=>x.id===b.me);assert.strictEqual(lb.hat,'none','sahibi olmayan premium şapka kabul edilmez (varsayılanda kalır)');assert.strictEqual(lb.bayrak,'none');
@@ -1045,6 +1045,19 @@ test('setler: her gerçek kasadan sonra set denetimi (yeni ya da kopya kozmetik)
       if(!kopya){I.cagri.tavan=true;I.cagri.kozVer=false;I.cagri.set.length=0;a.send({t:'cancel'});await a.until(c=>c.P.phase==='lobby');a.diger.length=0;a.send({t:'start'});await a.until(c=>c.P.phase==='night');const R2=I.srv.rooms.get(room).game;R2.gameLog.push({sira:99,gun:1,faz:'vote',tur:'gunduz_sonuc',veri:{}});R2.P.phase='end';R2.P.winner={team:'inn',kazananlar:[a.me]};a.send({t:'look',name:'A2'});
         await a.until(c=>c.diger.find(m=>m.t==='kasa'),3000);assert.strictEqual(I.cagri.set.length,0,'tavanda set denetimi yok')}
     }finally{for(const c of acik)await c.close();await I.kapat()}}
+});
+
+test('vitrin: look.vitrin envanterle doğrulanır, lobide {id,ico,ad}; sahip olunmayan düşer; misafir boş',async()=>{
+  const I=await ilerlemeSunucu({[SA]:{yildiz:0,esyalar:{},kozmetikler:[],setler:['ejder'],rozetler:['ilk_mac'],basarilar:{yalniz_kurt:{sayac:12,kademe:3}}}});const acik=[];
+  try{
+    const a=client('vt0','A',{host:true,token:I.tok(SA)},I.b);acik.push(a);await a.until(c=>c.P&&c.P.room);const room=a.P.room;
+    a.send({t:'look',name:'A',vitrin:['set:ejder','set:korsan','basari:yalniz_kurt','rozet:ilk_mac']});
+    await a.until(c=>{const e=(c.P.lobby||[]).find(x=>x.id===a.me);return e&&e.vitrin&&e.vitrin.length===3},3000);
+    assert.deepStrictEqual(a.P.lobby.find(x=>x.id===a.me).vitrin,[{id:'set:ejder',ico:'🐉',ad:'Ejder seti'},{id:'basari:yalniz_kurt',ico:'🥇',ad:'Yalnız kurt'},{id:'rozet:ilk_mac',ico:'🎟️',ad:'İlk maç'}],'ödenmemiş korsan düşer');
+    const b=client('vt1','B',{room},I.b);acik.push(b);await b.until(c=>c.P&&c.P.room);b.send({t:'look',name:'B',vitrin:['set:ejder']});
+    await a.until(c=>(c.P.lobby||[]).some(x=>x.id===b.me));await new Promise(r=>setTimeout(r,100));
+    assert.deepStrictEqual(a.P.lobby.find(x=>x.id===b.me).vitrin,[],'misafirin vitrini boş');
+  }finally{for(const c of acik)await c.close();await I.kapat()}
 });
 
 // ---------- Yıldız ekonomisi 1 (Task 3) ----------

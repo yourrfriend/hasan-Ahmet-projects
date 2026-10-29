@@ -274,7 +274,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
   // lobi: bağlı ve adı olan üyeler, ev sahibi önde; aynı rengi seçen ikinciye boş renk
   function lobbyOf(room){
     const list=[];
-    for(const [id,m] of room.members)if(online(m)&&m.name)list.push({id,name:m.name,color:m.color,hat:m.hat,bayrak:m.bayrak||'none',efekt:m.efekt||'none',ev:m.ev||'none'});
+    for(const [id,m] of room.members)if(online(m)&&m.name)list.push({id,name:m.name,color:m.color,hat:m.hat,bayrak:m.bayrak||'none',efekt:m.efekt||'none',ev:m.ev||'none',vitrin:(m.vitrin||[]).map(v=>({id:v,...G.vitrinParca(v,m.envanter)}))});
     list.sort((a,b)=>(b.id===room.hostId)-(a.id===room.hostId));
     const used=new Set();list.forEach(p=>{if(!p.color||used.has(p.color))p.color=G.COLORS.find(c=>!used.has(c))||G.COLORS[0];used.add(p.color);if(!p.hat)p.hat='none'});
     return list;
@@ -378,7 +378,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
     schedule(room);
   }
   function envanterAyarla(room,uid,mem,e){
-    mem.envanter={yildiz:+e.yildiz||0,esyalar:{...(e.esyalar||{})},kozmetikler:Array.isArray(e.kozmetikler)?e.kozmetikler.slice():[],bagli:!!e.bagli,baglaOdulu:!!e.bagla_odulu,basarilar:e.basarilar&&typeof e.basarilar==='object'?{...e.basarilar}:{},seri:e.seri&&typeof e.seri==='object'?{...e.seri}:null,hafta:e.hafta&&typeof e.hafta==='object'?{...e.hafta}:null,davet:e.davet&&typeof e.davet==='object'?{...e.davet}:null};
+    mem.envanter={yildiz:+e.yildiz||0,esyalar:{...(e.esyalar||{})},kozmetikler:Array.isArray(e.kozmetikler)?e.kozmetikler.slice():[],bagli:!!e.bagli,baglaOdulu:!!e.bagla_odulu,basarilar:e.basarilar&&typeof e.basarilar==='object'?{...e.basarilar}:{},seri:e.seri&&typeof e.seri==='object'?{...e.seri}:null,hafta:e.hafta&&typeof e.hafta==='object'?{...e.hafta}:null,setler:Array.isArray(e.setler)?e.setler.slice():[],rozetler:Array.isArray(e.rozetler)?e.rozetler.slice():[],davet:e.davet&&typeof e.davet==='object'?{...e.davet}:null};
     for(const ws of mem.socks)send(ws,{t:'envanter',d:mem.envanter});
     if(mem.istenen)applyLook(room,uid,mem,{...mem.istenen});if(room.lobiEsya&&mem.esyaSecim)room.lobiEsya.delete(uid);schedule(room);
   }
@@ -432,6 +432,8 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
     const sahip=new Set(mem.envanter?mem.envanter.kozmetikler:[]);mem.istenen=mem.istenen||{};
     if(typeof m.hat==='string'){mem.istenen.hat=m.hat;if(G.kozmetikGecerli('sapka',m.hat,sahip))mem.hat=m.hat}
     for(const tur of ['bayrak','efekt','ev'])if(typeof m[tur]==='string'){mem.istenen[tur]=m[tur];mem[tur]=G.kozmetikGecerli(tur,m[tur],sahip)?m[tur]:'none'}
+    // vitrin (yıldız ekonomisi 3e): istenen saklanır (envanter sonra gelirse yeniden uygulanır); yalnız sahip olunan parçalar, en çok 3
+    if(m.vitrin!==undefined)mem.istenen.vitrin=Array.isArray(m.vitrin)?m.vitrin.slice(0,10):[];mem.vitrin=G.vitrinGecerli(mem.istenen.vitrin||[],mem.envanter);
     if(m.esya!==undefined){const yeni=typeof m.esya==='string'&&Object.prototype.hasOwnProperty.call(G.ESYA,m.esya)?m.esya:null;if(yeni!==mem.esyaSecim){mem.esyaSecim=yeni;if(room.lobiEsya)room.lobiEsya.delete(uid)}}
     if(mem.uye&&mem.name)kayit.profil(mem.uye,{ad:mem.name,renk:mem.color,sapka:mem.hat}); // kayıtlı oyuncu: profil (arka planda, oyunu beklemez)
   }
