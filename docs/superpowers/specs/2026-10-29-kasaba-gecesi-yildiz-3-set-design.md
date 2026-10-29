@@ -25,7 +25,7 @@ Koleksiyona hedef ve hikâye katmak: mevcut kozmetiklerden temalı setler; tamam
 - Kasa kartında `🏴‍☠️ Korsan seti tamam · +40 ⭐`; `/ben/al` yanıtı `setler` taşır, profil bildirim gösterir ("🏴‍☠️ Korsan seti tamam! +40 ⭐").
 - Profil (`/ben`) "🧩 Setler" bölümü: her set satırı amblem + ad + `3/5` + eksik öğelerin adları (dükkânda alınabilir olanlar), tamamlanınca `✓`. Veri: sahip olunan kozmetikler (zaten okunuyor) + `setler` tablosu (RLS kendi-oku).
 - `envanter_oku` değişmez; vitrin bir sonraki iş.
-- Göç **024**: tablo + RLS + `set_odul`; `hesap_birlestir` (023'teki son gövde 016'dan; 019 en son) `setler` satırlarını taşır (`on conflict do nothing`; ödül geri alınmaz).
+- Göç **024**: tablo + RLS + `set_odul`; `hesap_birlestir` (son gövde 019) `setler` satırlarını taşır (`on conflict do nothing`; ödül geri alınmaz).
 
 ## Hedef olmayanlar
 Yeni çizim, yeni kozmetik, satılmayan set ödülü kozmetiği, sette giyinme bonusu, başkasının setlerini görme (vitrin).
