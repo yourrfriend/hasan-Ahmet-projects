@@ -58,6 +58,14 @@
     for(const k of G.haftaGorevleri(hafta)){const T=G.HAFTALIK.havuz[k];const x=gm.get(k)||{sayac:0,tamam:false};const r=el('div','gorev');r.dataset.key=k;r.append(el('span','ad',T.n),el('span','madalyalar',x.tamam?'✓':''));
       const c=el('div','cubuk');const d=el('div','dolu');d.style.width=(x.tamam?100:Math.min(100,Math.round(100*x.sayac/T.hedef)))+'%';c.append(d);r.append(c,el('span','ilerleme',x.tamam?'Tamam ✓':Math.min(x.sayac,T.hedef)+'/'+T.hedef));ph.append(r)}
     if(gm.get('hepsi')||G.haftaGorevleri(hafta).every(k=>(gm.get(k)||{}).tamam))ph.append(el('p','small','🏆 Hepsi tamam'));icerik.append(ph)}
+  // davet (yıldız ekonomisi 3c): yalnız bağlı hesap; kimlerin geldiği değil yalnız sayılar (davet_benim RPC)
+  {const D=G.YILDIZ_KAYNAK.davet;const pd=el('div','panel davet');pd.append(el('h2',null,'👥 Davet'));
+    if(!bagli)pd.append(el('p','small muted','E-postanı bağla, davet linkin açılsın.'));
+    else{let d=null;try{const r=await sb.rpc('davet_benim');if(!r.error)d=r.data}catch(e){}
+      if(d&&d.kod){const link=location.origin+'/?d='+d.kod;const b=el('button','small','Linki kopyala');b.onclick=()=>{navigator.clipboard.writeText(link).then(()=>{b.textContent='Kopyalandı ✓'}).catch(()=>{})};
+        pd.append(el('p','small','Arkadaşın bu linkle gelip e-postasını bağlar ve bir maç oynarsa sen +'+D.adet+' ⭐, o +'+D.gelen+' ⭐ alır (en çok '+D.tavan+' arkadaş; '+D.kozmetik+'. arkadaşta 🤝 Dostluk bayrağı).'),el('code','davet-link',link),b,el('p','small','Gelen: '+d.gelen+' · ödül alan: '+d.odullu+'/'+D.tavan))}
+      else pd.append(el('p','small muted','Davet linkin hazırlanıyor; sayfayı sonra yenile.'))}
+    icerik.append(pd)}
   // eşyalar
   const p2=el('div','panel');p2.append(el('h2',null,'Eşyaların'));p2.append(el('p','small muted','Eşya modunda maç başında yanına bir tane alırsın; kullanırsan harcanır, kullanmadan ölürsen geri döner.'));
   const elde=esyalar.filter(e=>e.adet>0&&G.ESYA[e.key]);if(!elde.length)p2.append(el('p','muted','Henüz eşyan yok; maç sonu kasalarından çıkar.'));
@@ -88,6 +96,7 @@
   for(const [tur,liste] of Object.entries(G.KOZMETIK)){p4.append(el('h3',null,BASLIK[tur]));
     for(const [k,v] of Object.entries(liste)){const key=tur+':'+k;const r=el('div','urun '+v.nadir);r.dataset.key=key;if(tur==='ev'){const o=onizleme(k);if(o)r.append(o)}r.append(el('span','ad',v.n),el('span','nadir',NADIR[v.nadir]));
       if(sahip.has(key)){const giyili=look()[ALAN[tur]]===k;const b=el('button',giyili?'giyili':'',giyili?'Giyili ✓':'Giy');b.onclick=()=>{giy(ALAN[tur],giyili?'none':k);location.reload()};r.append(b)}
+      else if(v.ozel==='davet')r.append(el('span','small muted','🤝 '+G.YILDIZ_KAYNAK.davet.kozmetik+' arkadaş getirince'));
       else if(v.ozel==='basari'){const b=Object.values(G.BASARILAR).find(x=>x.altin===key);r.append(el('span','small muted','🏅 '+(b?b.n:'Başarı')+' altınıyla'))}
       else if(v.ozel)r.append(el('span','small muted','✉️ E-postanı bağlayınca'));
       else{const fiyat=G.NADIRLIK[v.nadir].fiyat;const b=el('button',null,'Al · ⭐ '+fiyat);b.disabled=yildiz<fiyat;

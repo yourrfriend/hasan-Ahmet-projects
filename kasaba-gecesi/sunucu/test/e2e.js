@@ -37,7 +37,7 @@ const step=t=>console.log('•',t);
       const gorulenBelirtec=new Set();
       const turnstileFetch=async(url,o)=>{const b=new URLSearchParams(String(o.body));const t=b.get('response');tsIstekler.push(t);const m=/^sahte-(kod_\w+)-/.exec(t||'');
         const cevap=gorulenBelirtec.has(t)||!m?{success:false,'error-codes':['timeout-or-duplicate']}:{success:true,action:m[1],hostname:'127.0.0.1'};gorulenBelirtec.add(t);return {status:200,ok:true,json:async()=>cevap}};
-      const s3=createServer({quiet:true,tickMs:100,jwksAlma:false,ayar:{url:'http://127.0.0.1:1',anonKey:'anon',serviceKey:'srv',jwtSecret:'x',kurulum:'e2e',kancaSirri:KANCA_SIR,turnstileSite:'site-sahte',turnstileSecret:'sir',turnstileHostnames:['127.0.0.1'],icUrl:'http://ic.test',kodGunluk:50,kodSaatlik:50},kodTavan:{ipOn:20,ipSaat:40}, // e2e: tüm bağlamlar aynı IP; IP tavanı devreye girmesin (adres tavanı sınanır)
+      const s3=createServer({quiet:true,tickMs:100,jwksAlma:false,ayar:{url:'http://127.0.0.1:1',anonKey:'anon',serviceKey:'srv',jwtSecret:'x',kurulum:'e2e',kancaSirri:KANCA_SIR,turnstileSite:'site-sahte',turnstileSecret:'sir',turnstileHostnames:['127.0.0.1'],icUrl:'http://ic.test',kodGunluk:50,kodSaatlik:50},kodTavan:{ipOn:20,ipSaat:40,anonSaat:20}, // e2e: tüm bağlamlar aynı IP; IP tavanı devreye girmesin (adres tavanı sınanır)
         icFetch,turnstileFetch,hesapFetch:async(url,o)=>{birlesmeler.push({url,yontem:o.method,govde:o.body?JSON.parse(o.body):null});return {status:200,ok:true,json:async()=>({}),text:async()=>''}}});
       await new Promise(r=>s3.server.listen(0,'127.0.0.1',r));const base3='http://127.0.0.1:'+s3.server.address().port+'/';
       const c3=await newCtx();const p3=await open(c3,'Kimlik',base3);const t0=Date.now();
@@ -80,7 +80,7 @@ const step=t=>console.log('•',t);
         const suz=(satir,sp)=>{let r=satir;for(const [k,v] of sp){const m=/^(eq|in)\.(.*)$/.exec(v);if(!m)continue;const vals=m[1]==='in'?m[2].replace(/^\(|\)$/g,'').split(','):[m[2]];r=r.filter(x=>vals.includes(String(x[k])))}return r};
         const istekler=[];
         const c5=await newCtx();
-        let restHata=null,rpcBugun=null;const c5Rota={desen:u=>/\/(auth|rest)\/v1\//.test(u.pathname)||u.pathname==='/ayar.json'||u.hostname==='challenges.cloudflare.com',isle:async route=>{
+        let restHata=null,rpcBugun=null,rpcDavet={kod:'KODKOD23',gelen:4,odullu:2};const c5Rota={desen:u=>/\/(auth|rest)\/v1\//.test(u.pathname)||u.pathname==='/ayar.json'||u.hostname==='challenges.cloudflare.com',isle:async route=>{
           if(new URL(route.request().url()).hostname==='challenges.cloudflare.com'){if(apiJsDurum!==200)return route.fulfill({status:apiJsDurum,body:''});
             return route.fulfill({status:200,contentType:'application/javascript',body:"window.turnstile={_n:0,_o:{},render(el,o){const id='w'+(++this._n);this._o[id]=o;el.setAttribute('data-widget',id);return id},execute(id){const o=this._o[id];if(window.__tsKutu&&o['before-interactive-callback']){o['before-interactive-callback']();setTimeout(()=>{o['after-interactive-callback']&&o['after-interactive-callback']();o.callback('sahte-'+o.action+'-'+Date.now()+'-'+(++this._n))},600)}else setTimeout(()=>o.callback('sahte-'+o.action+'-'+Date.now()+'-'+(++this._n)),10)},reset(){},remove(){}}"})}
           const u=new URL(route.request().url());const json=(b,st)=>route.fulfill({status:st||200,contentType:'application/json',body:JSON.stringify(b)});
@@ -97,6 +97,7 @@ const step=t=>console.log('•',t);
           if(route.request().method()==='PATCH'){let g=null;try{g=JSON.parse(route.request().postData()||'null')}catch(e){}if(g&&typeof g.ad==='string'&&(g.ad.length>40||g.ad.startsWith('KISIT')))return json({code:'23514',message:'new row for relation "kasabalar" violates check constraint "kasabalar_ad_uzunluk"'},400);return route.fulfill({status:204,body:''})} // göç 007: ad uzunluk kısıtı
           const t=u.pathname.split('/').pop();istekler.push(t+'?'+u.searchParams.toString());
           if(restHata===t)return json({message:'taklit sunucu hatası'},500); // ağ/sunucu hatası dalı: sayfa "göremezsin" dememeli
+          if(t==='davet_benim')return json(rpcDavet);
           if(t==='istanbul_bugun')return json(rpcBugun||new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Istanbul'}).format(new Date()));
           if(!tablo[t])return json({message:'yok: '+t},404);
           return json(suz(tablo[t],u.searchParams))}};
@@ -134,7 +135,8 @@ const step=t=>console.log('•',t);
         { const alimlar=[];await p5.route('**/ben/al',async route=>{const r=route.request();const g=JSON.parse(r.postData()||'{}');alimlar.push({key:g.key,auth:r.headers()['authorization']||''});
             tablo.kozmetikler.push({uye:ben,key:g.key});tablo.cuzdan[0].yildiz=8;return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,yildiz:8})})});
           await p5.goto(o3+'/ben');await p5.waitForFunction(()=>[...document.querySelectorAll('#icerik h2')].some(h=>/Koleksiyon/.test(h.textContent)),null,{timeout:8000});
-          const t=await p5.textContent('main');assert.match(t,/⭐ 33/);assert.match(t,/İksir ×2/);assert.match(t,/Rozetler \(1\/4\)/);assert.match(await p5.textContent('.seri-satir'),/🔥 Seri: 3 gün · en uzun 9/,'profil seri satırı');
+          const t=await p5.textContent('main');assert.match(t,/⭐ 33/);assert.match(t,/İksir ×2/);assert.match(t,/Rozetler \(1\/4\)/);assert.match(await p5.textContent('.seri-satir'),/🔥 Seri: 3 gün · en uzun 9/,'profil seri satırı');assert.match(await p5.textContent('.davet'),/E-postanı bağla, davet linkin açılsın/,'bağlı değilse davet linki yok');assert.strictEqual(await p5.$('.davet-link'),null);
+          assert.match(await p5.textContent('.urun[data-key="bayrak:dostluk"]'),/3 arkadaş getirince/);assert.strictEqual(await p5.$('.urun[data-key="bayrak:dostluk"] button'),null,'Dostluk bayrağı satılmaz');
           {const k=G.haftaGorevleri(G.haftaPazartesi(Date.now()));assert.match(await p5.textContent('.haftalik'),/Bu haftanın görevleri · \d gün kaldı/,'görev başlığı');assert.strictEqual(await p5.evaluate(()=>document.querySelectorAll('.haftalik .gorev').length),3);
             assert.match(await p5.textContent('.gorev[data-key="'+k[0]+'"]'),new RegExp('1/'+G.HAFTALIK.havuz[k[0]].hedef),'ilerleme');assert.match(await p5.textContent('.gorev[data-key="'+k[1]+'"]'),/✓/,'tamam');assert.doesNotMatch(await p5.textContent('.gorev[data-key="'+k[2]+'"]'),/✓|9\//,'geçen haftanın satırı sayılmaz');assert.doesNotMatch(await p5.textContent('.haftalik'),/Hepsi tamam/)}
           // hafta cihaz saatinden değil sunucudan (istanbul_bugun): sunucu gelecek haftayı derse o haftanın görevleri; üçü tamamsa (bonus satırı olmasa da) "Hepsi tamam"
@@ -165,7 +167,12 @@ const step=t=>console.log('•',t);
         await c5.close();
         step('e-posta (Plan 6): e-postasız kayıtlı → iki düğme; ?bagla=1 formu açar; kod ile bağla (yanlış kod → hata); Hesabın + çıkış');
         epostaBayragi=true;
+        { const cd=await newCtx();await cd.route(c5Rota.desen,c5Rota.isle);const govdeler=[];cd.on('request',r=>{if(/\/hesap\/anonim/.test(r.url()))govdeler.push(r.postData()||'')});
+          const pd=await open(cd,'Davetli',base3+(base3.includes('?')?'&':'?')+'d=abcdefgh');await pd.waitForSelector('.davet-not',{timeout:8000});
+          assert.match(await pd.textContent('.davet-not'),/Bir arkadaşın seni davet etti/,'davet notu');assert.ok(govdeler.some(g=>/"davet":"ABCDEFGH"/.test(g)),'anonim istek davet kodunu taşır: '+govdeler.join('|'));
+          assert.strictEqual(await pd.evaluate(()=>localStorage.getItem('kg_davet')),null,'hesap açılınca kod silinir');await cd.close() }
         const c6=await newCtx();await c6.route(c5Rota.desen,c5Rota.isle);const p6=await open(c6,'Hesap',base3);
+        assert.strictEqual(await p6.$('.davet-not'),null,'davetsiz açılışta not yok');
         await p6.waitForSelector('button.hesap-bagla',{timeout:8000});
         assert.strictEqual(signupRota,0,'anonim oturum GoTrue\'ya doğrudan değil, sunucudan (/hesap/anonim) alınır');assert.ok(icIstekler.some(i=>i.yol==='/auth/v1/signup'&&JSON.stringify(i.govde)==='{}'),'sunucu yerel GoTrue signup {} çağırdı');
         assert.strictEqual(await p6.evaluate(()=>hesap.uuid),ben,'oturum setSession ile kuruldu');
@@ -197,6 +204,7 @@ const step=t=>console.log('•',t);
           await p6.route('**/hesap/bagla-odulu',route=>{tablo.kozmetikler.push({uye:ben,key:'bayrak:mektup'});tablo.cuzdan[0].yildiz=58;return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,yildiz:58})})});
           await p6.goto(o3+'/ben');await p6.waitForFunction(()=>/Hesabın güvende/.test(document.querySelector('main').textContent)&&document.querySelector('.urun[data-key="bayrak:mektup"] button'),null,{timeout:8000});
           assert.match(await p6.textContent('main'),/⭐ 58/);assert.strictEqual((await p6.textContent('.urun[data-key="bayrak:mektup"] button')).trim(),'Giy','mektup alındı: Giy');
+          assert.match(await p6.textContent('.davet'),/Gelen: 4 · ödül alan: 2\/10/,'davet sayıları');assert.match(await p6.textContent('.davet-link'),/\?d=KODKOD23/,'kişisel link');
           tablo.kozmetikler=tablo.kozmetikler.filter(k=>k.key!=='bayrak:mektup');tablo.cuzdan[0].yildiz=eskiY;await p6.unroute('**/hesap/bagla-odulu');
           await p6.goto(base3);await p6.waitForSelector('button.hesap-cikis',{timeout:8000}) }
         await p6.click('button.hesap-cikis');await p6.waitForSelector('button.hesap-bagla',{timeout:8000});assert.deepStrictEqual(authIstekler.filter(a=>a.yol==='logout').map(a=>a.scope),['local'],'çıkış yalnız bu cihaz (scope=local)');assert.notStrictEqual(await p6.evaluate(()=>JSON.parse(localStorage.getItem('kg_token'))),jwtBagli,'çıkışta bağlı token gider; yenilemede yeni anonim oturum');
@@ -262,6 +270,8 @@ const step=t=>console.log('•',t);
     await host.click('text=Yeni oda kur');await host.fill('#nameInput','Ev');await host.click('text=Lobiye gir');
     await host.waitForSelector('.lobbybar code');
     const link=await host.textContent('.lobbybar code');assert.match(link,/\?oda=[a-z0-9]{12}$/);
+    await host.evaluate(()=>{const h=hesap.eposta;hesap.eposta='ev@ornek.com';envanter={...(envanter||{}),davet:{kod:'KODKOD23',gelen:0,odullu:0}};render();window.__davetLink=document.querySelector('.lobbybar code').textContent;hesap.eposta=h;envanter={...envanter,davet:null};render()});
+    assert.match(await host.evaluate(()=>window.__davetLink),/\?oda=[a-z0-9]{12}&d=KODKOD23$/,'bağlı ev sahibinin oda linki davet kodunu taşır');assert.match(await host.textContent('.lobbybar code'),/\?oda=[a-z0-9]{12}$/);
     assert.strictEqual(await host.evaluate(()=>kayitli),false);assert.strictEqual(await host.$('.kimlik-notu'),null,'kayıt kapalı kurulumda kimlik notu yok');assert.strictEqual(await host.$('.kimlik-notu-lobi'),null);
 
     step('?s= yabancı sunucuyu yalnız yerelde seçer (gizli anahtar linkteki adrese gitmez)');
@@ -595,12 +605,12 @@ const step=t=>console.log('•',t);
         assert.match(await pe.textContent('.endcard .hesap-hatirlat'),/⭐ 37 yıldızın yalnız bu tarayıcıda\. E-postanı bağla, kaybolmasın \(\+25 ⭐ ve ✉️ bayrak\)/,'yıldızlı hatırlatma');
         assert.strictEqual(await pe.getAttribute('.endcard .hesap-hatirlat','href'),'/?bagla=1');
         await pe.evaluate(()=>{kasaSonuc={...kasaSonuc,bagli:true};render()});assert.strictEqual(await pe.$('.endcard .hesap-hatirlat'),null,'bağlıysa hatırlatma yok');
-        await pe.evaluate(()=>{kasaSonuc={...kasaSonuc,gununIlki:7,seri:3,gorevler:[{key:'kazan',odul:15},{key:'hepsi',odul:20}]};render()});assert.match(await pe.textContent('.endcard .kasa'),/🔥 3\. gün üst üste · \+7 Günün ilk maçı/,'seri satırı');{const t=await pe.textContent('.endcard .kasa');assert.match(t,/✅ 2 kez kazan · \+15 ⭐/,'görev satırı');assert.match(t,/🏆 Haftanın görevleri tamam · \+20 ⭐/,'bonus satırı')}
+        await pe.evaluate(()=>{kasaSonuc={...kasaSonuc,gununIlki:7,seri:3,davet:10,gorevler:[{key:'kazan',odul:15},{key:'hepsi',odul:20}]};render()});assert.match(await pe.textContent('.endcard .kasa'),/🔥 3\. gün üst üste · \+7 Günün ilk maçı/,'seri satırı');{const t=await pe.textContent('.endcard .kasa');assert.match(t,/✅ 2 kez kazan · \+15 ⭐/,'görev satırı');assert.match(t,/🏆 Haftanın görevleri tamam · \+20 ⭐/,'bonus satırı');assert.match(t,/🤝 Arkadaşın davetiyle · \+10 ⭐/,'davet satırı')}
         await pe.evaluate(()=>{kasaSonuc={...kasaSonuc,gununIlki:5,seri:1};render()});{const t1=await pe.textContent('.endcard .kasa');assert.match(t1,/\+5 Günün ilk maçı/);assert.ok(!/🔥/.test(t1),'ilk gün seri satırı yok')}
         await pe.evaluate(()=>{kasaSonuc={odul:null,tavan:true,yildiz:37,dokum:[],gununIlki:0,bagli:true,kademeler:[{key:'bekci',kademe:2,odul:30}]};render()});assert.ok(!/\+\d Kazandın/.test(await pe.textContent('.endcard .kasa')),'tavanda döküm satırı yok');
         assert.match(await pe.textContent('.endcard .kasa .kademe'),/🥈 Bekçi gümüş · \+30 ⭐/,'tavanda da kademe satırı');
-        await pe.evaluate(()=>{try{sessionStorage.removeItem('kg_bagla_kart')}catch(e){}onServerMsg({t:'baglaOdulu',d:{yildiz:30,kozmetik:'bayrak:mektup'}})});
-        await pe.waitForSelector('.bagla-kart',{timeout:5000});await pe.click('.bagla-kart button');assert.strictEqual(await pe.$('.bagla-kart'),null);
+        await pe.evaluate(()=>{try{sessionStorage.removeItem('kg_bagla_kart')}catch(e){}onServerMsg({t:'baglaOdulu',d:{yildiz:30,kozmetik:'bayrak:mektup',davet:10}})});
+        await pe.waitForSelector('.bagla-kart',{timeout:5000});assert.match(await pe.textContent('.bagla-kart'),/🤝 Arkadaşın davetiyle \+10 ⭐/,'bağlama kartında davet');await pe.click('.bagla-kart button');assert.strictEqual(await pe.$('.bagla-kart'),null);
         await pe.evaluate(()=>onServerMsg({t:'baglaOdulu',d:{yildiz:30}}));await pe.waitForTimeout(150);assert.strictEqual(await pe.$('.bagla-kart'),null,'kart oturumda bir kez'); }
       await pe.evaluate(()=>{kasaSonuc={tekrar:true};render()});await pe.waitForFunction(()=>/daha önce açıldı/.test((document.querySelector('.endcard .kasa')||{}).textContent||''),null,{timeout:5000});
       assert.strictEqual(await pe.$('.endcard .kasa .odul'),null,'tekrar kasada ödül satırı yok');assert.strictEqual(await pe.$('.endcard .kasa .kademe'),null,'tekrarda kademe satırı yok');
