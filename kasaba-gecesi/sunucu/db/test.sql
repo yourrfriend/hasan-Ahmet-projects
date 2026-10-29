@@ -532,11 +532,12 @@ begin
   if (r->>'gunun_ilki')::int <> 5 or (r->>'seri')::int <> 5 then raise exception 'BAŞARISIZ 28: bağlı değil: +5, seri sayılır: %', r; end if;
   insert into public.kasalar (uye, oyun_id, odul) select c, gen_random_uuid(), '{"tavan":true}' from generate_series(1, 20);
   r := public.mac_sonu(c, gen_random_uuid(), od, null, null, 0, 5, null, 1, 5);
-  if not (r->>'tavan')::boolean or exists (select 1 from public.seriler where uye = c) then raise exception 'BAŞARISIZ 28: tavanda seri işlendi: %', r; end if;
+  -- tavana takılan maç kasa ve günün ilki vermez ama seriye sayılır (kullanıcı kararı 2026-10-29)
+  if not (r->>'tavan')::boolean or (r->>'gunun_ilki')::int <> 0 or (select seri from public.seriler where uye = c) is distinct from 1 then raise exception 'BAŞARISIZ 28: tavanda seri sayılmalı, ödül yok: %', r; end if;
   insert into public.seriler (uye, son_gun, seri, en_uzun) values (d, bugun - 1, 2, 2);
   r := public.mac_sonu(d, gen_random_uuid(), od, null, null, 0, 5, null);
   if (r->>'gunun_ilki')::int <> 5 or (r->>'seri')::int <> 3 then raise exception 'BAŞARISIZ 28: eski çağrı: %', r; end if;
-  if (public.envanter_oku(d)->'seri'->>'seri')::int <> 3 or public.envanter_oku(c)->'seri' <> 'null'::jsonb then raise exception 'BAŞARISIZ 28: envanter_oku seri'; end if;
+  if (public.envanter_oku(d)->'seri'->>'seri')::int <> 3 or (public.envanter_oku(c)->'seri'->>'seri')::int <> 1 then raise exception 'BAŞARISIZ 28: envanter_oku seri'; end if;
   raise notice 'GEÇTİ 28: seri ve günün ilki';
 end $$;
 reset role;
