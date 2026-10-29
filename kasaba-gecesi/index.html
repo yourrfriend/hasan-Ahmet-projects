@@ -240,14 +240,14 @@ input,select{font:inherit;background:var(--bg);color:var(--fg);border:1px solid 
 <div id="app"><div class="panel"><p class="muted">Yükleniyor…</p></div></div>
 <script>
 // Script daha başlamadan çökerse "Yükleniyor…" yerine hatayı göster (sürüm damgasıyla).
-window.KG_VER='2026-11-09a';
+window.KG_VER='2026-11-10a';
 window.addEventListener('error',function(e){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ff6b6b"><p><b>Sayfa açılamadı.</b> Sürüm '+KG_VER+'</p><p class="small" style="word-break:break-all">'+String(e.message||e.error||e)+(e.filename?' @'+e.lineno:'')+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}});
 setTimeout(function(){var a=document.getElementById('app');if(a&&/Yükleniyor/.test(a.textContent)){a.innerHTML='<div class="panel" style="border-color:#ffb347"><p><b>Sayfa yüklenemedi.</b> Sürüm '+KG_VER+'</p><p class="small">Tarayıcı: '+navigator.userAgent+'</p><button onclick="location.reload(true)">Yeniden dene</button></div>'}},8000);
 </script>
 <script src="sayfa/evler.js?v=__V__"></script><script src="sunucu/game.js?v=__V__"></script>
 <script>
 // ---------- Rol tanımları: sunucu/game.js ile tek kaynak (window.KG_GAME) ----------
-const {ROLES,SETUP,COLORS,HATS:HAT_IDS,roleLabel,rolEtiketi,DAGILIM,HIZLI_TUR,HIZLI_GUN,HIZLI_BEKLE_MS,ESYA,PAKET,KOZMETIK,NADIRLIK,ROZETLER,BASARILAR,KADEME_AD,KADEME_SIMGE,HAFTALIK,YILDIZ_KAYNAK}=window.KG_GAME;
+const {ROLES,SETUP,COLORS,HATS:HAT_IDS,roleLabel,rolEtiketi,DAGILIM,HIZLI_TUR,HIZLI_GUN,HIZLI_BEKLE_MS,ESYA,PAKET,KOZMETIK,NADIRLIK,ROZETLER,BASARILAR,KADEME_AD,KADEME_SIMGE,HAFTALIK,SETLER,YILDIZ_KAYNAK}=window.KG_GAME;
 const sahipMi=(o,k)=>typeof k==='string'&&Object.prototype.hasOwnProperty.call(o,k);
 const HAT_NAMES={none:'Yok',beanie:'Bere',cap:'Kasket',ears:'Kulak',bow:'Fiyonk',glasses:'Gözlük',hood:'Kapüşon'};
 const HATS=HAT_IDS.map(k=>[k,HAT_NAMES[k]||k]);
@@ -1302,6 +1302,7 @@ function kasaKarti(k){const c=el('div','kasa');c.append(el('b',null,'🎁 Kasa')
   for(const x of k.kademeler||[]){if(!sahipMi(BASARILAR,x.key)||!(x.kademe>=1&&x.kademe<=3))continue;let od='';if(typeof x.odul==='number')od='+'+x.odul+' ⭐';else{const [t,a]=String(x.odul||'').split(':');if(sahipMi(KOZMETIK,t)&&sahipMi(KOZMETIK[t],a))od=({ev:'🏠',sapka:'🎩',bayrak:'🚩',efekt:'✨'})[t]+' '+KOZMETIK[t][a].n}
     c.append(el('div','kademe',KADEME_SIMGE[x.kademe-1]+' '+BASARILAR[x.key].n+' '+KADEME_AD[x.kademe-1]+(od?' · '+od:'')))}
   for(const x of k.gorevler||[]){const od=typeof x.odul==='number'?' · +'+x.odul+' ⭐':'';if(x.key==='hepsi')c.append(el('div','kademe gorev-satir','🏆 Haftanın görevleri tamam'+od));else if(sahipMi(HAFTALIK.havuz,x.key))c.append(el('div','kademe gorev-satir','✅ '+HAFTALIK.havuz[x.key].n+od))}
+  for(const x of k.setler||[])if(sahipMi(SETLER,x.key))c.append(el('div','kademe set-satir',SETLER[x.key].ico+' '+SETLER[x.key].n+' seti tamam'+(typeof x.odul==='number'?' · +'+x.odul+' ⭐':'')));
   if(k.davet>0)c.append(el('div','kademe davet-satir','🤝 Arkadaşın davetiyle · +'+k.davet+' ⭐'));
   if(k.yildiz!=null)c.append(el('div','small','Yıldızın: ⭐ '+k.yildiz));
   const yeni=(k.rozetler||[]).filter(r=>sahipMi(ROZETLER,r));if(yeni.length)c.append(el('div','rozetler','Yeni rozet: '+yeni.map(r=>ROZETLER[r].ico+' '+ROZETLER[r].n).join(', ')));

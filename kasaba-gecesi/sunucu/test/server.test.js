@@ -821,10 +821,11 @@ test('hızlı ifade: 8 sn bekleme sahte saatle (opts.clock) — bekleme bitince 
 
 // ---------- İlerleme (Task 5): envanter, görünüm doğrulama, eşya seçimi, maç sonu kasa, /ben uçları ----------
 async function ilerlemeSunucu(env){ // env: uye → envanter; macSonu çağrıları kaydedilir
-  const GIZLI='test-jwt-gizli';const cagri={mac:[],al:[],oku:0,bagla:[],baglanan:new Set(),ilk:5,tavan:false};
+  const GIZLI='test-jwt-gizli';const cagri={set:[],mac:[],al:[],oku:0,bagla:[],baglanan:new Set(),ilk:5,tavan:false};
   const sahte={kuyrukla(){},profil(){},kapat(){},sayac:{kasa:3,ilerlemeHata:1},
     envanterOku:async u=>{cagri.oku++;return env[u]||{yildiz:0,esyalar:{},kozmetikler:[]}},
-    macSonu:async(u,o,x)=>{cagri.mac.push({u,o,x});if(cagri.bekle)await cagri.bekle;if(cagri.hataSay>0){cagri.hataSay--;return null}if(cagri.tekrarSonuc)return {tekrar:true,sonuc:{odul:x.odul,donustu:false,yildiz:9,yeni_rozetler:[],tavan:false,gunun_ilki:5,kademeler:[],seri:2,gorevler:[{key:'mac',odul:15}]}};const kd=cagri.kademeYok?{}:{kademeler:[{key:'kurtarici',kademe:1,odul:10}],seri:3,gorevler:[{key:'mac',odul:15}],davet:10};return cagri.tavan?{odul:null,donustu:false,yildiz:5,yeni_rozetler:[],tavan:true,gunun_ilki:0,...kd}:{odul:x.odul,donustu:false,yildiz:5,yeni_rozetler:x.rozetler,tavan:false,gunun_ilki:cagri.ilk,...kd}},
+    macSonu:async(u,o,x)=>{cagri.mac.push({u,o,x});if(cagri.bekle)await cagri.bekle;if(cagri.hataSay>0){cagri.hataSay--;return null}if(cagri.kozVer)return {odul:{tur:'kozmetik',key:'sapka:korsan',nadir:'nadir'},donustu:!!cagri.kozDonustu,yildiz:5,yeni_rozetler:[],tavan:false,gunun_ilki:0};if(cagri.tekrarSonuc)return {tekrar:true,sonuc:{odul:x.odul,donustu:false,yildiz:9,yeni_rozetler:[],tavan:false,gunun_ilki:5,kademeler:[],seri:2,gorevler:[{key:'mac',odul:15}]}};const kd=cagri.kademeYok?{}:{kademeler:[{key:'kurtarici',kademe:1,odul:10}],seri:3,gorevler:[{key:'mac',odul:15}],davet:10};return cagri.tavan?{odul:null,donustu:false,yildiz:5,yeni_rozetler:[],tavan:true,gunun_ilki:0,...kd}:{odul:x.odul,donustu:false,yildiz:5,yeni_rozetler:x.rozetler,tavan:false,gunun_ilki:cagri.ilk,...kd}},
+    setOdul:async(u,st)=>{cagri.set.push({u,st});return cagri.setVer?{setler:[{key:'korsan',odul:40}],yildiz:45}:null},
     kozmetikAl:async(u,key,fiyat)=>{cagri.al.push({u,key,fiyat});return fiyat>50?{hata:'yildiz',yildiz:10}:{ok:true,yildiz:3}},
     baglaOdulu:async u=>{cagri.bagla.push(u);if(cagri.baglaBekle)await cagri.baglaBekle;if(u===cagri.bagliDegil)return {hata:'bagli_degil'};if(cagri.baglanan.has(u))return {tekrar:true};cagri.baglanan.add(u);return {ok:true,yildiz:30,davet:cagri.baglaDavet||0}}};
   const srv=createServer({quiet:true,tickMs:50,jwksAlma:false,kayit:sahte,ilerlemeDenemeMs:50,ayar:{url:'https://x.example',anonKey:'a',serviceKey:'s',jwtSecret:GIZLI,kurulum:'t'}});
@@ -949,9 +950,10 @@ test('/ben/al: token, katalog fiyatı, hata kodları, kayıt kapalı 404; /ben s
     assert.strictEqual((await postJ(I.b,'/ben/al',JSON.stringify({key:'sapka:tac'}))).s,401);
     const h={Authorization:'Bearer '+I.tok(SA)};
     assert.strictEqual((await postJ(I.b,'/ben/al',JSON.stringify({key:'sapka:yok'}),h)).s,400);
-    const ok=await postJ(I.b,'/ben/al',JSON.stringify({key:'bayrak:mavi'}),h);assert.strictEqual(ok.s,200,ok.b);assert.deepStrictEqual(JSON.parse(ok.b),{ok:true,yildiz:3});
+    const ok=await postJ(I.b,'/ben/al',JSON.stringify({key:'bayrak:mavi'}),h);assert.strictEqual(ok.s,200,ok.b);assert.deepStrictEqual(JSON.parse(ok.b),{ok:true,yildiz:3,setler:[]});assert.deepStrictEqual(Object.keys(I.cagri.set.at(-1).st),Object.keys(G.SETLER),'satın almadan sonra set denetimi');
+    I.cagri.setVer=true;const ok2=await postJ(I.b,'/ben/al',JSON.stringify({key:'bayrak:mavi'}),h);assert.deepStrictEqual(JSON.parse(ok2.b),{ok:true,yildiz:45,setler:[{key:'korsan',odul:40}]});I.cagri.setVer=false;
     assert.deepStrictEqual(I.cagri.al[0],{u:SA,key:'bayrak:mavi',fiyat:25},'fiyat katalogdan');
-    const az=await postJ(I.b,'/ben/al',JSON.stringify({key:'sapka:tac'}),h);assert.strictEqual(az.s,409);assert.deepStrictEqual(JSON.parse(az.b),{error:'yildiz',yildiz:10});assert.strictEqual(I.cagri.al[1].fiyat,180);
+    const az=await postJ(I.b,'/ben/al',JSON.stringify({key:'sapka:tac'}),h);assert.strictEqual(az.s,409);assert.deepStrictEqual(JSON.parse(az.b),{error:'yildiz',yildiz:10});assert.strictEqual(I.cagri.al.at(-1).fiyat,180);
     const sg=JSON.parse((await get(I.b,'/saglik')).b);assert.deepStrictEqual(sg.ilerleme,{kasa:3,hata:1});
     assert.strictEqual((await get(I.b,'/ben')).s,200);
   }finally{await I.kapat()}
@@ -1030,6 +1032,18 @@ test('ilerleme: ilk yanıt kaybolup yeniden deneme tekrar dönerse, saklanan son
     const k=(await a.until(c=>c.diger.find(m=>m.t==='kasa'),3000)).diger.find(m=>m.t==='kasa').d;
     assert.strictEqual(k.tekrar,false,'saklanan sonuç varsa tekrar kartı değil');assert.strictEqual(k.yildiz,9);assert.deepStrictEqual(k.gorevler,[{key:'mac',odul:15}]);assert.strictEqual(k.seri,2);assert.strictEqual(k.gununIlki,5);assert.deepStrictEqual(k.dokum,G.yildizDokumu(R,a.me));
   }finally{for(const c of acik)await c.close();await I.kapat()}
+});
+
+test('setler: kasadan yeni kozmetik çıkınca set denetimi, kasa mesajı setler ve güncel yıldız; kopya kozmetikte denetim yok',async()=>{
+  for(const kopya of [false,true]){const I=await ilerlemeSunucu({});I.cagri.kozVer=true;I.cagri.kozDonustu=kopya;I.cagri.setVer=true;const acik=[];
+    try{
+      const a=client('st0'+kopya,'A',{host:true,token:I.tok(SA)},I.b);acik.push(a);await a.until(c=>c.P&&c.P.room);const room=a.P.room;for(const u of ['st1','st2','st3'])acik.push(client(u+kopya,u,{room},I.b));
+      await a.until(c=>c.P.lobby.length===4);a.send({t:'start'});await a.until(c=>c.P.phase==='night');const R=I.srv.rooms.get(room).game;
+      R.gameLog.push({sira:99,gun:1,faz:'vote',tur:'gunduz_sonuc',veri:{}});R.P.phase='end';R.P.winner={team:'inn',kazananlar:[a.me]};a.send({t:'look',name:'A1'});
+      const k=(await a.until(c=>c.diger.find(m=>m.t==='kasa'),3000)).diger.find(m=>m.t==='kasa').d;
+      if(kopya){assert.strictEqual(I.cagri.set.length,0,'kopya kozmetik set denetimi yapmaz');assert.deepStrictEqual(k.setler,[]);assert.strictEqual(k.yildiz,5)}
+      else{assert.strictEqual(I.cagri.set.length,1);assert.deepStrictEqual(Object.keys(I.cagri.set[0].st),Object.keys(G.SETLER));assert.deepStrictEqual(k.setler,[{key:'korsan',odul:40}]);assert.strictEqual(k.yildiz,45,'yıldız set sonrası')}
+    }finally{for(const c of acik)await c.close();await I.kapat()}}
 });
 
 // ---------- Yıldız ekonomisi 1 (Task 3) ----------

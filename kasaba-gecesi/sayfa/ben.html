@@ -58,6 +58,15 @@
     for(const k of G.haftaGorevleri(hafta)){const T=G.HAFTALIK.havuz[k];const x=gm.get(k)||{sayac:0,tamam:false};const r=el('div','gorev');r.dataset.key=k;r.append(el('span','ad',T.n),el('span','madalyalar',x.tamam?'✓':''));
       const c=el('div','cubuk');const d=el('div','dolu');d.style.width=(x.tamam?100:Math.min(100,Math.round(100*x.sayac/T.hedef)))+'%';c.append(d);r.append(c,el('span','ilerleme',x.tamam?'Tamam ✓':Math.min(x.sayac,T.hedef)+'/'+T.hedef));ph.append(r)}
     if(gm.get('hepsi')||G.haftaGorevleri(hafta).every(k=>(gm.get(k)||{}).tamam))ph.append(el('p','small','🏆 Hepsi tamam'));icerik.append(ph)}
+  // setler (yıldız ekonomisi 3d): sahip olunan öğelerden ilerleme; tamamlanan (ödüllenen) setler setler tablosundan; satın alma sonrası bildirim
+  {let tamam=new Set();try{const r=await sb.from('setler').select('key');if(!r.error)tamam=new Set((r.data||[]).map(x=>x.key))}catch(e){}
+    try{const yeni=JSON.parse(sessionStorage.getItem('kg_ben_set')||'[]');sessionStorage.removeItem('kg_ben_set');for(const x of yeni)if(G.SETLER[x.key])not(G.SETLER[x.key].ico+' '+G.SETLER[x.key].n+' seti tamam! +'+x.odul+' ⭐')}catch(e){}
+    const ps=el('div','panel setler');ps.append(el('h2',null,'🧩 Setler'));ps.append(el('p','small muted','Bir setin bütün öğelerine sahip ol: +'+G.YILDIZ_KAYNAK.set.adet+' ⭐ ve amblemi.'));
+    const ad=o=>{const [t,a]=o.split(':');return G.KOZMETIK[t]&&G.KOZMETIK[t][a]?G.KOZMETIK[t][a].n:o};
+    for(const [k,S] of Object.entries(G.SETLER)){const var_=S.ogeler.filter(o=>sahip.has(o)).length,eksik=S.ogeler.filter(o=>!sahip.has(o));const r=el('div','gorev set');r.dataset.key=k;
+      r.append(el('span','ad',S.ico+' '+S.n),el('span','madalyalar',tamam.has(k)||!eksik.length?'✓':var_+'/'+S.ogeler.length));
+      const c=el('div','cubuk');const d=el('div','dolu');d.style.width=Math.round(100*var_/S.ogeler.length)+'%';c.append(d);r.append(c,el('span','ilerleme',eksik.length?'Eksik: '+eksik.map(ad).join(', '):'Tamam ✓'));ps.append(r)}
+    icerik.append(ps)}
   // davet (yıldız ekonomisi 3c): yalnız bağlı hesap; kimlerin geldiği değil yalnız sayılar (davet_benim RPC)
   {const D=G.YILDIZ_KAYNAK.davet;const pd=el('div','panel davet');pd.append(el('h2',null,'👥 Davet'));
     if(!bagli)pd.append(el('p','small muted','E-postanı bağla, davet linkin açılsın.'));
@@ -102,7 +111,7 @@
       else{const fiyat=G.NADIRLIK[v.nadir].fiyat;const b=el('button',null,'Al · ⭐ '+fiyat);b.disabled=yildiz<fiyat;
         b.onclick=async()=>{b.disabled=true;try{const {data}=await sb.auth.getSession();const tok=data&&data.session&&data.session.access_token;
           const res=await fetch('/ben/al',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+tok},body:JSON.stringify({key})});const j=await res.json().catch(()=>({}));
-          if(res.ok){yildiz=j.yildiz;try{sessionStorage.setItem('kg_ben_aldi','1')}catch(e){}location.reload()}else{not(j.error==='yildiz'?'Yıldızın yetmiyor.':j.error==='var'?'Bu zaten sende.':'Alınamadı, sonra tekrar dene.','hata');b.disabled=false}}
+          if(res.ok){yildiz=j.yildiz;try{sessionStorage.setItem('kg_ben_aldi','1');if(Array.isArray(j.setler)&&j.setler.length)sessionStorage.setItem('kg_ben_set',JSON.stringify(j.setler))}catch(e){}location.reload()}else{not(j.error==='yildiz'?'Yıldızın yetmiyor.':j.error==='var'?'Bu zaten sende.':'Alınamadı, sonra tekrar dene.','hata');b.disabled=false}}
           catch(e){not('Alınamadı: '+e.message,'hata');b.disabled=false}};r.append(b)}
       p4.append(r)}}
   icerik.append(p4);

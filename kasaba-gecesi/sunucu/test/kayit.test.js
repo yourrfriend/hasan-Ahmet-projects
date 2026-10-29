@@ -221,6 +221,7 @@ test('ilerleme RPC: envanterOku, macSonu, kozmetikAl doğru gövde ve anahtarla;
     assert.strictEqual(m.odul.key,'fener');assert.deepStrictEqual(m.yeni_rozetler,['kurtarici']);
     const r=t.istekler.find(x=>x.tablo==='rpc/mac_sonu');assert.deepStrictEqual(r.govde,{p_uye:UUID[0],p_oyun:'oyun-1',p_odul:{tur:'esya',key:'fener',adet:1},p_rozetler:['kurtarici'],p_harcanan:'iksir',p_bonus:2,p_gunluk:5,p_basari:null,p_seri_artis:0,p_seri_tavan:0,p_gorev:null,p_gorev_bonus:0});
     t.rpcAyarla('davet_kaydet',()=>true);await k.davetKaydet('ABCDEFGH',UUID[1]);assert.deepStrictEqual(t.istekler.find(x=>x.tablo==='rpc/davet_kaydet').govde,{p_kod:'ABCDEFGH',p_yeni:UUID[1]});
+    await k.setOdul(UUID[0],{korsan:{ogeler:['sapka:korsan'],odul:40}});assert.deepStrictEqual(t.istekler.find(x=>x.tablo==='rpc/set_odul').govde,{p_uye:UUID[0],p_setler:{korsan:{ogeler:['sapka:korsan'],odul:40}}});
     assert.deepStrictEqual(await k.kozmetikAl(UUID[0],'bayrak:mavi',12),{ok:true,yildiz:0});
     assert.deepStrictEqual(t.istekler.find(x=>x.tablo==='rpc/kozmetik_al').govde,{p_uye:UUID[0],p_key:'bayrak:mavi',p_fiyat:12});
     assert.strictEqual(k.sayac.kasa,1);assert.strictEqual(k.sayac.yazilan,0,'RPC yazilan sayacına girmez');

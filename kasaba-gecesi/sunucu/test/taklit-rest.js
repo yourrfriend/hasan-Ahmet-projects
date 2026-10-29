@@ -3,7 +3,7 @@
 const http=require('http');
 // Taklit PostgREST: tablo başına bellek; GET ?sahip=eq., POST (representation), PATCH ?id=eq.; t.hata(req) → durum kodu ile hata üretir
 function taklitRest(){const T={kasabalar:[],kasaba_uyeleri:[],oyunlar:[],oyun_oyunculari:[],olaylar:[],profiller:[]};const istekler=[];let hata=()=>null;let sayac=0;
-  const rpc={envanter_oku:()=>({yildiz:0,esyalar:{},kozmetikler:[]}),mac_sonu:g=>({odul:g.p_odul,donustu:false,yildiz:0,yeni_rozetler:g.p_rozetler||[],tavan:false}),kozmetik_al:()=>({ok:true,yildiz:0}),bagla_odulu:()=>({ok:true,yildiz:25})};let gecikme=0; // gecikme: yanıt öncesi bekleme (ms; zaman aşımı testleri)
+  const rpc={envanter_oku:()=>({yildiz:0,esyalar:{},kozmetikler:[]}),mac_sonu:g=>({odul:g.p_odul,donustu:false,yildiz:0,yeni_rozetler:g.p_rozetler||[],tavan:false}),kozmetik_al:()=>({ok:true,yildiz:0}),bagla_odulu:()=>({ok:true,yildiz:25}),set_odul:()=>({setler:[],yildiz:0})};let gecikme=0; // gecikme: yanıt öncesi bekleme (ms; zaman aşımı testleri)
   const s=http.createServer((req,res)=>{let b='';req.on('data',d=>b+=d);req.on('end',()=>setTimeout(()=>{
     const u=new URL(req.url,'http://x');const tablo=u.pathname.replace('/rest/v1/','');const govde=b?JSON.parse(b):null;
     const kayit={yol:req.url,tablo,yontem:req.method,prefer:req.headers.prefer||'',govde,xff:req.headers['x-forwarded-for']||null};istekler.push(kayit);
@@ -16,7 +16,7 @@ function taklitRest(){const T={kasabalar:[],kasaba_uyeleri:[],oyunlar:[],oyun_oy
     // Plan 6: RPC hesap_birlestir (204) ve GoTrue admin kullanıcı silme (200) — yalnız kaydedilir; hata() ile durum kodu verilebilir
     if(req.method==='POST'&&u.pathname==='/rest/v1/rpc/hesap_birlestir'){res.writeHead(204);return res.end()}
     // ilerleme RPC'leri (göç 008): varsayılan yanıtlar; testler rpcAyarla(ad, govde=>yanıt) ile değiştirir
-    {const m=u.pathname.match(/^\/rest\/v1\/rpc\/(mac_sonu|kozmetik_al|envanter_oku|bagla_odulu|davet_kaydet)$/);if(req.method==='POST'&&m)return yaz(rpc[m[1]](govde||{}))}
+    {const m=u.pathname.match(/^\/rest\/v1\/rpc\/(mac_sonu|kozmetik_al|envanter_oku|bagla_odulu|davet_kaydet|set_odul)$/);if(req.method==='POST'&&m)return yaz(rpc[m[1]](govde||{}))}
     if(req.method==='DELETE'&&/^\/auth\/v1\/admin\/users\/[0-9a-f-]{36}$/.test(u.pathname)){return yaz({id:u.pathname.split('/').pop()})}
     if(!T[tablo]){res.writeHead(404);return res.end()}
     // rol geçmişi tohumu (kayit.sonRoller): oyun_oyunculari + oyunlar!inner gömülü, oyunlar.<sütun>=eq., rol_key=not.is.null, order=oyunlar(bitis).desc, limit

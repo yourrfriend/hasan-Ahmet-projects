@@ -184,7 +184,10 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
     if(!has(G.KOZMETIK,tur)||!has(G.KOZMETIK[tur],anahtar))return json(400,{error:'katalog'});
     if(G.KOZMETIK[tur][anahtar].ozel)return json(400,{error:'ozel'});
     const r=await kayit.kozmetikAl(kim.sub,tur+':'+anahtar,G.NADIRLIK[G.KOZMETIK[tur][anahtar].nadir].fiyat);
-    if(!r)return json(503,{error:'ic'});if(r.hata)return json(409,{error:r.hata,yildiz:r.yildiz});return json(200,{ok:true,yildiz:r.yildiz});
+    if(!r)return json(503,{error:'ic'});if(r.hata)return json(409,{error:r.hata,yildiz:r.yildiz});
+    // setler (göç 024): satın alma bir seti tamamladıysa ödül; hata satın almayı bozmaz
+    const so=typeof kayit.setOdul==='function'?await kayit.setOdul(kim.sub,G.setParam()).catch(()=>null):null;
+    return json(200,{ok:true,yildiz:so&&so.yildiz!=null?so.yildiz:r.yildiz,setler:so&&Array.isArray(so.setler)?so.setler:[]});
   }
   // e-posta bağlama ödülü (yıldız ekonomisi 1): bir kez +25 ⭐ ve bayrak:mektup; karar veritabanında (uye ve adres başına bir kez). IP başına dakikada 10
   const ipBagla=new Map();
@@ -409,11 +412,15 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
         // ayırma, düşüm sonucu bellekteki bütün kopyalara işlendikten sonra kalkar (aradaki rövanş aynı eşyayı yeniden alamaz)
         if(r&&harcanan&&!r.tekrar)for(const oda of rooms.values())for(const m of oda.members.values())if(m.uye===uye&&m.envanter&&m.envanter.esyalar[harcanan]>0)m.envanter.esyalar[harcanan]--;
         birak(p.id);
-        if(!r)return;const mem=room.members.get(p.id);if(!mem)return;
+        if(!r)return;
         // tekrar ama saklanan sonuç varsa (göç 017: ilk yanıt kaybolmuş) kart o sonuçla kurulur
         const s=r.tekrar&&r.sonuc&&typeof r.sonuc==='object'?r.sonuc:r;const tekrar=s===r&&!!r.tekrar;
-        for(const ws of mem.socks)send(ws,{t:'kasa',d:{odul:s.odul||null,donustu:!!s.donustu,yildiz:s.yildiz,rozetler:s.yeni_rozetler||[],tavan:!!s.tavan,tekrar,dokum:s.tavan||tekrar?[]:dokum,gununIlki:+s.gunun_ilki||0,bagli:!!(mem.envanter&&mem.envanter.bagli),kademeler:Array.isArray(s.kademeler)?s.kademeler:[],seri:+s.seri||0,gorevler:Array.isArray(s.gorevler)?s.gorevler:[],davet:+s.davet||0}});
-        if(mem.uye&&typeof kayit.envanterOku==='function')kayit.envanterOku(mem.uye).then(e=>{if(e)envanterAyarla(room,p.id,mem,e)}).catch(()=>{})}).catch(()=>{birak(p.id)})}
+        // setler (göç 024): kasadan yeni kozmetik çıktıysa set denetimi (oyuncu odadan çıkmış olsa da; idempotent)
+        const yeniKoz=!tekrar&&!s.tavan&&s.odul&&s.odul.tur==='kozmetik'&&!s.donustu;
+        return (yeniKoz&&typeof kayit.setOdul==='function'?kayit.setOdul(uye,G.setParam()).catch(()=>null):Promise.resolve(null)).then(so=>{const mem=room.members.get(p.id);if(!mem)return;
+        const setler=so&&Array.isArray(so.setler)?so.setler:[];const yildiz=so&&so.yildiz!=null?so.yildiz:s.yildiz;
+        for(const ws of mem.socks)send(ws,{t:'kasa',d:{odul:s.odul||null,donustu:!!s.donustu,yildiz,setler,rozetler:s.yeni_rozetler||[],tavan:!!s.tavan,tekrar,dokum:s.tavan||tekrar?[]:dokum,gununIlki:+s.gunun_ilki||0,bagli:!!(mem.envanter&&mem.envanter.bagli),kademeler:Array.isArray(s.kademeler)?s.kademeler:[],seri:+s.seri||0,gorevler:Array.isArray(s.gorevler)?s.gorevler:[],davet:+s.davet||0}});
+        if(mem.uye&&typeof kayit.envanterOku==='function')kayit.envanterOku(mem.uye).then(e=>{if(e)envanterAyarla(room,p.id,mem,e)}).catch(()=>{})})}).catch(()=>{birak(p.id)})}
     // kayıtsız oyuncunun ayırması olmaz; yine de işlenmeyen kalırsa bırak
     const islenen=new Set(P.players.map(p=>p.id));room.ayirma=(room.ayirma||[]).filter(a=>a.oyun!==oyun||islenen.has(a.pid));
   }
