@@ -311,7 +311,8 @@ async function kimlikHazirla(){
     let {data:{session}}=await sb.auth.getSession();
     // anonim kimlik sunucudan (Plan 7): GoTrue'nun /signup ucu dış kapıda kapalı; sunucu IP tavanıyla yerel GoTrue'ya sorar. 429/503/ağ → misafir
     // davet (yıldız ekonomisi 3c): ?d=KOD saklanır (oturum açılmadan yenilense de kaybolmaz); yalnız yeni açılan anonim hesap sunucuya taşır
-    {const d=String(new URLSearchParams(location.search).get('d')||'').toUpperCase();if(/^[A-HJKMNP-Z2-9]{8}$/.test(d))ls('kg_davet',d)}
+    // oturumu olan tarayıcıda kod saklanmaz (çıkış yapınca yıllar sonra yanlış davet sayılmasın); oturum varsa eski kod da silinir
+    if(session){try{localStorage.removeItem('kg_davet')}catch(e){}}else{const d=String(new URLSearchParams(location.search).get('d')||'').toUpperCase();if(/^[A-HJKMNP-Z2-9]{8}$/.test(d))ls('kg_davet',d)}
     if(!session){const dv=ls('kg_davet');const r=await fetch('hesap/anonim',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(dv?{davet:dv}:{}),signal:AbortSignal.timeout(10000)});if(r.ok){const j=await r.json();if(j&&j.access_token&&j.refresh_token){await sb.auth.setSession({access_token:j.access_token,refresh_token:j.refresh_token});session=(await sb.auth.getSession()).data.session;if(dv)ui.davetNot=true;try{localStorage.removeItem('kg_davet')}catch(e){}}}}
     if(session&&session.user){hesapGuncelle(session);baglaOduluIste()}
     sb.auth.onAuthStateChange((ev,s)=>{if(s&&s.access_token){ls('kg_token',s.access_token);token=s.access_token}}); // yenilenen token: bir sonraki yüklemede ve bu sayfadaki hesap isteklerinde

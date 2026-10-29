@@ -1119,7 +1119,7 @@ test('katalog anahtarları kaynakta tekil: KOZMETIK.ev ve evler.js M aynı anaht
 test('davet (göç 019): miktarlar tek kaynak, Dostluk bayrağı satılmaz ve kasadan çıkmaz',()=>{
   assert.deepStrictEqual(G.YILDIZ_KAYNAK.davet,{n:'Arkadaş getirdin',adet:30,gelen:10,tavan:10,kozmetik:3});
   const d=G.KOZMETIK.bayrak.dostluk;assert.strictEqual(d.n,'Dostluk bayrağı');assert.strictEqual(d.ozel,'davet');assert.strictEqual(d.ico,'🤝');
-  const sql=require('fs').readFileSync(require('path').join(__dirname,'../db/goc/019_davet.sql'),'utf8');const sabit=a=>Number((sql.match(new RegExp(a+' constant int := (\\d+)'))||[])[1]);
+  const sql=require('fs').readFileSync(require('path').join(__dirname,'../db/goc/019_davet.sql'),'utf8');const s20=require('fs').readFileSync(require('path').join(__dirname,'../db/goc/020_davet_takma_ad.sql'),'utf8');const sabit=a=>Number((s20.match(new RegExp(a+' constant int := (\\d+)'))||[])[1]);
   assert.strictEqual(sabit('davet_eden_miktar'),30);assert.strictEqual(sabit('davet_gelen_miktar'),10);assert.strictEqual(sabit('davet_tavan'),10);assert.strictEqual(sabit('davet_kozmetik_esik'),3);
   for(const [k,v] of Object.entries({davet_eden_miktar:'adet',davet_gelen_miktar:'gelen',davet_tavan:'tavan',davet_kozmetik_esik:'kozmetik'}))assert.strictEqual(sabit(k),G.YILDIZ_KAYNAK.davet[v],k);
   assert.ok(sql.includes("p_key = 'bayrak:dostluk'"),'kozmetik_al reddeder');assert.ok(sql.includes("'bayrak:dostluk') on conflict"),'3. davette verilir');

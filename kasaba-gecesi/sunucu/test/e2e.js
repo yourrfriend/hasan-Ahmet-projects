@@ -173,6 +173,7 @@ const step=t=>console.log('•',t);
           assert.strictEqual(await pd.evaluate(()=>localStorage.getItem('kg_davet')),null,'hesap açılınca kod silinir');await cd.close() }
         const c6=await newCtx();await c6.route(c5Rota.desen,c5Rota.isle);const p6=await open(c6,'Hesap',base3);
         assert.strictEqual(await p6.$('.davet-not'),null,'davetsiz açılışta not yok');
+        await p6.goto(base3+(base3.includes('?')?'&':'?')+'d=abcdefgh');await p6.waitForSelector('button.hesap-bagla',{timeout:8000});assert.strictEqual(await p6.evaluate(()=>localStorage.getItem('kg_davet')),null,'oturumu olan tarayıcıda davet kodu saklanmaz');assert.strictEqual(await p6.$('.davet-not'),null);
         await p6.waitForSelector('button.hesap-bagla',{timeout:8000});
         assert.strictEqual(signupRota,0,'anonim oturum GoTrue\'ya doğrudan değil, sunucudan (/hesap/anonim) alınır');assert.ok(icIstekler.some(i=>i.yol==='/auth/v1/signup'&&JSON.stringify(i.govde)==='{}'),'sunucu yerel GoTrue signup {} çağırdı');
         assert.strictEqual(await p6.evaluate(()=>hesap.uuid),ben,'oturum setSession ile kuruldu');
