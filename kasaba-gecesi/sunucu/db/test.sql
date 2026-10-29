@@ -672,6 +672,7 @@ values ('7d7d7d7d-0001-1111-1111-111111111111', '00000000-0000-0000-0000-0000000
        ('7d7d7d7d-0008-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true);
 -- testte e-posta bağlama: auth.users'a service_role yazamaz, yetkili geçici yardımcı
 create function pg_temp.test_bagla(u uuid, e text) returns void language sql security definer as $f$ update auth.users set email = e, email_confirmed_at = now() where id = u $f$;
+create function pg_temp.test_sil(u uuid) returns void language sql security definer as $f$ delete from auth.users where id = u $f$;
 insert into auth.users (id, instance_id, aud, role, email, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, is_anonymous)
 values ('7e7e7e7e-0001-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true),
        ('7e7e7e7e-0002-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true),
@@ -719,7 +720,8 @@ begin
   if not exists (select 1 from public.kozmetikler where uye = a and key = 'bayrak:dostluk') or (select yildiz from public.cuzdan where uye = a) <> 115 then raise exception 'BAŞARISIZ 33: 3. davet kozmetik'; end if;
   insert into public.davetler (davet_edilen, davet_eden, odul_zaman)
     select ('7e7e7e7e-' || lpad(n::text, 4, '0') || '-1111-1111-111111111111')::uuid, a, now() from generate_series(1, 7) n;
-  if (select count(*) from public.davetler where davet_eden = a and odul_zaman is not null) <> 10 then raise exception 'BAŞARISIZ 33: hazırlık 10'; end if;
+  insert into public.davet_odulleri (eposta_ozet, davet_eden) select 'sahte-' || n, a from generate_series(1, 7) n;
+  if (select count(*) from public.davet_odulleri where davet_eden = a) <> 10 then raise exception 'BAŞARISIZ 33: hazırlık 10'; end if;
   perform public.davet_kaydet(kod, e);
   perform pg_temp.test_bagla(e, 'gelen-e@ornek.com');
   perform public.bagla_odulu(e); r := public.mac_sonu(e, gen_random_uuid(), od, null, null, 0, 0);
@@ -742,12 +744,18 @@ begin
   perform public.hesap_birlestir(x, a);
   if (select davet_eden from public.davetler where davet_edilen = '7d7d7d7d-0002-1111-1111-111111111111') <> a then raise exception 'BAŞARISIZ 34: davet eden yeniye geçmedi'; end if;
   if exists (select 1 from public.davet_kodlari dk where dk.uye = x or dk.kod = 'XXXXXXX2') then raise exception 'BAŞARISIZ 34: eski kod kaldı'; end if;
+  -- ödenmiş adres, gelenin hesabı silinse de unutulmaz; davet edenin ödüllü sayısı düşmez
+  perform pg_temp.test_sil('7d7d7d7d-0003-1111-1111-111111111111');
+  if not exists (select 1 from public.davet_odulleri where eposta_ozet = encode(extensions.digest(convert_to('gelen-c@ornek.com', 'UTF8'), 'sha256'), 'hex')) then raise exception 'BAŞARISIZ 34: silinen hesabın ödül özeti gitti'; end if;
+  if (public.davet_sayilari(a)->>'odullu')::int <> 10 then raise exception 'BAŞARISIZ 34: ödüllü sayı düştü'; end if;
 end $$;
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"7d7d7d7d-0001-1111-1111-111111111111","role":"authenticated"}', true);
 do $$ declare j jsonb; begin
   begin perform count(*) from public.davetler; raise exception 'BAŞARISIZ 34: istemci davetler okudu';
+  exception when insufficient_privilege then null; end;
+  begin perform count(*) from public.davet_odulleri; raise exception 'BAŞARISIZ 34: istemci davet_odulleri okudu';
   exception when insufficient_privilege then null; end;
   begin perform public.davet_kaydet('AAAAAAAA', '7d7d7d7d-0001-1111-1111-111111111111'); raise exception 'BAŞARISIZ 34: istemci davet_kaydet çağırdı';
   exception when insufficient_privilege then null; end;

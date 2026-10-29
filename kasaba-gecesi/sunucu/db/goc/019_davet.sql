@@ -18,12 +18,22 @@ create table if not exists public.davetler (
   davet_edilen uuid primary key references auth.users(id) on delete cascade,
   davet_eden uuid references auth.users(id) on delete set null,
   zaman timestamptz not null default now(),
-  odul_zaman timestamptz,
-  eposta_ozet text unique   -- ödül ödenince gelenin e-posta özeti: aynı adres (e-posta değiştirip başka hesaba bağlayarak) ikinci kez davet ödülü almaz
+  odul_zaman timestamptz
 );
 create index if not exists davetler_eden_idx on public.davetler (davet_eden);
 alter table public.davetler enable row level security;
 revoke all on public.davetler from anon, authenticated;
+
+-- ödenmiş davetler: gelenin e-posta özeti başına bir satır (bagla_odulleri kalıbı); hesap silinse/birleşse de kalır →
+-- aynı adres (e-postayı değiştirip ya da hesabı silip başka yeni hesaba bağlayarak) ikinci kez ödül almaz; davet edenin ödüllü sayısı buradan
+create table if not exists public.davet_odulleri (
+  eposta_ozet text primary key,
+  davet_eden uuid references auth.users(id) on delete set null,
+  zaman timestamptz not null default now()
+);
+create index if not exists davet_odulleri_eden_idx on public.davet_odulleri (davet_eden);
+alter table public.davet_odulleri enable row level security;
+revoke all on public.davet_odulleri from anon, authenticated;
 
 create or replace function public.davet_kodu_uret()
 returns text language plpgsql volatile security definer set search_path = '' as $$
@@ -61,15 +71,15 @@ begin
   select email into v_eposta from auth.users where id = p_yeni and coalesce(email, '') <> '' and email_confirmed_at is not null;
   if v_eposta is null then return 0; end if;
   v_ozet := encode(extensions.digest(convert_to(lower(v_eposta), 'UTF8'), 'sha256'), 'hex');
-  if exists (select 1 from public.davetler where eposta_ozet = v_ozet) then return 0; end if;
+  if exists (select 1 from public.davet_odulleri where eposta_ozet = v_ozet) then return 0; end if;
   if not exists (select 1 from public.kasalar where uye = p_yeni and not coalesce((odul ->> 'tavan')::boolean, false)) then return 0; end if;
-  update public.davetler set odul_zaman = now(), eposta_ozet = v_ozet where davet_edilen = p_yeni;
+  update public.davetler set odul_zaman = now() where davet_edilen = p_yeni;
   insert into public.cuzdan (uye, yildiz) values (p_yeni, 0) on conflict (uye) do nothing;
   update public.cuzdan set yildiz = yildiz + davet_gelen_miktar where uye = p_yeni;
   if v_eden is not null then
     insert into public.cuzdan (uye, yildiz) values (v_eden, 0) on conflict (uye) do nothing;
     perform 1 from public.cuzdan where uye = v_eden for update;
-    select count(*) into v_odullu from public.davetler where davet_eden = v_eden and odul_zaman is not null and davet_edilen <> p_yeni;
+    select count(*) into v_odullu from public.davet_odulleri where davet_eden = v_eden;
     if v_odullu < davet_tavan then
       update public.cuzdan set yildiz = yildiz + davet_eden_miktar where uye = v_eden;
       if v_odullu + 1 >= davet_kozmetik_esik then
@@ -77,6 +87,7 @@ begin
       end if;
     end if;
   end if;
+  insert into public.davet_odulleri (eposta_ozet, davet_eden) values (v_ozet, v_eden);
   return davet_gelen_miktar;
 end;
 $$;
@@ -86,7 +97,7 @@ create or replace function public.davet_sayilari(p_uye uuid)
 returns jsonb language sql stable security definer set search_path = '' as $$
   select case when k.kod is null then null else jsonb_build_object('kod', k.kod,
     'gelen', (select count(*) from public.davetler where davet_eden = p_uye),
-    'odullu', least((select count(*) from public.davetler where davet_eden = p_uye and odul_zaman is not null), 10)) end
+    'odullu', least((select count(*) from public.davet_odulleri where davet_eden = p_uye), 10)) end
   from (select (select kod from public.davet_kodlari where uye = p_uye) as kod) k;
 $$;
 
@@ -353,6 +364,7 @@ begin
   -- eskinin davet ettikleri yeniye geçer; eskinin kodu silinir (yeni kendi kodunu korur)
   delete from public.davetler where davet_edilen = eski;
   update public.davetler set davet_eden = yeni where davet_eden = eski;
+  update public.davet_odulleri set davet_eden = yeni where davet_eden = eski;
   delete from public.davetler where davet_edilen = yeni and davet_eden = yeni;
   delete from public.davet_kodlari where uye = eski;
   -- göç 010: bağlama ödülü kaydı yeniye geçer; ikisi de ödül aldıysa fazla ödül (25 ⭐, yukarıda toplanan) geri alınır,
