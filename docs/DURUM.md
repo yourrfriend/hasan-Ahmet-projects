@@ -1,10 +1,9 @@
 # İş durumu
 
-Son güncelleme: 2026-10-29 (3d setler kasaba-test'te; sırada vitrin). Bu dosya oturumlar arası bağlam içindir; her plan bitişinde güncelle.
+Son güncelleme: 2026-10-29 (3d setler canlıda; sırada vitrin — parça 3'ün son işi). Bu dosya oturumlar arası bağlam içindir; her plan bitişinde güncelle.
 
 ## Canlı
-- `kasaba.munupixi.com` ← **`main@c452d81`** (2026-10-29: 3c davet, şema 021; öncesi 797b984 tavan maçı seriye sayılır, 6e7439f 3b haftalık görev, ff9a11b seri 3a, 5bc2cca yıldız 2 başarılar, 0d87342 çekimser kuralı, f0ff9e6 Turnstile kutusu)
-- `kasaba-test` ← **`yildiz-3-set`** (3d setler deneme; şema 024 paylaşılan veritabanında)
+- `kasaba.munupixi.com` ve `kasaba-test` ← **`main@fad54cd`** (2026-10-29: 3d setler, şema 024; öncesi 0be9a47 ödül kilidi (023), c1c6024 bağlama ödülü takma adlara kapalı (022), c452d81 3c davet, 797b984 tavan maçı seriye sayılır, 6e7439f 3b haftalık görev, ff9a11b 3a seri, 5bc2cca yıldız 2)
 - Supabase: `kasaba-api.munupixi.com` (ionos `/root/supabase-kasaba`, v0.8.3), **şema 013'e kadar** (010 günün ilki + e-posta bağlama ödülü, 011 günün ilki aralık koşulu, 012 kademeli başarılar, 013 Müdavim altını `ev:meydan-saati` — 012 satılan Saat kulesi'nin anahtarını kullanmıştı — eski rozetler taşındı: 13 üye/33 satır; RLS 27/27). Canlıdaki eski kod (`main@ff3f915`) 012 ile uyumlu: dönüşen rozetler sayaca +1 yazılır. Önceki: 008 ilerleme, 009 `mac_sonu` cüzdan kilidi.
 
 ## Projeler
@@ -51,7 +50,7 @@ Kullanıcı kararları: eşyayı şans belirler (rol sonrası seçim yok); meyda
 Kullanıcı: yıldız sık gelmeyi, iyi oynamayı, arkadaş getirmeyi, koleksiyonu teşvik etsin; e-posta bağlama özellikle. Üç parçaya bölündü; bu **parça 1**. Tasarım `docs/superpowers/specs/2026-10-27-kasaba-gecesi-yildiz-1-design.md`, plan `docs/superpowers/plans/2026-10-27-yildiz-1.md`.
 Maç sonu döküm (yalnız oyuncuya): kazanma +2, tarafsız tek kazanan +4 (yerine), rol başarısı +1 (en çok 3), kalabalık +1 (8+), asılan haine oy +2/gün (masum taraf, yalnız bellek), günün ilki +5 (DB, İstanbul günü). Fiyat 25/70/180, dönüşüm 6/18/45, kasa yıldızı 6–10 (denge: haftada 10 maç → efsanevi 3,9 hafta). E-posta bağlama bir kez +25 ⭐ + satılmayan `bayrak:mektup` (`POST /hesap/bagla-odulu`, `bagla_odulleri` adres özeti + üye; birleştirme çift ödülü geri alır). Göç 010 geriye uyumlu: `mac_sonu` `p_gunluk` varsayılan 0 (eski canlı kod günün ilkini vermez). Göç 010 sunucuda (RLS 22/22). Kod incelemesi düzeltmeleri: `/hesap/bagla-odulu` bilinmeyen kid'de JWKS'i bir kez yeniden çeker, `ipBagla` süpürülür, rol başarısı gece başına tür başına bir kez (tuzağa iki kişi = 1), `/ben` ödül gelince yeniden yüklenir, göç 011 (`mac_sonu` günün ilki aralık koşulu; test 23 gün sınırı; RLS 23/23), birleştirmedeki 25 `YILDIZ_KAYNAK.bagla`'ya testle bağlı. Kabul: tarafsızlara haine oy ödülü yok (takımlarına yardım değil); birleştirmede harcanmış çift ödül ürünleri kalır; tekrar dönüşünde döküm gösterilmez; `extensions.digest` yerine `sha256()`. **Sırada:** parça 2 (kademeli başarılar).
 
-## Yıldız ekonomisi 3d — setler (2026-10-29, dal `yildiz-3-set`, **kasaba-test'te**)
+## Yıldız ekonomisi 3d — setler (2026-10-29, dal `yildiz-3-set`, **canlıda main@fad54cd**)
 Tasarım `…2026-10-29-kasaba-gecesi-yildiz-3-set-design.md`, plan `…2026-10-29-yildiz-3-set.md`. 8 temalı set (`game.js` `SETLER`: Korsan, Anadolu, Tatlı köşe, Masal ormanı, Büyü, Kuzey, Ejder, Gelecek; mevcut satılan/kasadan çıkan öğeler, `ozel` yok), tamamlayana bir kez +40 ⭐ (`YILDIZ_KAYNAK.set`) ve amblem. Göç 024: `setler(uye,key)` RLS kendi-oku; `set_odul(p_uye,p_setler)` (service_role, cüzdan kilidi + PK ile bir kez; set içeriği sunucudan `setParam()`); `hesap_birlestir` setleri taşır. Sunucu her gerçek kasadan sonra (tavan/tekrar hariç) ve `/ben/al` sonrası çağırır; kasa mesajı `setler`. Kasa kartı `🏴‍☠️ Korsan seti tamam · +40 ⭐`; `/ben` 🧩 Setler bölümü (ilerleme, eksik adları; ödenmemiş tamam set "ödül sıradaki maç sonunda"); dükkânda satın alma sonrası bildirim. KG_VER 2026-11-10a. Ertelenen küçükler: tam olmayan ödül değeri SQL'i durdurur (sunucu 40 gönderir); aynı anda biten setlerin sırası; birkaç sunucu yolu testsiz. Not: `kontrol.sh --e2e` için `PW_CHROMIUM=/opt/google/chrome/chrome` gerekebiliyor (Playwright önbellek sürümü uyuşmuyor).
 
 ## Yıldız ekonomisi 3c — davet (2026-10-29, dal `yildiz-3-davet`, **canlıda main@c452d81**)
