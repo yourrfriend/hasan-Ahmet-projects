@@ -1116,6 +1116,17 @@ test('katalog anahtarları kaynakta tekil: KOZMETIK.ev ve evler.js M aynı anaht
     const n=(ev.match(new RegExp("^M(\\['"+k+"'\\]|\\."+k.replace(/-/g,'\\-')+")=",'gm'))||[]).length;assert.ok(n<=1,'evler.js çift model: '+k)}
   assert.strictEqual(Object.keys(G.KOZMETIK.ev).length,102);
 });
+test('vitrin: yalnız sahip olunan parçalar (ödenmiş set, en az bronz başarı, rozet), en çok 3, tekrarsız; parça görünümü',()=>{
+  assert.strictEqual(G.VITRIN_EN_COK,3);
+  const env={setler:['ejder'],rozetler:['ilk_mac'],basarilar:{yalniz_kurt:{sayac:12,kademe:3},bekci:{sayac:1,kademe:0}}};
+  assert.deepStrictEqual(G.vitrinGecerli(['set:ejder','basari:yalniz_kurt','rozet:ilk_mac','set:korsan'],env),['set:ejder','basari:yalniz_kurt','rozet:ilk_mac']);
+  assert.deepStrictEqual(G.vitrinGecerli(['set:korsan','basari:bekci','x:y','set:ejder','set:ejder',5,null,'rozet:yok','basari:constructor'],env),['set:ejder'],'ödenmemiş set, kademe 0, bilinmeyen, tekrar, sayı düşer');
+  assert.deepStrictEqual(G.vitrinGecerli('set:ejder',env),[]);assert.deepStrictEqual(G.vitrinGecerli(['set:ejder'],null),[],'envanter yoksa boş');
+  const env4={setler:['ejder','korsan'],rozetler:['ilk_mac'],basarilar:{yalniz_kurt:{kademe:1}}};
+  assert.deepStrictEqual(G.vitrinGecerli(['rozet:ilk_mac','set:korsan','basari:yalniz_kurt','set:ejder'],env4),['rozet:ilk_mac','set:korsan','basari:yalniz_kurt'],'ilk 3, seçilen sırayla');
+  assert.deepStrictEqual(G.vitrinParca('basari:yalniz_kurt',env),{ico:'🥇',ad:'Yalnız kurt'});assert.deepStrictEqual(G.vitrinParca('basari:yalniz_kurt',env4),{ico:'🥉',ad:'Yalnız kurt'});
+  assert.deepStrictEqual(G.vitrinParca('set:ejder',env),{ico:'🐉',ad:'Ejder seti'});assert.deepStrictEqual(G.vitrinParca('rozet:ilk_mac',env),{ico:'🎟️',ad:'İlk maç'});assert.strictEqual(G.vitrinParca('x:y',env),null);
+});
 test('setler: 8 temalı set, öğeler katalogda ve satılmayan değil, ödül tek kaynak, setParam',()=>{
   assert.deepStrictEqual(Object.keys(G.SETLER),['korsan','anadolu','tatli','masal','buyu','kuzey','ejder','gelecek']);
   assert.deepStrictEqual(G.YILDIZ_KAYNAK.set,{n:'Set tamamlandı',adet:40});

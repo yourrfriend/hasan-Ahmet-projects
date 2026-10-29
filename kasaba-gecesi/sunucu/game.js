@@ -150,6 +150,18 @@ const SETLER={
   ejder:{n:'Ejder',ico:'🐉',ogeler:['ev:ejder-yumurtasi','ev:ejderli-ev','bayrak:ejder','efekt:duman']},
   gelecek:{n:'Gelecek',ico:'🚀',ogeler:['ev:roket','ev:ucan-daire','bayrak:simsek','sapka:kask']}
 };
+// vitrin (tasarım 2026-10-29-kasaba-gecesi-yildiz-3-vitrin): oyuncunun seçtiği en çok 3 parça (ödenmiş set, en az bronz başarı, tek seferlik rozet); sahiplik envanterden
+const VITRIN_EN_COK=3;
+function vitrinParca(id,env){if(typeof id!=='string')return null;const [t,k]=id.split(':');
+  if(t==='set'&&has(SETLER,k))return {ico:SETLER[k].ico,ad:SETLER[k].n+' seti'};
+  if(t==='rozet'&&has(ROZETLER,k))return {ico:ROZETLER[k].ico,ad:ROZETLER[k].n};
+  if(t==='basari'&&has(BASARILAR,k)){const b=env&&env.basarilar&&has(env.basarilar,k)?env.basarilar[k]:null;const kd=b?Math.min(3,+b.kademe||0):0;return {ico:kd>0?KADEME_SIMGE[kd-1]:BASARILAR[k].ico,ad:BASARILAR[k].n}}
+  return null}
+function vitrinGecerli(liste,env){if(!Array.isArray(liste)||!env)return [];const out=[];
+  const sahip=id=>{const [t,k]=id.split(':');if(t==='set')return has(SETLER,k)&&(env.setler||[]).includes(k);if(t==='rozet')return has(ROZETLER,k)&&(env.rozetler||[]).includes(k);
+    if(t==='basari')return has(BASARILAR,k)&&!!env.basarilar&&has(env.basarilar,k)&&(+env.basarilar[k].kademe||0)>=1;return false};
+  for(const id of liste){if(out.length>=VITRIN_EN_COK)break;if(typeof id!=='string'||id.length>40||out.includes(id))continue;if(sahip(id))out.push(id)}
+  return out}
 function setParam(){const out={};for(const [k,S] of Object.entries(SETLER))out[k]={ogeler:S.ogeler.slice(),odul:YILDIZ_KAYNAK.set.adet};return out}
 // haftalık görevler (tasarım 2026-10-28-kasaba-gecesi-yildiz-3-gorev): herkese aynı 3 görev, Europe/Istanbul pazartesisinden deterministik; ilerleme ve ödül mac_sonu'da (göç 016)
 // rolden, oydan ve eşyadan bağımsız; gun sayacını SQL tutar (bugünün ilk gerçek kasası)
@@ -732,7 +744,7 @@ function privFor(R,id){
 function esyaKullanimi(R){const out={};for(const [id,l] of Object.entries(R.g&&R.g.esya||{}))out[id]=l.map(e=>({key:e.kaynakKey||e.key,kaynak:e.kaynak,kullanildi:e.kullanildi}));return out
 }
 
-return{ROLES,SETUP,COLORS,HATS,DEFAULT_SETTINGS,ESYA,ESYA_YUVA,ESYA_KATMAN,KASA_ESYA,PAKET,setRnd,bedavaEsya,paketEsya,zarAt,NADIRLIK,KOZMETIK,KASA,ROZETLER,BASARILAR,BASARI_KADEME,KADEME_AD,KADEME_SIMGE,ROZET_DONUSUM,rolBasarilari,basariArtislari,basariParam,SETLER,setParam,HAFTALIK,haftaPazartesi,haftaGorevleri,gorevArtislari,gorevParam,YILDIZ_KAYNAK,ROL_BASARI_TAVAN,yildizDokumu,yildizToplam,kasaOdulu,kozmetikGecerli,rozetlerFor,esyaKullan,esyaBul,DAGILIM,TEKRAR,tekrarCezasi,rolDagit,roleLabel,rolEtiketi,autoSetup,cleanSettings,setClock,
+return{ROLES,SETUP,COLORS,HATS,DEFAULT_SETTINGS,ESYA,ESYA_YUVA,ESYA_KATMAN,KASA_ESYA,PAKET,setRnd,bedavaEsya,paketEsya,zarAt,NADIRLIK,KOZMETIK,KASA,ROZETLER,BASARILAR,BASARI_KADEME,KADEME_AD,KADEME_SIMGE,ROZET_DONUSUM,rolBasarilari,basariArtislari,basariParam,SETLER,setParam,VITRIN_EN_COK,vitrinParca,vitrinGecerli,HAFTALIK,haftaPazartesi,haftaGorevleri,gorevArtislari,gorevParam,YILDIZ_KAYNAK,ROL_BASARI_TAVAN,yildizDokumu,yildizToplam,kasaOdulu,kozmetikGecerli,rozetlerFor,esyaKullan,esyaBul,DAGILIM,TEKRAR,tekrarCezasi,rolDagit,roleLabel,rolEtiketi,autoSetup,cleanSettings,setClock,
   lobbyState,createGame,startGame,setPhase,advance,tick,kap,paketKapat,resolveNight,resolveVote,checkWin,kazananlar,gazeteFor,GAZETE_EN_COK,ek,endToLobby,olay,
   act,vote,chat,deadChat,esyaKullanimi,hizli,HIZLI_BEKLE_MS,HIZLI_GUN,HIZLI_TUR,privFor,pl,alivePlayers,inGame};
 });

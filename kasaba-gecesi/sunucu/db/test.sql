@@ -850,4 +850,19 @@ do $$ begin
 end $$;
 reset role;
 
+-- 37) vitrin (göç 025): envanter_oku ödenmiş setleri ve tek seferlik rozetleri taşır
+insert into auth.users (id, instance_id, aud, role, email, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, is_anonymous)
+values ('717171a1-0001-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true);
+set local role service_role;
+do $$ declare e jsonb; u uuid := '717171a1-0001-1111-1111-111111111111'; begin
+  e := public.envanter_oku(u);
+  if e->'setler' is distinct from '[]'::jsonb or e->'rozetler' is distinct from '[]'::jsonb then raise exception 'BAŞARISIZ 37: boş: %', e; end if;
+  insert into public.setler (uye, key) values (u, 'ejder'), (u, 'korsan');
+  insert into public.rozetler (uye, key) values (u, 'ilk_mac');
+  e := public.envanter_oku(u);
+  if e->'setler' is distinct from '["ejder","korsan"]'::jsonb or e->'rozetler' is distinct from '["ilk_mac"]'::jsonb then raise exception 'BAŞARISIZ 37: dolu: %', e; end if;
+  raise notice 'GEÇTİ 37: envanter setler ve rozetler';
+end $$;
+reset role;
+
 rollback;
