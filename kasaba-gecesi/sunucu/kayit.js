@@ -124,8 +124,9 @@ function olustur(opts={}){
     const r=await rpcCagir('mac_sonu',{p_uye:uye,p_oyun:oyunId,p_odul:o.odul||null,p_rozetler:o.rozetler||[],p_harcanan:o.harcanan||null,p_bonus:o.bonus||0,p_gunluk:o.gunluk||0,p_basari:o.basari||null,p_seri_artis:o.seriArtis||0,p_seri_tavan:o.seriTavan||0,p_gorev:o.gorev||null,p_gorev_bonus:o.gorevBonus||0});if(r)sayac.kasa++;return r}
   const kozmetikAl=(uye,key,fiyat)=>uye?rpcCagir('kozmetik_al',{p_uye:uye,p_key:key,p_fiyat:fiyat}):Promise.resolve(null);
   const baglaOdulu=uye=>uye?rpcCagir('bagla_odulu',{p_uye:uye}):Promise.resolve(null);
+  const davetKaydet=(kod,uye)=>kod&&uye?rpcCagir('davet_kaydet',{p_kod:kod,p_yeni:uye}):Promise.resolve(null);
   return{
-    kuyrukla,profil,sonRoller,envanterOku,macSonu,kozmetikAl,baglaOdulu,
+    kuyrukla,profil,sonRoller,envanterOku,macSonu,kozmetikAl,baglaOdulu,davetKaydet,
     async kapat(){ // yeni iş alınmaz; kuyruktaki kalan olaylar (bitiş dahil) en çok 3 sn içinde yazılır, sonra kapanır
       kapaniyor=true;for(const b of bekleyen.values())clearTimeout(b.t);bekleyen.clear();
       if(uykuCoz){clearTimeout(zamanlayici);uykuCoz()}

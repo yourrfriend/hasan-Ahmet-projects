@@ -164,7 +164,10 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
     if(!(ayar.url&&ayar.anonKey)){res.writeHead(404);return res.end('yok')}
     if(!ayar.icUrl)return json(503,{error:'ic'});
     const ip=ipOf(req);const a=tavan.anonimKontrol(ip);if(!a.ok)return json(429,{error:'limit',sureSn:a.sureSn});
+    // davet (yıldız ekonomisi 3c): gövde isteğe bağlı {davet:KOD}; yalnız yeni açılan hesap kaydedilir (kendine/bilinmeyen kodu veritabanı reddeder)
+    let davet=null;try{const g=JSON.parse(await govdeOku(req,1024)||'null');const d=g&&typeof g.davet==='string'?g.davet.toUpperCase():'';if(/^[A-HJKMNP-Z2-9]{8}$/.test(d))davet=d}catch(e){}
     let sonuc;try{sonuc=await icIstek('POST','/auth/v1/signup',{},null,ip)}catch(e){return json(503,{error:'ic'})}
+    const yeni=sonuc.durum>=200&&sonuc.durum<300&&sonuc.govde&&sonuc.govde.user&&sonuc.govde.user.id;if(davet&&yeni&&typeof kayit.davetKaydet==='function')kayit.davetKaydet(davet,yeni).catch(()=>{});
     return json(sonuc.durum,sonuc.govde||{});
   }
   // Hesap birleştirme (Plan 6): ikinci cihazda e-postayla girince o cihazın anonim geçmişi hesaba taşınır. Yalnız kayıt açıkken; IP başına dakikada 5.
@@ -195,9 +198,9 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
     if(!kim||kim.suresiDolmus)return json(401,{error:'token'});
     const r=await kayit.baglaOdulu(kim.sub);
     if(!r)return json(503,{error:'ic'});if(r.hata)return json(409,{error:r.hata});if(r.tekrar)return json(200,{tekrar:true});
-    for(const oda of rooms.values())for(const [uid,m] of oda.members){if(m.uye!==kim.sub)continue;for(const ws of m.socks)send(ws,{t:'baglaOdulu',d:{yildiz:r.yildiz,kozmetik:'bayrak:mektup'}});
+    for(const oda of rooms.values())for(const [uid,m] of oda.members){if(m.uye!==kim.sub)continue;for(const ws of m.socks)send(ws,{t:'baglaOdulu',d:{yildiz:r.yildiz,kozmetik:'bayrak:mektup',davet:+r.davet||0}});
       if(typeof kayit.envanterOku==='function')kayit.envanterOku(m.uye).then(e=>{if(e&&rooms.get(oda.code)===oda)envanterAyarla(oda,uid,m,e)}).catch(()=>{})}
-    return json(200,{ok:true,yildiz:r.yildiz});
+    return json(200,{ok:true,yildiz:r.yildiz,davet:+r.davet||0});
   }
   async function birlestirUcu(req,res){
     const json=(d,b)=>{res.writeHead(d,{'Content-Type':'application/json'});res.end(JSON.stringify(b))};
@@ -372,7 +375,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
     schedule(room);
   }
   function envanterAyarla(room,uid,mem,e){
-    mem.envanter={yildiz:+e.yildiz||0,esyalar:{...(e.esyalar||{})},kozmetikler:Array.isArray(e.kozmetikler)?e.kozmetikler.slice():[],bagli:!!e.bagli,baglaOdulu:!!e.bagla_odulu,basarilar:e.basarilar&&typeof e.basarilar==='object'?{...e.basarilar}:{},seri:e.seri&&typeof e.seri==='object'?{...e.seri}:null,hafta:e.hafta&&typeof e.hafta==='object'?{...e.hafta}:null};
+    mem.envanter={yildiz:+e.yildiz||0,esyalar:{...(e.esyalar||{})},kozmetikler:Array.isArray(e.kozmetikler)?e.kozmetikler.slice():[],bagli:!!e.bagli,baglaOdulu:!!e.bagla_odulu,basarilar:e.basarilar&&typeof e.basarilar==='object'?{...e.basarilar}:{},seri:e.seri&&typeof e.seri==='object'?{...e.seri}:null,hafta:e.hafta&&typeof e.hafta==='object'?{...e.hafta}:null,davet:e.davet&&typeof e.davet==='object'?{...e.davet}:null};
     for(const ws of mem.socks)send(ws,{t:'envanter',d:mem.envanter});
     if(mem.istenen)applyLook(room,uid,mem,{...mem.istenen});if(room.lobiEsya&&mem.esyaSecim)room.lobiEsya.delete(uid);schedule(room);
   }
@@ -409,7 +412,7 @@ const eposta=opts.eposta||Eposta.varsayilan;const epostaSayac={gonderilen:0,hata
         if(!r)return;const mem=room.members.get(p.id);if(!mem)return;
         // tekrar ama saklanan sonuç varsa (göç 017: ilk yanıt kaybolmuş) kart o sonuçla kurulur
         const s=r.tekrar&&r.sonuc&&typeof r.sonuc==='object'?r.sonuc:r;const tekrar=s===r&&!!r.tekrar;
-        for(const ws of mem.socks)send(ws,{t:'kasa',d:{odul:s.odul||null,donustu:!!s.donustu,yildiz:s.yildiz,rozetler:s.yeni_rozetler||[],tavan:!!s.tavan,tekrar,dokum:s.tavan||tekrar?[]:dokum,gununIlki:+s.gunun_ilki||0,bagli:!!(mem.envanter&&mem.envanter.bagli),kademeler:Array.isArray(s.kademeler)?s.kademeler:[],seri:+s.seri||0,gorevler:Array.isArray(s.gorevler)?s.gorevler:[]}});
+        for(const ws of mem.socks)send(ws,{t:'kasa',d:{odul:s.odul||null,donustu:!!s.donustu,yildiz:s.yildiz,rozetler:s.yeni_rozetler||[],tavan:!!s.tavan,tekrar,dokum:s.tavan||tekrar?[]:dokum,gununIlki:+s.gunun_ilki||0,bagli:!!(mem.envanter&&mem.envanter.bagli),kademeler:Array.isArray(s.kademeler)?s.kademeler:[],seri:+s.seri||0,gorevler:Array.isArray(s.gorevler)?s.gorevler:[],davet:+s.davet||0}});
         if(mem.uye&&typeof kayit.envanterOku==='function')kayit.envanterOku(mem.uye).then(e=>{if(e)envanterAyarla(room,p.id,mem,e)}).catch(()=>{})}).catch(()=>{birak(p.id)})}
     // kayıtsız oyuncunun ayırması olmaz; yine de işlenmeyen kalırsa bırak
     const islenen=new Set(P.players.map(p=>p.id));room.ayirma=(room.ayirma||[]).filter(a=>a.oyun!==oyun||islenen.has(a.pid));

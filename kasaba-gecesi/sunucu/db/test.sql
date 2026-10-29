@@ -668,7 +668,8 @@ values ('7d7d7d7d-0001-1111-1111-111111111111', '00000000-0000-0000-0000-0000000
        ('7d7d7d7d-0004-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true),
        ('7d7d7d7d-0005-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true),
        ('7d7d7d7d-0006-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true),
-       ('7d7d7d7d-0007-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true);
+       ('7d7d7d7d-0007-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true),
+       ('7d7d7d7d-0008-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', null, null, '{}', '{}', now(), now(), true);
 -- testte e-posta bağlama: auth.users'a service_role yazamaz, yetkili geçici yardımcı
 create function pg_temp.test_bagla(u uuid, e text) returns void language sql security definer as $f$ update auth.users set email = e, email_confirmed_at = now() where id = u $f$;
 insert into auth.users (id, instance_id, aud, role, email, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, is_anonymous)
@@ -698,6 +699,12 @@ begin
   if (select yildiz from public.cuzdan where uye = a) <> 55 or (select yildiz from public.cuzdan where uye = b) <> 35 then raise exception 'BAŞARISIZ 33: cüzdanlar a=% b=%', (select yildiz from public.cuzdan where uye = a), (select yildiz from public.cuzdan where uye = b); end if;
   r := public.mac_sonu(b, gen_random_uuid(), od, null, null, 0, 0);
   if (r->>'davet')::int <> 0 or (select yildiz from public.cuzdan where uye = a) <> 55 then raise exception 'BAŞARISIZ 33: ikinci ödül: %', r; end if;
+  -- aynı e-posta ikinci kez davet ödülü almaz: B adresini değiştirir, adres yeni davetli F'ye bağlanır
+  perform pg_temp.test_bagla(b, 'baska-b@ornek.com');
+  perform public.davet_kaydet(kod, '7d7d7d7d-0008-1111-1111-111111111111'::uuid);
+  perform pg_temp.test_bagla('7d7d7d7d-0008-1111-1111-111111111111', 'Gelen-B@ornek.com');
+  r := public.mac_sonu('7d7d7d7d-0008-1111-1111-111111111111', gen_random_uuid(), od, null, null, 0, 0);
+  if (r->>'davet')::int <> 0 or (select yildiz from public.cuzdan where uye = a) <> 55 then raise exception 'BAŞARISIZ 33: aynı adresle ikinci davet ödülü: %', r; end if;
   perform public.davet_kaydet(kod, c);
   perform pg_temp.test_bagla(c, 'gelen-c@ornek.com');
   insert into public.kasalar (uye, oyun_id, odul) values (c, gen_random_uuid(), '{"tavan":true}');
