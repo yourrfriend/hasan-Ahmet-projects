@@ -1116,6 +1116,11 @@ test('katalog anahtarları kaynakta tekil: KOZMETIK.ev ve evler.js M aynı anaht
     const n=(ev.match(new RegExp("^M(\\['"+k+"'\\]|\\."+k.replace(/-/g,'\\-')+")=",'gm'))||[]).length;assert.ok(n<=1,'evler.js çift model: '+k)}
   assert.strictEqual(Object.keys(G.KOZMETIK.ev).length,102);
 });
+test('göç 023: aynı (normalleştirilmiş) adres için bağlama ve davet ödülü kararı danışma kilidi altında (iki takma ad aynı anda bağlansa da tek ödül)',()=>{
+  const sql=require('fs').readFileSync(require('path').join(__dirname,'../db/goc/023_odul_kilit.sql'),'utf8');
+  for(const f of ['bagla_odulu','davet_odul']){const i=sql.indexOf('function public.'+f+'(');assert.ok(i>=0,f);const govde=sql.slice(i,sql.indexOf('$$;',i));
+    const k=govde.indexOf('pg_advisory_xact_lock(hashtext(');assert.ok(k>=0,f+' kilit');assert.ok(k<govde.indexOf('if exists (select 1 from public.'+(f==='bagla_odulu'?'bagla_odulleri':'davet_odulleri')),f+' kilit denetimden önce')}
+});
 test('davet (göç 019): miktarlar tek kaynak, Dostluk bayrağı satılmaz ve kasadan çıkmaz',()=>{
   assert.deepStrictEqual(G.YILDIZ_KAYNAK.davet,{n:'Arkadaş getirdin',adet:30,gelen:10,tavan:10,kozmetik:3});
   const d=G.KOZMETIK.bayrak.dostluk;assert.strictEqual(d.n,'Dostluk bayrağı');assert.strictEqual(d.ozel,'davet');assert.strictEqual(d.ico,'🤝');
